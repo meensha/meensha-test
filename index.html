@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meensha - Heritage Indian Weaves</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="shortcut icon" href="logo.svg">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Noto+Sans+Devanagari:wght@300;400;500&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #8B6914;
+  --gold-light: #C9A84C;
+  --gold-pale: #E8D5A3;
+  --gold-dim: rgba(139,105,20,0.18);
+  --cream: #F7F3EC;
+  --dark: #0E0A04;
+  --dark2: #1A1208;
+  --warm-white: #FDFAF4;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:170px; }
+body {
+  font-family:'Cormorant Garamond', Georgia, serif;
+  background:var(--dark); color:var(--cream);
+  overflow-x:hidden;
+}
+
+/* ── GRAIN OVERLAY ── */
+body::after {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:997;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  opacity:.22; mix-blend-mode:overlay;
+}
+
+/* ════════════════════════════════
+   PROMO TICKER BANNER
+════════════════════════════════ */
+#promo-bar {
+  position:fixed; top:0; left:0; right:0; z-index:500;
+  background:var(--gold); height:34px;
+  overflow:hidden; display:flex; align-items:center;
+}
+.ticker-track {
+  display:flex; align-items:center;
+  white-space:nowrap;
+  animation:ticker 28s linear infinite;
+  gap:0;
+}
+.ticker-track:hover { animation-play-state:paused; }
+.ticker-item {
+  display:inline-flex; align-items:center; gap:10px;
+  font-family:'Cinzel',serif; font-size:11px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--dark);
+  padding:0 48px;
+}
+.ticker-sep {
+  color:rgba(26,18,8,.4); font-size:16px; padding:0 4px;
+}
+.ticker-item a {
+  color:var(--dark); text-decoration:none; font-weight:600;
+  border-bottom:1px solid rgba(26,18,8,.35);
+}
+.insta-icon { width:14px; height:14px; flex-shrink:0; }
+@keyframes ticker {
+  0%   { transform:translateX(0); }
+  100% { transform:translateX(-50%); }
+}
+
+/* ════════════════════════════════
+   FIXED NAV
+════════════════════════════════ */
+nav {
+  position:fixed; top:34px; left:0; right:0; z-index:499;
+  padding:10px 52px;
+  display:flex; align-items:center; justify-content:space-between;
+  transition:background .45s, padding .35s, border .45s;
+}
+nav.scrolled {
+  background:rgba(14,10,4,.96);
+  backdrop-filter:blur(20px);
+  padding:6px 52px;
+  border-bottom:1px solid var(--gold-dim);
+}
+
+/* ── CHANGE 1: Dual logo rotation ── */
+.nav-logo {
+  position:relative; height:92px; width:120px;
+  display:flex; align-items:center;
+}
+.nav-logo img {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  object-fit:contain;
+}
+.nav-logo .logo-hindi { animation: logoA 12s infinite; }
+.nav-logo .logo-eng   { animation: logoB 12s infinite; }
+@keyframes logoA { 0%,45%{opacity:1} 50%,95%{opacity:0} 100%{opacity:1} }
+@keyframes logoB { 0%,45%{opacity:0} 50%,95%{opacity:1} 100%{opacity:0} }
+
+.nav-links { display:flex; gap:32px; list-style:none; }
+.nav-links a {
+  font-family:'Cinzel',serif; font-size:14px; letter-spacing:.18em;
+  text-transform:uppercase; color:rgba(232,213,163,.72); text-decoration:none;
+  transition:color .3s; position:relative; padding-bottom:3px;
+}
+.nav-links a::after {
+  content:''; position:absolute; bottom:0; left:0; right:0;
+  height:1px; background:var(--gold-light);
+  transform:scaleX(0); transition:transform .3s; transform-origin:left;
+}
+.nav-links a:hover { color:var(--gold-light); }
+.nav-links a:hover::after { transform:scaleX(1); }
+.nav-wa {
+  display:flex; align-items:center; gap:8px;
+  background:#25D366; color:#fff; text-decoration:none;
+  font-family:'Cinzel',serif; font-size:13px; letter-spacing:.12em; text-transform:uppercase;
+  padding:11px 22px; transition:background .3s;
+}
+.nav-wa:hover { background:#1da851; }
+.nav-wa svg { width:14px; height:14px; flex-shrink:0; }
+
+/* ════════════════════════════════
+   HERO SLIDESHOW
+════════════════════════════════ */
+#heritage {
+  position:relative; height:100vh; overflow:hidden;
+  margin-top:0;
+}
+.slide {
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column; text-align:center; padding:24px;
+  opacity:0; transition:opacity 2s ease;
+}
+.slide.active { opacity:1; z-index:2; }
+.slide-bg {
+  position:absolute; inset:0;
+  background-size:cover; background-position:center;
+  transform:scale(1.06); transition:transform 10s ease;
+}
+.slide.active .slide-bg { transform:scale(1); }
+.slide-bg::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(to bottom,
+    rgba(14,10,4,.5) 0%, rgba(14,10,4,.35) 35%,
+    rgba(14,10,4,.65) 75%, rgba(14,10,4,.9) 100%);
+}
+.bg-s1 { background-image:url('indus.png'); background-position:center 40%; }
+.bg-s2 { background-image:url('roman.png'); background-position:center 30%; }
+.bg-s3 { background-image:url('mughal.png'); background-position:center center; }
+.bg-s4 { background-image:url('weavers_of_india.png'); background-position:center center; }
+.bg-s5 { background-image:url('loom_threads.png'); background-position:center center; }
+
+.slide-inner { position:relative; z-index:3; max-width:900px; padding:0 24px; }
+.slide-era {
+  font-family:'Cinzel',serif; font-size:16px; letter-spacing:.38em;
+  text-transform:uppercase; color:var(--gold-light); margin-bottom:28px; opacity:.9;
+}
+.slide-quote {
+  font-size:clamp(26px,4.2vw,56px); font-weight:300; font-style:italic;
+  color:var(--cream); line-height:1.38;
+  text-shadow:0 2px 40px rgba(0,0,0,.95);
+}
+.slide-quote em { color:var(--gold-pale); font-style:normal; }
+.slide-attr {
+  font-family:'Cinzel',serif; font-size:16px; letter-spacing:.24em;
+  color:var(--gold-light); margin-top:32px; opacity:.82;
+}
+.slide-caption {
+  font-size:18px; font-style:italic; color:rgba(232,213,163,.55);
+  margin-top:12px; max-width:640px; margin-left:auto; margin-right:auto; line-height:1.72;
+}
+.slide-dots {
+  position:absolute; bottom:36px; left:50%; transform:translateX(-50%);
+  display:flex; gap:10px; z-index:10;
+}
+.dot {
+  width:6px; height:6px; border-radius:50%;
+  background:rgba(201,168,76,.28); cursor:pointer;
+  border:1px solid rgba(201,168,76,.4); transition:all .4s;
+}
+.dot.active { background:var(--gold-light); transform:scale(1.5); border-color:var(--gold-light); }
+.scroll-cue {
+  position:absolute; bottom:66px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  color:rgba(201,168,76,.42); z-index:10;
+  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.34em; text-transform:uppercase;
+  animation:cue 2.8s ease infinite;
+}
+.scroll-cue::after {
+  content:''; width:1px; height:36px;
+  background:linear-gradient(to bottom,rgba(201,168,76,.5),transparent);
+}
+@keyframes cue { 0%,100%{opacity:.3;transform:translateX(-50%) translateY(0)} 50%{opacity:.85;transform:translateX(-50%) translateY(7px)} }
+
+/* ════════════════════════════════
+   MISSION
+════════════════════════════════ */
+#mission {
+  position:relative; overflow:hidden;
+  background:var(--dark2); padding:108px 24px;
+}
+.mission-loom-bg {
+  position:absolute; inset:0;
+  background-image:url('loom_threads.png');
+  background-size:cover; background-position:center;
+  opacity:.07; filter:grayscale(30%);
+}
+.mission-inner { max-width:1100px; margin:0 auto; position:relative; z-index:2; }
+.section-label {
+  font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.44em;
+  text-transform:uppercase; color:var(--gold-light); margin-bottom:16px; opacity:.8;
+  display:block;
+}
+.mission-headline {
+  font-size:clamp(34px,5vw,68px); font-weight:300; font-style:italic;
+  color:var(--cream); line-height:1.2; max-width:720px;
+}
+.mission-headline span { color:var(--gold-pale); }
+.mission-grid {
+  display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px;
+  margin-top:64px; border:1px solid var(--gold-dim);
+}
+.mission-card {
+  padding:42px 32px; background:rgba(255,255,255,.02);
+  position:relative; overflow:hidden; transition:background .4s;
+}
+.mission-card:hover { background:rgba(201,168,76,.06); }
+.mission-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent);
+}
+.mc-icon { font-size:24px; margin-bottom:14px; }
+.mc-title {
+  font-family:'Cinzel',serif; font-size:12px; letter-spacing:.2em;
+  color:var(--gold-light); text-transform:uppercase; margin-bottom:13px;
+}
+.mc-text { font-size:16px; line-height:1.88; color:rgba(247,243,236,.62); font-style:italic; }
+.mission-statement {
+  margin-top:64px; padding:48px; border:1px solid var(--gold-dim);
+  background:rgba(139,105,20,.05); text-align:center;
+}
+.mission-statement blockquote {
+  font-size:clamp(18px,2.6vw,28px); font-weight:300; font-style:italic;
+  color:var(--cream); line-height:1.78;
+}
+.mission-statement blockquote em { color:var(--gold-pale); font-style:normal; }
+.mission-statement cite {
+  display:block; margin-top:20px;
+  font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.28em;
+  color:var(--gold-light); opacity:.68;
+}
+
+/* ════════════════════════════════
+   CATALOGUE
+════════════════════════════════ */
+#catalogue { background:var(--dark); padding:108px 0; }
+.catalogue-inner { max-width:1200px; margin:0 auto; padding:0 24px; }
+.section-head { text-align:center; margin-bottom:68px; }
+.section-head h2 {
+  font-size:clamp(32px,4.8vw,58px); font-weight:300; font-style:italic; color:var(--cream);
+}
+.section-head p {
+  font-size:17px; font-style:italic; color:rgba(247,243,236,.46);
+  margin-top:12px; max-width:480px; margin-left:auto; margin-right:auto; line-height:1.72;
+}
+.gold-orn { display:flex; align-items:center; gap:16px; justify-content:center; margin-top:20px; }
+.gold-orn::before,.gold-orn::after { content:''; flex:0 0 40px; height:1px; background:var(--gold-dim); }
+.gold-orn span {
+  font-family:'Cinzel',serif; font-size:9.5px; letter-spacing:.3em;
+  text-transform:uppercase; color:var(--gold-light); opacity:.65;
+}
+
+.crafts-grid {
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:2px;
+}
+.crafts-row2 {
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:2px;
+  margin-top:2px;
+  max-width:calc(66.666% + 1px);
+  margin-left:auto; margin-right:auto;
+  width:66.8%;
+}
+
+.craft-card {
+  position:relative; aspect-ratio:3/4; overflow:hidden; cursor:pointer;
+}
+.craft-bg {
+  position:absolute; inset:0;
+  background-size:cover; background-position:center;
+  transition:transform .75s ease;
+  filter:brightness(.78) saturate(.75);
+}
+.craft-card:hover .craft-bg { transform:scale(1.07); filter:brightness(.65) saturate(.85); }
+.cb-ikat    { background-image:url('saree_ikat.png'); }
+.cb-patola  { background-image:url('saree_patola.png'); }
+.cb-tussar  { background-image:url('saree_tussar.png'); }
+.cb-ajrak   { background-image:url('saree_ajrak.png'); }
+.cb-gharch  { background-image:url('saree_gharchola.png'); }
+
+.craft-pattern {
+  position:absolute; inset:0; opacity:.06;
+  background-image:repeating-linear-gradient(45deg,var(--gold-light) 0,var(--gold-light) 1px,transparent 0,transparent 50%);
+  background-size:20px 20px; pointer-events:none; transition:opacity .5s;
+}
+.craft-card:hover .craft-pattern { opacity:.14; }
+.craft-overlay {
+  position:absolute; inset:0;
+  background:linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.12) 52%,transparent 100%);
+  display:flex; flex-direction:column; justify-content:flex-end;
+  padding:26px 22px;
+}
+.craft-accent {
+  position:absolute; top:14px; right:14px;
+  width:32px; height:32px; border:1px solid rgba(201,168,76,.28);
+  display:flex; align-items:center; justify-content:center; font-size:12px;
+}
+.craft-name { font-size:clamp(20px,2.2vw,28px); color:var(--cream); font-weight:400; }
+.craft-origin {
+  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.28em;
+  color:var(--gold-light); text-transform:uppercase; margin-top:5px; opacity:.7;
+}
+.craft-teaser {
+  font-size:13px; font-style:italic; color:rgba(247,243,236,.5);
+  margin-top:8px; line-height:1.65; max-height:0; overflow:hidden;
+  transition:max-height .5s ease;
+}
+.craft-card:hover .craft-teaser { max-height:100px; }
+.craft-cta {
+  margin-top:12px; opacity:0;
+  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.24em; text-transform:uppercase;
+  color:var(--gold-light); border-bottom:1px solid var(--gold-dim);
+  padding-bottom:2px; width:fit-content; transition:opacity .4s .1s;
+}
+.craft-card:hover .craft-cta { opacity:1; }
+
+/* ════════════════════════════════
+   POP-UP STORE / EVENTS
+════════════════════════════════ */
+#events { background:var(--dark2); padding:108px 24px; }
+.events-inner { max-width:860px; margin:0 auto; }
+.events-list { margin-top:52px; }
+.event-row {
+  display:grid; grid-template-columns:140px 1fr auto;
+  align-items:center; gap:32px;
+  padding:38px 0; border-bottom:1px solid var(--gold-dim); transition:background .3s;
+}
+.event-row:first-child { border-top:1px solid var(--gold-dim); }
+.event-row.featured { background:rgba(201,168,76,.04); }
+.event-day  { font-size:clamp(40px,5vw,64px); color:var(--gold-light); font-weight:300; line-height:1; }
+.event-mon  {
+  font-family:'Cinzel',serif; font-size:10px; letter-spacing:.28em;
+  color:var(--gold-light); text-transform:uppercase; opacity:.6; margin-top:4px;
+}
+.event-info h3 { font-size:clamp(19px,2.4vw,26px); color:var(--cream); font-weight:400; }
+.new-badge {
+  display:inline-block; background:var(--gold); color:var(--dark);
+  font-family:'Cinzel',serif; font-size:8px; letter-spacing:.25em; text-transform:uppercase;
+  padding:4px 10px; margin-left:10px; vertical-align:middle;
+  animation:pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+.event-info p {
+  font-size:15px; font-style:italic; color:rgba(247,243,236,.46);
+  margin-top:8px; line-height:1.65;
+}
+.event-tag {
+  border:1px solid var(--gold-dim); white-space:nowrap;
+  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--gold-light); padding:8px 16px;
+}
+.event-row.featured .event-tag { background:var(--gold); color:var(--dark); border-color:var(--gold); }
+
+/* ════════════════════════════════
+   SHOP
+════════════════════════════════ */
+#shop { background:var(--dark); padding:88px 24px; text-align:center; }
+.shop-inner { max-width:600px; margin:0 auto; }
+.shop-inner p {
+  font-size:18px; font-style:italic; color:rgba(247,243,236,.56);
+  margin-top:16px; line-height:1.78;
+}
+/* CHANGE 6: Smaller WA button */
+.wa-shop-btn {
+  display:inline-flex; align-items:center; gap:13px; margin-top:40px;
+  background:#25D366; color:#fff; text-decoration:none;
+  padding:12px 28px; font-size:14px; font-family:'Cormorant Garamond',serif;
+  letter-spacing:.05em; transition:background .3s, transform .25s;
+}
+.wa-shop-btn:hover { background:#1da851; transform:translateY(-2px); }
+.wa-shop-btn svg { width:18px; height:18px; flex-shrink:0; }
+.wa-note {
+  font-family:'Cinzel',serif; font-size:10px; letter-spacing:.2em;
+  color:rgba(247,243,236,.26); margin-top:14px; text-transform:uppercase;
+}
+
+/* ════════════════════════════════
+   WEAVERS
+════════════════════════════════ */
+#weavers { background:var(--dark); padding:108px 24px; }
+.weavers-inner {
+  max-width:1020px; margin:0 auto;
+  display:grid; grid-template-columns:1fr 1fr; gap:76px; align-items:center;
+}
+.weavers-visual { position:relative; aspect-ratio:4/5; overflow:hidden; }
+.weavers-visual img {
+  width:100%; height:100%; object-fit:cover;
+  filter:brightness(.86) saturate(.82); transition:transform .7s ease, filter .5s;
+}
+.weavers-visual:hover img { transform:scale(1.03); filter:brightness(.92) saturate(.9); }
+.weavers-corner {
+  position:absolute; bottom:0; right:0; width:68px; height:68px;
+  border-right:2px solid rgba(139,105,20,.35);
+  border-bottom:2px solid rgba(139,105,20,.35); pointer-events:none;
+}
+.weavers-corner-tl {
+  position:absolute; top:0; left:0; width:68px; height:68px;
+  border-left:2px solid rgba(139,105,20,.35);
+  border-top:2px solid rgba(139,105,20,.35); pointer-events:none;
+}
+.weavers-text .label {
+  font-family:'Cinzel',serif; font-size:10px; letter-spacing:.44em;
+  text-transform:uppercase; color:var(--gold-light); display:block;
+  margin-bottom:16px; opacity:.8;
+}
+.weavers-text h2 {
+  font-size:clamp(28px,3.8vw,48px); font-weight:300; font-style:italic;
+  color:var(--cream); line-height:1.25;
+}
+.weavers-text h2 span { color:var(--gold-pale); }
+.weavers-text p {
+  font-size:16px; font-style:italic; line-height:1.92;
+  color:rgba(247,243,236,.6); margin-top:18px;
+}
+.weavers-pillars { margin-top:30px; display:flex; flex-direction:column; gap:12px; }
+.pillar {
+  display:flex; gap:14px; align-items:flex-start;
+  padding:16px 18px; border:1px solid var(--gold-dim);
+  background:rgba(255,255,255,.02); transition:background .3s;
+}
+.pillar:hover { background:rgba(201,168,76,.05); }
+.pillar-icon { font-size:18px; flex-shrink:0; margin-top:2px; }
+.pillar-title {
+  font-family:'Cinzel',serif; font-size:10px; letter-spacing:.2em;
+  text-transform:uppercase; color:var(--gold-light); opacity:.8;
+}
+.pillar-desc {
+  font-size:14px; font-style:italic; color:rgba(247,243,236,.5);
+  margin-top:4px; line-height:1.62;
+}
+
+/* ════════════════════════════════
+   FOOTER
+════════════════════════════════ */
+footer {
+  background:var(--dark); border-top:1px solid var(--gold-dim);
+  padding:60px 52px 30px;
+}
+.footer-grid {
+  display:grid; grid-template-columns:2fr 1fr 1fr; gap:52px;
+  max-width:960px; margin:0 auto;
+}
+/* CHANGE 2: Footer logo = English ornate PNG */
+.footer-brand img { height:60px; object-fit:contain; background:transparent; }
+.footer-brand p {
+  font-size:14px; font-style:italic; color:rgba(247,243,236,.36);
+  margin-top:16px; line-height:1.85;
+}
+.footer-col h4 {
+  font-family:'Cinzel',serif; font-size:10px; letter-spacing:.3em;
+  text-transform:uppercase; color:var(--gold-light); opacity:.65; margin-bottom:16px;
+}
+.footer-col ul { list-style:none; }
+.footer-col li { margin-bottom:8px; }
+/* CHANGE 4: Footer connect links with icons */
+.footer-col a {
+  font-size:14px; font-style:italic; color:rgba(247,243,236,.4);
+  text-decoration:none; transition:color .3s;
+}
+.footer-col a:hover { color:var(--gold-light); }
+.footer-connect-link {
+  display:flex; align-items:center; gap:8px;
+  font-size:14px; font-style:italic; color:rgba(247,243,236,.4);
+  text-decoration:none; transition:color .3s;
+}
+.footer-connect-link:hover { color:var(--gold-light); }
+.footer-connect-link svg { width:16px; height:16px; flex-shrink:0; }
+.footer-bottom {
+  max-width:960px; margin:42px auto 0;
+  padding-top:20px; border-top:1px solid rgba(139,105,20,.1);
+  display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+}
+.footer-bottom p {
+  font-family:'Cinzel',serif; font-size:10px; letter-spacing:.14em;
+  color:rgba(247,243,236,.2);
+}
+/* CHANGE 3: Footer text crossfade animation */
+.footer-text-rotate {
+  position:relative; height:20px; min-width:280px;
+}
+.footer-text-rotate span {
+  position:absolute; top:0; right:0; white-space:nowrap;
+}
+.footer-hindi {
+  font-family:'Noto Sans Devanagari',sans-serif; font-size:14px;
+  color:rgba(201,168,76,.28); letter-spacing:.04em;
+  animation: ftA 8s infinite;
+}
+.footer-english {
+  font-family:'Cinzel',serif; font-size:12px;
+  color:rgba(201,168,76,.28); letter-spacing:.12em;
+  animation: ftB 8s infinite;
+}
+@keyframes ftA { 0%,40%{opacity:1} 45%,90%{opacity:0} 95%,100%{opacity:1} }
+@keyframes ftB { 0%,40%{opacity:0} 45%,90%{opacity:1} 95%,100%{opacity:0} }
+
+/* ════════════════════════════════
+   SCROLL REVEAL
+════════════════════════════════ */
+.reveal     { opacity:0; transform:translateY(26px); transition:opacity .85s ease, transform .85s ease; }
+.reveal-l   { opacity:0; transform:translateX(-28px); transition:opacity .85s ease, transform .85s ease; }
+.reveal-r   { opacity:0; transform:translateX(28px); transition:opacity .85s ease, transform .85s ease; }
+.reveal.vis, .reveal-l.vis, .reveal-r.vis { opacity:1; transform:none; }
+.d1{transition-delay:.1s} .d2{transition-delay:.22s} .d3{transition-delay:.34s}
+
+/* ════════════════════════════════
+   RESPONSIVE
+════════════════════════════════ */
+@media(max-width:960px) {
+  nav { padding:12px 20px; }
+  nav.scrolled { padding:8px 20px; }
+  .nav-links { display:none; }
+  .mission-grid { grid-template-columns:1fr; }
+  .crafts-grid { grid-template-columns:1fr 1fr; }
+  .crafts-row2 { width:100%; grid-template-columns:1fr 1fr; }
+  .weavers-inner { grid-template-columns:1fr; gap:36px; }
+  .footer-grid { grid-template-columns:1fr; gap:28px; }
+  .event-row { grid-template-columns:90px 1fr; }
+  .event-tag { display:none; }
+}
+@media(max-width:580px) {
+  .crafts-grid { grid-template-columns:1fr; }
+  .crafts-row2 { width:100%; grid-template-columns:1fr; }
+}
+
+.nav-right { display:flex; align-items:center; gap:10px; }
+.nav-btn-c { display:flex;align-items:center;gap:7px;color:rgba(232,213,163,.78);border:1px solid rgba(201,168,76,.3);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:8px 16px;text-decoration:none;transition:all .3s; }
+.nav-btn-c:hover { border-color:#C9A84C;color:#C9A84C; }
+.nav-btn-s { display:flex;align-items:center;gap:7px;background:#8B6914;color:#0E0A04;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:8px 18px;text-decoration:none;transition:background .3s; }
+.nav-btn-s:hover { background:#C9A84C; }
+
+/* ── SHOP PAGE ── */
+.sp-cb { display:block;width:100%;text-align:left;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(232,213,163,.5);background:none;border:none;border-left:2px solid transparent;padding:7px 11px;cursor:pointer;transition:all .25s;margin-bottom:2px; }
+.sp-cb:hover, .sp-cb.on { color:var(--gold-light);border-left-color:var(--gold-light); }
+.sp-card { background:rgba(255,255,255,.03);border:1px solid var(--gold-dim);transition:border-color .3s; }
+.sp-card:hover { border-color:rgba(201,168,76,.45); }
+.sp-img { aspect-ratio:3/4;background:var(--dark);overflow:hidden;position:relative; }
+.sp-img img { width:100%;height:100%;object-fit:cover;transition:transform .5s; }
+.sp-card:hover .sp-img img { transform:scale(1.04); }
+.sp-noimg { width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:rgba(201,168,76,.18); }
+.sp-noimg span { font-size:26px; }
+.sp-noimg p { font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;text-transform:uppercase; }
+.sp-sold-ov { position:absolute;inset:0;background:rgba(14,10,4,.78);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;padding:14px; }
+.sp-sold-ov p { font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(247,243,236,.55); }
+.sp-sold-ov button { font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-light);background:none;border:1px solid rgba(201,168,76,.3);padding:5px 13px;cursor:pointer;transition:border-color .3s; }
+.sp-sold-ov button:hover { border-color:var(--gold-light); }
+.sp-info { padding:13px; }
+.sp-nm { font-size:15px;color:var(--cream);font-weight:400; }
+.sp-sub { font-size:11px;font-style:italic;color:rgba(247,243,236,.4);margin-top:2px; }
+.sp-fab { font-family:'Cinzel',serif;font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold-light);opacity:.6;margin-top:5px; }
+.sp-pr-row { display:flex;align-items:baseline;gap:7px;margin-top:7px; }
+.sp-pr { font-size:16px;color:var(--gold-light); }
+.sp-mrp { font-size:11px;color:rgba(247,243,236,.25);text-decoration:line-through; }
+.sp-wa { display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;border:none;padding:8px 12px;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:9px;text-decoration:none;transition:background .3s; }
+.sp-wa:hover { background:#1da851; }
+@media(max-width:700px){#shop-page>div>div:last-child{grid-template-columns:1fr!important;} #sp-grid{grid-template-columns:1fr 1fr!important;}}
+</style>
+</head>
+<body>
+
+<!-- ════ PROMO TICKER ════ -->
+<div id="promo-bar">
+  <div class="ticker-track" id="ticker">
+    <!-- repeated twice for seamless loop -->
+    <span class="ticker-item">🎉 Inaugural Offers On! Limited time — exclusive pricing at our Pop-Up Store</span>
+    <span class="ticker-sep">◆</span>
+    <span class="ticker-item">📍 Upcoming Event: AFWWA Exhibition · AFS Jalahalli · 26–27 March 2025</span>
+    <span class="ticker-sep">◆</span>
+    <span class="ticker-item">
+      <svg class="insta-icon" viewBox="0 0 24 24" fill="none" stroke="#1A1208" stroke-width="2">
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+        <circle cx="12" cy="12" r="4"/>
+        <circle cx="17.5" cy="6.5" r="1" fill="#1A1208" stroke="none"/>
+      </svg>
+      Follow <a href="https://instagram.com/meensha_fabrics" target="_blank">@meensha_fabrics</a> on Instagram
+    </span>
+    <span class="ticker-sep">◆</span>
+    <!-- duplicate for loop -->
+    <span class="ticker-item">🎉 Inaugural Offers On! Limited time — exclusive pricing at our Pop-Up Store</span>
+    <span class="ticker-sep">◆</span>
+    <span class="ticker-item">📍 Upcoming Event: AFWWA Exhibition · AFS Jalahalli · 26–27 March 2025</span>
+    <span class="ticker-sep">◆</span>
+    <span class="ticker-item">
+      <svg class="insta-icon" viewBox="0 0 24 24" fill="none" stroke="#1A1208" stroke-width="2">
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+        <circle cx="12" cy="12" r="4"/>
+        <circle cx="17.5" cy="6.5" r="1" fill="#1A1208" stroke="none"/>
+      </svg>
+      Follow <a href="https://instagram.com/meensha_fabrics" target="_blank">@meensha_fabrics</a> on Instagram
+    </span>
+    <span class="ticker-sep">◆</span>
+  </div>
+</div>
+
+<!-- ════ FIXED NAV ════ -->
+<nav id="main-nav">
+  <!-- CHANGE 1: Dual logo rotation — logo.svg (Hindi) crossfades with logo_eng.svg (English) -->
+  <div class="nav-logo">
+    <img class="logo-hindi" src="logo.svg" alt="मीनशा">
+    <img class="logo-eng" src="logo_eng.svg" alt="Meensha">
+  </div>
+  <ul class="nav-links">
+    <li><a href="#heritage">Heritage</a></li>
+    <li><a href="#mission">Mission</a></li>
+    <li><a href="#catalogue">Collection</a></li>
+    <li><a href="#events">Pop-Up Store</a></li>
+    <li><a href="#weavers">Artisans</a></li>
+  </ul>
+  <div class="nav-right">
+    <a class="nav-btn-c" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contact</a>
+    <a class="nav-btn-s" href="#shop-page" onclick="openShop('all');return false;">Shop Now</a>
+  </div>
+</nav>
+
+<!-- ════ HERO SLIDESHOW ════ -->
+<section id="heritage">
+
+  <div class="slide active">
+    <div class="slide-bg bg-s1"></div>
+    <div class="slide-inner">
+      <p class="slide-era">3000 BCE — The Indus Valley</p>
+      <h1 class="slide-quote">"Before empires rose or fell,<br>the loom was already <em>singing</em>."</h1>
+      <p class="slide-attr">— The First Thread</p>
+      <p class="slide-caption">Cotton cultivation and weaving documented at Mohenjo-daro — the oldest textile tradition in human history</p>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-bg bg-s2"></div>
+    <div class="slide-inner">
+      <p class="slide-era">100 CE — The Roman Senate</p>
+      <h1 class="slide-quote">"<em>Gold flows east</em> — and returns as cloth<br>so fine it could be woven<br>from moonlight."</h1>
+      <p class="slide-attr">— Pliny the Elder, Historia Naturalis</p>
+      <p class="slide-caption">Roman senators lamented gold draining eastward for Indian muslin so sheer they said men were "wearing nothing at all"</p>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-bg bg-s3"></div>
+    <div class="slide-inner">
+      <p class="slide-era">17th Century — The Mughal Courts</p>
+      <h1 class="slide-quote">"A weaver's hands hold<br>more art than<br><em>a painter's brush.</em>"</h1>
+      <p class="slide-attr">— Court of Emperor Akbar</p>
+      <p class="slide-caption">The Mughal emperors maintained royal karkhanas of ten thousand weavers — Banarasi brocades became the language of royalty</p>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-bg bg-s4"></div>
+    <div class="slide-inner">
+      <p class="slide-era">Across Centuries — The Hands That Remember</p>
+      <h1 class="slide-quote">"In every thread<br>is a memory<br><em>no book can hold.</em>"</h1>
+      <p class="slide-attr">— The Weavers of India</p>
+      <p class="slide-caption">Knowledge passed not through writing but through watching — father to son, mother to daughter, loom to loom</p>
+    </div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-bg bg-s5"></div>
+    <div class="slide-inner">
+      <p class="slide-era">Today — The Looms Still Sing</p>
+      <h1 class="slide-quote">"Every thread carries<br>a thousand years of knowing.<br><em>We must not let it fall silent.</em>"</h1>
+      <p class="slide-attr">— Meensha, करघों की विरासत</p>
+      <p class="slide-caption">Over 4.5 million handloom weavers in India today — custodians of a living heritage the world once crossed oceans to possess</p>
+    </div>
+  </div>
+
+  <div class="slide-dots">
+    <div class="dot active" onclick="goSlide(0)"></div>
+    <div class="dot" onclick="goSlide(1)"></div>
+    <div class="dot" onclick="goSlide(2)"></div>
+    <div class="dot" onclick="goSlide(3)"></div>
+    <div class="dot" onclick="goSlide(4)"></div>
+  </div>
+  <div class="scroll-cue">Scroll</div>
+</section>
+
+<!-- ════ MISSION ════ -->
+<section id="mission">
+  <div class="mission-loom-bg"></div>
+  <div class="mission-inner">
+    <span class="section-label reveal">Our Purpose</span>
+    <h2 class="mission-headline reveal">
+      Reviving the <span>living art</span><br>against the weight<br>of forgetting.
+    </h2>
+    <div class="mission-grid">
+      <div class="mission-card reveal d1">
+        <div class="mc-icon">🔥</div>
+        <h3 class="mc-title">Our Passion</h3>
+        <p class="mc-text">We are driven by an ache — for the looms that are going silent, for the patterns that have no inheritors, for the hands whose craft the world once paid gold to possess. Meensha exists because this beauty must not die.</p>
+      </div>
+      <div class="mission-card reveal d2">
+        <div class="mc-icon">🌿</div>
+        <h3 class="mc-title">Our Mission</h3>
+        <p class="mc-text">To bridge the master weaver and the modern woman. To make handloom not a relic but a living choice — present in wardrobes, whispered about in conversations, worn with the pride its makers deserve.</p>
+      </div>
+      <div class="mission-card reveal d3">
+        <div class="mc-icon">✨</div>
+        <h3 class="mc-title">Our Vision</h3>
+        <p class="mc-text">A world where India's handloom heritage is cherished in the 21st century as it was in the first. Where a Patola saree is as coveted today as it was when Marco Polo crossed continents to write of it.</p>
+      </div>
+    </div>
+    <div class="mission-statement reveal">
+      <blockquote>
+        "The world once sent ships across treacherous seas for a bolt of Indian cloth.<br>
+        Today these weavers struggle for recognition.<br>
+        <em>Meensha is our answer to that injustice.</em>"
+      </blockquote>
+      <cite>— The Founding Spirit of Meensha</cite>
+    </div>
+  </div>
+</section>
+
+<!-- ════ CATALOGUE ════ -->
+<section id="catalogue">
+  <div class="catalogue-inner">
+    <div class="section-head reveal">
+      <span class="section-label">The Collection</span>
+      <h2>Threads of a Civilisation</h2>
+      <p>India's most storied weaving traditions — each piece a conversation across centuries</p>
+      <div class="gold-orn"><span>discover</span></div>
+    </div>
+
+    <!-- Row 1: Ikat, Patola, Tussar -->
+    <div class="crafts-grid reveal">
+      <div class="craft-card" onclick="openShop('ikat')" style="cursor:pointer;">
+        <div class="craft-bg cb-ikat"></div>
+        <div class="craft-pattern"></div>
+        <div class="craft-overlay">
+          <div class="craft-accent">🌀</div>
+          <h3 class="craft-name">Ikat</h3>
+          <p class="craft-origin">Odisha · Telangana · Gujarat</p>
+          <p class="craft-teaser">Threads dyed before weaving — the pattern exists only in the weaver's mind until the cloth finally reveals it. A philosophy as much as a technique.</p>
+          <p class="craft-cta">Enquire →</p>
+        </div>
+      </div>
+      <div class="craft-card" onclick="openShop('patola')" style="cursor:pointer;">
+        <div class="craft-bg cb-patola"></div>
+        <div class="craft-pattern"></div>
+        <div class="craft-overlay">
+          <div class="craft-accent">💎</div>
+          <h3 class="craft-name">Patola</h3>
+          <p class="craft-origin">Patan, Gujarat</p>
+          <p class="craft-teaser">Double ikat. Six months per saree. Fewer than a dozen master families remain. Marco Polo called Patan's silks the world's finest — nothing has changed.</p>
+          <p class="craft-cta">Enquire →</p>
+        </div>
+      </div>
+      <div class="craft-card" onclick="openShop('tussar')" style="cursor:pointer;">
+        <div class="craft-bg cb-tussar"></div>
+        <div class="craft-pattern"></div>
+        <div class="craft-overlay">
+          <div class="craft-accent">🌙</div>
+          <h3 class="craft-name">Tussar Silk</h3>
+          <p class="craft-origin">Jharkhand · Bhagalpur, Bihar</p>
+          <p class="craft-teaser">Wild silk — spun not in captivity but in the forests. Its raw gold texture carries the breath of ancient trees and the unhurried rhythms of tribal life.</p>
+          <p class="craft-cta">Enquire →</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Ajrak, Gharchola — centred -->
+    <div class="crafts-row2 reveal">
+      <div class="craft-card" onclick="openShop('ajrak')" style="cursor:pointer;">
+        <div class="craft-bg cb-ajrak"></div>
+        <div class="craft-pattern"></div>
+        <div class="craft-overlay">
+          <div class="craft-accent">🌊</div>
+          <h3 class="craft-name">Ajrak</h3>
+          <p class="craft-origin">Kutch, Gujarat · Sindh</p>
+          <p class="craft-teaser">Block-printed in indigo and madder, washed in river water, dried in desert sun. A 4,000-year-old ritual that produces the most mesmerising geometry in textile.</p>
+          <p class="craft-cta">Enquire →</p>
+        </div>
+      </div>
+      <div class="craft-card" onclick="openShop('gharch')" style="cursor:pointer;">
+        <div class="craft-bg cb-gharch"></div>
+        <div class="craft-pattern"></div>
+        <div class="craft-overlay">
+          <div class="craft-accent">🌹</div>
+          <h3 class="craft-name">Gharchola</h3>
+          <p class="craft-origin">Jamnagar, Gujarat</p>
+          <p class="craft-teaser">The bridal silk of Rajasthan and Gujarat — woven in red and gold, tie-dyed in a grid of auspicious squares. Worn at weddings for over five centuries.</p>
+          <p class="craft-cta">Enquire →</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════ POP-UP STORE ════ -->
+<section id="events">
+  <div class="events-inner">
+    <div class="section-head reveal">
+      <span class="section-label">Come Find Us</span>
+      <h2>Pop-Up Store</h2>
+      <p>Touch the fabric. Meet the stories. Take one home.</p>
+      <div class="gold-orn"><span>upcoming</span></div>
+    </div>
+    <div class="events-list reveal">
+      <div class="event-row featured">
+        <div class="event-date-block">
+          <div class="event-day">26–27</div>
+          <div class="event-mon">March 2025</div>
+        </div>
+        <div class="event-info">
+          <h3>AFWWA Exhibition, Jalahalli East <span class="new-badge">New Announcement</span></h3>
+          <p>AFWWA Complex · AFS Jalahalli East, Bengaluru<br>
+          Live stall · Full handloom collection on display · 10 AM – 7 PM both days<br>
+          Inaugural offers · Personal styling · Direct from the weaver</p>
+        </div>
+        <span class="event-tag">Live Stall</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ SHOP ════ -->
+<section id="shop" style="background:var(--dark);padding:0;">
+
+<!-- LIVE CATALOGUE SHOP PAGE -->
+<div id="shop-page" style="display:none;background:var(--dark2);padding:80px 0;">
+  <div style="max-width:1300px;margin:0 auto;padding:0 24px;">
+    <button onclick="closeShop()" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(232,213,163,.45);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:24px;transition:color .3s;" onmouseover="this.style.color='#C9A84C'" onmouseout="this.style.color='rgba(232,213,163,.45)'">← Back to Collections</button>
+    <h2 id="sp-title" style="font-size:clamp(24px,3.5vw,42px);font-weight:300;font-style:italic;color:var(--cream);margin-bottom:6px;"></h2>
+    <p id="sp-count" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;color:var(--gold-light);opacity:.55;text-transform:uppercase;margin-bottom:20px;"></p>
+    <div style="display:grid;grid-template-columns:180px 1fr;gap:36px;">
+      <div style="position:sticky;top:155px;height:fit-content;">
+        <p style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-light);opacity:.7;margin-bottom:13px;">Browse By</p>
+        <ul style="list-style:none;" id="sp-cats">
+          <li><button class="sp-cb on" onclick="filterShop('all',this)">All Collections</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Ikkat',this)">Ikkat / Ikat</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Patola',this)">Patola</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Tussar',this)">Tussar Silk</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Ajrak',this)">Ajrak</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Gharchola',this)">Gharchola</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Cotton',this)">Cotton Weaves</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Modal',this)">Modal</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Kota',this)">Kota Doria</button></li>
+          <li><button class="sp-cb" onclick="filterShop('Silk',this)">Silk Sarees</button></li>
+        </ul>
+        <div style="margin-top:16px;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="sp-show-sold" onchange="renderShopGrid()" style="accent-color:var(--gold);width:14px;height:14px;">
+          <label for="sp-show-sold" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:rgba(232,213,163,.45);cursor:pointer;">Show Sold Out</label>
+        </div>
+      </div>
+      <div><div id="sp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:15px;"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP CTA (shows when shop-page is hidden) -->
+<div id="shop-cta" style="background:var(--dark);padding:88px 24px;text-align:center;">
+  <div style="max-width:600px;margin:0 auto;">
+    <div class="section-head reveal">
+      <span class="section-label">Own a Piece</span>
+      <h2>Shop the Collection</h2>
+    </div>
+    <p class="reveal" style="font-size:18px;font-style:italic;color:rgba(247,243,236,.56);margin-top:16px;line-height:1.78;">Every piece is handpicked, authentically sourced, and arrives with the story of its making.</p>
+    <a href="#shop" onclick="openShop('all');return false;" style="display:inline-flex;align-items:center;gap:11px;margin-top:36px;background:var(--gold);color:var(--dark);font-family:'Cinzel',serif;font-size:12px;letter-spacing:.2em;text-transform:uppercase;padding:16px 38px;text-decoration:none;transition:background .3s;" onmouseover="this.style.background='#C9A84C'" onmouseout="this.style.background='var(--gold)'">Browse the Catalogue →</a>
+    <p class="reveal" style="font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;color:rgba(247,243,236,.26);margin-top:14px;text-transform:uppercase;">or order directly on WhatsApp</p>
+    <a class="wa-shop-btn reveal" href="https://wa.me/918709525218" target="_blank">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      Chat with Us on WhatsApp
+    </a>
+  </div>
+</div>
+
+</section>
+
+<!-- ════ WEAVERS ════ -->
+<section id="weavers">
+  <div class="weavers-inner">
+    <div class="weavers-visual reveal-l">
+      <img src="weaver_woman.png" alt="Weaver at her loom">
+      <div class="weavers-corner-tl"></div>
+      <div class="weavers-corner"></div>
+    </div>
+    <div class="weavers-text reveal-r">
+      <span class="label">We Work With Them</span>
+      <h2>The hands<br>behind the <span>heritage</span></h2>
+      <p>Meensha does not merely source textiles. We walk into the villages, sit beside the looms, and listen. The weavers we work with are not vendors — they are custodians of a civilisation's memory, and we treat them as such.</p>
+      <div class="weavers-pillars">
+        <div class="pillar">
+          <div class="pillar-icon">⚖️</div>
+          <div>
+            <p class="pillar-title">Fair & Direct Trade</p>
+            <p class="pillar-desc">We pay the weaver directly — no middlemen, no exploitation. The price you pay reaches the hands that made it.</p>
+          </div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">📚</div>
+          <div>
+            <p class="pillar-title">Knowledge Preservation</p>
+            <p class="pillar-desc">We document dying techniques and support master weavers in training the next generation before the knowledge is lost.</p>
+          </div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-icon">🌱</div>
+          <div>
+            <p class="pillar-title">Dignified Livelihoods</p>
+            <p class="pillar-desc">Every purchase at Meensha sustains a family. Your choice to buy handloom is an act of solidarity with 4.5 million artisan families across India.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ FOOTER ════ -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <!-- CHANGE 2: Footer logo = English ornate PNG -->
+      <img src="meensha_logo_en.png" alt="Meensha">
+      <p>करघों की विरासत<br>Heritage Weaves of India<br><br>Preserving the living art of the Indian loom, one thread at a time.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Explore</h4>
+      <ul>
+        <li><a href="#heritage">The Heritage</a></li>
+        <li><a href="#mission">Our Mission</a></li>
+        <li><a href="#catalogue">Collection</a></li>
+        <li><a href="#events">Pop-Up Store</a></li>
+        <li><a href="#weavers">The Weavers</a></li>
+      </ul>
+    </div>
+    <!-- CHANGE 4: Footer Connect column with icons -->
+    <div class="footer-col">
+      <h4>Connect</h4>
+      <ul>
+        <li><a class="footer-connect-link" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="#25D366" width="16" height="16"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp Us</a></li>
+        <li><a class="footer-connect-link" href="https://instagram.com/meensha_fabrics" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(247,243,236,.4)" stroke-width="2" width="16" height="16"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="rgba(247,243,236,.4)" stroke="none"/></svg>@meensha_fabrics</a></li>
+        <li><a class="footer-connect-link" href="mailto:meensha.fabrics@gmail.com"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(247,243,236,.4)" stroke-width="2" width="16" height="16"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><polyline points="22,6 12,13 2,6"/></svg>meensha.fabrics@gmail.com</a></li>
+        <li><a class="footer-connect-link" href="#events">📍 Pop-Up Events</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <!-- CHANGE 5: Updated trademark line -->
+    <p>© 2026 Meensha™ · All rights reserved · Trademark pending · <a href="admin.html" style="color:rgba(247,243,236,.1);text-decoration:none;font-size:9px;transition:color .3s;" onmouseover="this.style.color='rgba(201,168,76,.4)'" onmouseout="this.style.color='rgba(247,243,236,.1)'">admin</a></p>
+    <!-- CHANGE 3: Footer text crossfade Hindi/English -->
+    <div class="footer-text-rotate">
+      <span class="footer-hindi">मीनशा — करघों की विरासत</span>
+      <span class="footer-english">Meensha · Heritage Weaves of India</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ── SUPABASE ── */
+const _SB='https://eglanmhhcccsuhbxywua.supabase.co',_SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+async function spFetch(t,q=''){const r=await fetch(`${_SB}/rest/v1/${t}${q}`,{headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}});if(!r.ok)return[];try{return await r.json();}catch{return[];}}
+async function spPost(t,d){return fetch(`${_SB}/rest/v1/${t}`,{method:'POST',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(d)});}
+
+/* ── SLIDESHOW ── */
+let current = 0;
+const slides = document.querySelectorAll('.slide');
+const dots   = document.querySelectorAll('.dot');
+let timer;
+function goSlide(n) {
+  slides[current].classList.remove('active');
+  dots[current].classList.remove('active');
+  current = (n + slides.length) % slides.length;
+  slides[current].classList.add('active');
+  dots[current].classList.add('active');
+  clearInterval(timer);
+  timer = setInterval(() => goSlide(current + 1), 7000);
+}
+timer = setInterval(() => goSlide(current + 1), 7000);
+
+/* ── NAV SCROLL ── */
+window.addEventListener('scroll', () => {
+  document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 50);
+});
+
+/* ── SCROLL REVEAL ── */
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('vis'); });
+}, { threshold: 0.06 });
+document.querySelectorAll('.reveal,.reveal-l,.reveal-r').forEach(el => obs.observe(el));
+// Immediately reveal anything already visible
+setTimeout(() => {
+  document.querySelectorAll('.reveal,.reveal-l,.reveal-r').forEach(el => {
+    if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('vis');
+  });
+}, 200);
+
+/* ── SHOP ── */
+const WA_I = '<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
+const fmtR = n => Number(n||0).toLocaleString('en-IN');
+let spInv = [], spF = 'all';
+
+async function loadShop() {
+  try { spInv = await spFetch('inventory', '?order=item_id'); } catch(e) { spInv = []; }
+  renderShopGrid();
+}
+
+function matchF(it, f) {
+  if (f === 'all') return true;
+  const s = [it.name, it.subtype||'', it.fabric||'', it.cat||''].join(' ').toLowerCase();
+  if (f === 'Ikkat') return s.includes('ikkat')||s.includes('ikat')||s.includes('pochampally');
+  if (f === 'Patola') return s.includes('patola');
+  if (f === 'Tussar') return s.includes('tussar');
+  if (f === 'Ajrak') return s.includes('ajrak');
+  if (f === 'Gharchola') return s.includes('gharchl')||s.includes('gharchola');
+  if (f === 'Cotton') return it.fabric==='Cotton' && !s.includes('ajrak');
+  if (f === 'Modal') return s.includes('modal');
+  if (f === 'Kota') return s.includes('kota');
+  if (f === 'Silk') return ['Silk','Tussar Silk','Cotton Silk','Modal Silk'].includes(it.fabric) && !s.includes('tussar') && !s.includes('modal') && !s.includes('patola');
+  return false;
+}
+
+function renderShopGrid() {
+  const showSO = document.getElementById('sp-show-sold')?.checked;
+  const g = document.getElementById('sp-grid');
+  if (!g) return;
+  const fl = spInv.filter(it => matchF(it, spF) && (showSO || (it.qty||0)-(it.sold||0) > 0));
+  const av = fl.filter(it => (it.qty||0)-(it.sold||0) > 0).length;
+  const cnt = document.getElementById('sp-count');
+  if (cnt) cnt.textContent = av + ' available' + (fl.length > av ? ' · ' + (fl.length-av) + ' sold out' : '');
+  if (!fl.length) { g.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:rgba(247,243,236,.3);font-style:italic;font-size:17px;">No items here yet — message us on WhatsApp!</div>'; return; }
+  g.innerHTML = fl.map(it => {
+    const av2 = (it.qty||0)-(it.sold||0), sold = av2 <= 0;
+    const ph = it.photos||[], sp2 = it.sale_price||it.mrp;
+    const nm = it.name + (it.subtype ? ' ('+it.subtype+')' : '');
+    const wam = encodeURIComponent('Hi Meensha! Interested in: '+nm+' — '+it.cat+'\nCould you share details? 🙏');
+    const som = encodeURIComponent('Hi Meensha! '+nm+' shows as Sold Out — please notify me! 🙏');
+    return `<div class="sp-card${sold?' sp-sold':''}">
+      <div class="sp-img">
+        ${ph.length ? `<img src="${ph[0]}" alt="${it.name}">` : `<div class="sp-noimg"><span>🧵</span><p>${it.fabric||'Handloom'}</p></div>`}
+        ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="window.open('https://wa.me/918709525218?text=${som}','_blank')">Notify Me</button></div>` : ''}
+      </div>
+      <div class="sp-info">
+        <div class="sp-nm">${it.name}</div>
+        ${it.subtype ? `<div class="sp-sub">${it.subtype}</div>` : ''}
+        <div class="sp-fab">${it.fabric||''}</div>
+        <div class="sp-pr-row"><span class="sp-pr">₹${fmtR(sp2)}</span>${it.mrp>sp2 ? `<span class="sp-mrp">₹${fmtR(it.mrp)}</span>` : ''}</div>
+        ${!sold ? `<a class="sp-wa" href="https://wa.me/918709525218?text=${wam}" target="_blank">${WA_I} Order on WhatsApp</a>` : ''}
+      </div></div>`;
+  }).join('');
+}
+
+function filterShop(f, btn) {
+  spF = f;
+  document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  const titles = {'all':'All Collections','Ikkat':'Ikkat & Ikat','Patola':'Patola Silk','Tussar':'Tussar Silk','Ajrak':'Ajrak','Gharchola':'Gharchola','Cotton':'Cotton Weaves','Modal':'Modal','Kota':'Kota Doria','Silk':'Silk Sarees'};
+  const t = document.getElementById('sp-title');
+  if (t) t.textContent = titles[f] || f;
+  renderShopGrid();
+}
+
+async function openShop(cat) {
+  document.getElementById('shop-page').style.display = 'block';
+  document.getElementById('shop-cta').style.display = 'none';
+  if (!spInv.length) await loadShop();
+  const mc = {ikat:'Ikkat',patola:'Patola',tussar:'Tussar',ajrak:'Ajrak',gharch:'Gharchola',all:'all'};
+  const f2 = mc[cat] || 'all'; spF = f2;
+  document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('.sp-cb').forEach(b => {
+    if (b.textContent.trim().toLowerCase().startsWith(f2 === 'all' ? 'all' : f2.substring(0,3).toLowerCase()))
+      b.classList.add('on');
+  });
+  if (f2 === 'all') document.querySelector('.sp-cb')?.classList.add('on');
+  filterShop(f2, null);
+  setTimeout(() => document.getElementById('shop').scrollIntoView({behavior:'smooth'}), 80);
+}
+
+function closeShop() {
+  document.getElementById('shop-page').style.display = 'none';
+  document.getElementById('shop-cta').style.display = 'block';
+  document.getElementById('catalogue').scrollIntoView({behavior:'smooth'});
+}
+</script>
+</body>
+</html>
