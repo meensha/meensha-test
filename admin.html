@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meensha Admin</title>
+<title>Meensha · Karigar</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--gold:#C9A84C;--gdk:#8B6914;--dark:#1A1208;--d2:#2A1F0E;--cream:#F7F3EC;--bd:#e0d5c0;--bg:#fdfaf4;--wh:#fff;--red:#e74c3c;--grn:#27ae60;--blu:#2980b9;--orn:#e67e22;--gy:#95a5a6;--sh:0 2px 12px rgba(139,105,20,.1);}
@@ -134,22 +134,27 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <div class="login-ov" id="LOV">
   <div class="login-box">
     <div class="login-logo">मीनशा · Meensha</div>
-    <div class="login-sub">Admin Portal</div>
+    <div class="login-sub">Karigar Portal</div>
     <input type="text" id="LU" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()">
     <input type="password" id="LP" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
     <div class="login-err" id="LE"></div>
     <button class="btn bg" style="width:100%;justify-content:center;padding:11px;" onclick="doLogin()">Login →</button>
+    <div style="margin-top:12px;font-size:11px;">
+      <a href="#" onclick="openForgotPwd();return false;" style="color:var(--gdk);text-decoration:none;">Forgot password?</a>
+    </div>
+    <div id="LOV-LOCKED" style="display:none;margin-top:10px;padding:8px;background:#fee2e2;color:#991b1b;border-radius:6px;font-size:11px;"></div>
   </div>
 </div>
 
 <!-- TOPBAR -->
 <div class="tb">
-  <div><div class="tb-logo">मीनशा · Meensha Admin</div><div class="tb-user" id="TBU"></div></div>
+  <div><div class="tb-logo">मीनशा · Meensha Karigar</div><div class="tb-user" id="TBU"></div></div>
   <div class="tb-r">
     <button class="btn bgy sm" onclick="importBackup()">📂 Import Backup</button>
     <input type="file" id="BKF" accept=".json" style="display:none" onchange="doImport(event)">
     <button class="btn bgy sm" onclick="exportAllXL()">📊 Export All</button>
     <button class="btn bg sm" onclick="backupNow()">💾 Backup</button>
+    <button class="btn bgy sm" onclick="openChangePwd()">🔑 Password</button>
     <button class="btn br sm" onclick="doLogout()">🔒 Logout</button>
   </div>
 </div>
@@ -162,6 +167,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <button class="tab" onclick="showTab('sale',this)" id="tb-sale">🛍️ New Sale</button>
   <button class="tab" onclick="showTab('sum',this)" id="tb-sum">📈 Summary</button>
   <button class="tab" onclick="showTab('pnl',this)" id="tb-pnl">💰 P&L</button>
+  <button class="tab" onclick="showTab('vend',this)" id="tb-vend">🧑‍🌾 Vendors</button>
   <button class="tab" onclick="showTab('rev',this)" id="tb-rev">⭐ Reviews</button>
   <button class="tab" onclick="showTab('usr',this)" id="tb-usr">👥 Users</button>
 </div>
@@ -445,13 +451,383 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- ═══ USERS ═══ -->
 <div id="tp-usr" class="tp">
   <div style="display:flex;justify-content:flex-end;margin-bottom:14px;"><button class="btn bg" onclick="openUsrModal()">➕ Add User</button></div>
-  <div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th>WhatsApp</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="USR-BODY"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th>Username</th><th>Name</th><th>Role</th><th>WhatsApp</th><th>Email</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead><tbody id="USR-BODY"></tbody></table></div>
+
+  <!-- Pending Password Reset Requests (rachnakar sees) -->
+  <div class="card hi" id="PRR-CARD" style="margin-top:16px;border-left:4px solid var(--red);">
+    <div class="ct" style="color:var(--red);">🔑 Pending Password Reset Requests</div>
+    <div id="PRR-LIST"></div>
+  </div>
+
+  <!-- Recovery Codes (own codes if rachnakar) -->
+  <div class="card hi" id="RC-CARD" style="margin-top:16px;">
+    <div class="ct">🔐 Your Recovery Codes</div>
+    <div id="RC-SUMMARY" style="font-size:12px;color:#555;margin-bottom:10px;"></div>
+    <button class="btn bg sm" onclick="generateRecoveryCodes()">🔄 Generate 10 New Codes</button>
+    <div style="font-size:11px;color:var(--gy);margin-top:8px;">Generating new codes invalidates any previous set.</div>
+  </div>
+
+  <!-- Second rachnakar warning -->
+  <div class="card hi" id="SA-WARN" style="margin-top:16px;border-left:4px solid var(--orn);">
+    <div style="color:var(--orn);font-weight:700;font-size:13px;margin-bottom:6px;">⚠️ Only one Rachnakar account exists</div>
+    <div style="font-size:12px;color:#555;line-height:1.5;">
+      If this account's password is lost, recovery depends entirely on the email reset flow or your recovery codes. Consider creating a secondary Rachnakar account as a backup.
+    </div>
+  </div>
+
+  <!-- Auth Log (rachnakar only) -->
+  <div class="card hi" id="AL-CARD" style="margin-top:16px;">
+    <div class="ct">🛡️ Recent Login Activity</div>
+    <div class="flt">
+      <select id="AL-FUN" onchange="renderAuthLog()"><option value="">All users</option></select>
+      <select id="AL-FST" onchange="renderAuthLog()">
+        <option value="">All</option>
+        <option value="false">Failed only</option>
+        <option value="true">Successful only</option>
+      </select>
+      <button class="btn bg sm" onclick="renderAuthLog()">🔄 Refresh</button>
+      <button class="btn bb sm" onclick="exportAuthLogXL()">📊 Excel</button>
+    </div>
+    <div class="tw" style="max-height:420px;overflow-y:auto;"><table>
+      <thead><tr><th>When</th><th>Username</th><th>Result</th><th>Reason</th><th>Browser</th><th>IP (best-guess)</th></tr></thead>
+      <tbody id="AL-BODY"></tbody>
+    </table></div>
+  </div>
+
   <!-- Permissions Panel (Super Admin only) -->
   <div class="card" style="margin-top:16px;">
-    <div class="ct">🔐 Role Permissions <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Super Admin can configure module access per role</span></div>
+    <div class="ct">🔐 Role Permissions <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Rachnakar can configure module access per role</span></div>
     <div id="PERM-PANEL"></div>
   </div>
 </div>
+
+<!-- ═══ VENDORS ═══ -->
+<div id="tp-vend" class="tp">
+  <div class="sr" id="VD-STATS"></div>
+
+  <!-- Migration card (only shown if legacy inventory exists) -->
+  <div class="card hi" id="VD-MIGCARD" style="border-left:4px solid var(--orn);">
+    <div class="ct" style="color:var(--orn);">🔄 Legacy Inventory Migration</div>
+    <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:10px;" id="VD-MIGBODY">
+      Checking legacy data...
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn bo" onclick="previewMigration()">👁️ Preview Migration</button>
+      <button class="btn bg hi" id="VD-MIGRUN" onclick="runMigration()">▶ Run Migration</button>
+    </div>
+    <div id="VD-MIGLOG" style="margin-top:12px;font-size:11px;font-family:monospace;max-height:200px;overflow:auto;"></div>
+  </div>
+
+  <!-- Pending edit requests (super_admin sees & approves) -->
+  <div class="card hi" id="VD-REQCARD" style="border-left:4px solid var(--red);">
+    <div class="ct" style="color:var(--red);">⚠️ Pending Vendor ID Edit Requests</div>
+    <div id="VD-REQLIST"></div>
+  </div>
+
+  <!-- Vendor register -->
+  <div class="card">
+    <div class="ct">🧑‍🌾 Vendor Register</div>
+    <div class="flt">
+      <input type="text" id="VD-Q" placeholder="🔍 Name, code, place..." oninput="renderVendors()">
+      <select id="VD-ST" onchange="renderVendors()">
+        <option value="">All</option>
+        <option value="active">Active</option>
+        <option value="blacklisted">Blacklisted</option>
+      </select>
+      <button class="btn bg sm" onclick="exportVendorsXL()">📊 Excel</button>
+      <button class="btn bb sm" onclick="exportVendorsPDF()">📄 PDF</button>
+      <button class="btn bgn sm" onclick="openVendorModal()">➕ New Vendor</button>
+    </div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>ID</th><th>Name</th><th>Place</th><th>WhatsApp</th>
+        <th>Purchases</th><th>Total ₹</th><th>Units</th>
+        <th>Issues</th><th>Status</th><th>Rating</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="VD-BODY"></tbody>
+    </table></div>
+  </div>
+
+  <!-- Issues summary -->
+  <div class="card">
+    <div class="ct">⚠️ Vendor Issues <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Owners add issues against specific batches or units</span></div>
+    <div class="flt">
+      <select id="VI-FSTAT" onchange="renderAllIssues()">
+        <option value="open">Open</option>
+        <option value="resolved">Resolved</option>
+        <option value="">All</option>
+      </select>
+      <select id="VI-FTYPE" onchange="renderAllIssues()">
+        <option value="">All Types</option>
+        <option value="quality">Quality</option>
+        <option value="delay">Delay</option>
+        <option value="shortage">Shortage</option>
+        <option value="payment">Payment</option>
+        <option value="damage">Damage</option>
+        <option value="other">Other</option>
+      </select>
+      <button class="btn bg sm" onclick="exportIssuesXL()">📊 Excel</button>
+      <button class="btn bb sm" onclick="exportIssuesPDF()">📄 PDF</button>
+      <button class="btn bgn sm" onclick="openIssueModal()">➕ Log Issue</button>
+    </div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Date</th><th>Vendor</th><th>Type</th><th>Batch / Unit</th>
+        <th>Description</th><th>Status</th><th>Resolved</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="VI-BODY"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<!-- Vendor Modal -->
+<div class="mo hi" id="MO-VEND"><div class="md">
+  <div class="mt2" id="VEND-TITLE">➕ New Vendor</div>
+  <div class="fg">
+    <div class="fi">
+      <label>Vendor ID *</label>
+      <input id="VE-VID" placeholder="001" maxlength="3" pattern="[0-9]{3}">
+      <div style="font-size:10px;color:var(--gy);margin-top:3px;" id="VE-VID-HINT">3-digit numeric; auto-suggested</div>
+    </div>
+    <div class="fi" style="grid-column:span 2;"><label>Name *</label><input id="VE-NM" placeholder="e.g. Ramesh Weaves"></div>
+    <div class="fi"><label>WhatsApp</label><input id="VE-WA" placeholder="+91..."></div>
+    <div class="fi"><label>Place</label><input id="VE-PL" placeholder="e.g. Varanasi"></div>
+    <div class="fi"><label>GST No.</label><input id="VE-GST" placeholder="optional"></div>
+    <div class="fi"><label>Rating</label>
+      <select id="VE-RAT">
+        <option value="">—</option>
+        <option value="5">★★★★★</option>
+        <option value="4">★★★★</option>
+        <option value="3">★★★</option>
+        <option value="2">★★</option>
+        <option value="1">★</option>
+      </select>
+    </div>
+    <div class="fi"><label>Status</label>
+      <select id="VE-ST">
+        <option value="active">Active</option>
+        <option value="blacklisted">Blacklisted</option>
+      </select>
+    </div>
+  </div>
+  <div class="fi"><label>Address</label><textarea id="VE-ADDR" placeholder="Full address (optional)"></textarea></div>
+  <div class="fi" style="margin-top:9px;"><label>Notes</label><textarea id="VE-NOT" placeholder="General notes, relationship history..."></textarea></div>
+  <div id="VE-VIDWARN" style="color:var(--red);font-size:11px;margin-top:8px;display:none;"></div>
+  <div class="mf">
+    <button class="btn bg" onclick="saveVendor()">💾 Save</button>
+    <button class="btn bgy" onclick="closeMo('MO-VEND')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Vendor Detail Modal (drill-down) -->
+<div class="mo hi" id="MO-VDET"><div class="md" style="max-width:900px;">
+  <div class="mt2" id="VDET-TITLE">Vendor Details</div>
+  <div id="VDET-HEADER" style="background:#fdf6eb;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;"></div>
+
+  <!-- Sub-tabs -->
+  <div style="display:flex;border-bottom:2px solid var(--bd);margin-bottom:12px;">
+    <button class="vdtab on" onclick="showVDTab('purchases',this)" data-t="purchases" style="padding:8px 16px;font-size:11px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--gdk);border-bottom:2px solid var(--gdk);margin-bottom:-2px;">📦 Purchases</button>
+    <button class="vdtab" onclick="showVDTab('units',this)" data-t="units" style="padding:8px 16px;font-size:11px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--gy);border-bottom:2px solid transparent;margin-bottom:-2px;">🧵 Units</button>
+    <button class="vdtab" onclick="showVDTab('issues',this)" data-t="issues" style="padding:8px 16px;font-size:11px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--gy);border-bottom:2px solid transparent;margin-bottom:-2px;">⚠️ Issues</button>
+    <button class="vdtab" onclick="showVDTab('profit',this)" data-t="profit" style="padding:8px 16px;font-size:11px;font-weight:700;border:none;background:none;cursor:pointer;color:var(--gy);border-bottom:2px solid transparent;margin-bottom:-2px;">💰 Profitability</button>
+  </div>
+
+  <div id="VDET-BODY"></div>
+
+  <div class="mf">
+    <button class="btn bb" onclick="exportVendorReportPDF()">📄 Full Report PDF</button>
+    <button class="btn bgn" onclick="openVendorEdit()">✏️ Edit Vendor</button>
+    <button class="btn bo hi" id="VDET-REQID" onclick="requestVendorIdChange()">🔑 Request ID Change</button>
+    <button class="btn bgy" onclick="closeMo('MO-VDET')">Close</button>
+  </div>
+</div></div>
+
+<!-- Issue Modal -->
+<div class="mo hi" id="MO-ISSUE"><div class="md">
+  <div class="mt2" id="ISS-TITLE">➕ Log Vendor Issue</div>
+  <div class="fg">
+    <div class="fi" style="grid-column:span 2;"><label>Vendor *</label>
+      <select id="IS-VEND" onchange="issueLoadBatches()"></select>
+    </div>
+    <div class="fi"><label>Date *</label><input type="date" id="IS-DT"></div>
+    <div class="fi"><label>Type *</label>
+      <select id="IS-TYPE">
+        <option value="quality">Quality</option>
+        <option value="delay">Delay</option>
+        <option value="shortage">Shortage</option>
+        <option value="payment">Payment</option>
+        <option value="damage">Damage</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="fi"><label>Batch</label>
+      <select id="IS-BATCH" onchange="issueLoadUnits()">
+        <option value="">— select vendor first —</option>
+      </select>
+    </div>
+    <div class="fi"><label>Specific Unit(s) (optional)</label>
+      <select id="IS-UNITS" multiple style="height:70px;">
+        <option value="">— pick batch first —</option>
+      </select>
+    </div>
+    <div class="fi"><label>Status</label>
+      <select id="IS-STAT">
+        <option value="open">Open</option>
+        <option value="resolved">Resolved</option>
+      </select>
+    </div>
+  </div>
+  <div class="fi" style="margin-top:9px;"><label>Description *</label>
+    <textarea id="IS-DESC" placeholder="What went wrong? Be specific."></textarea>
+  </div>
+  <div class="fi" style="margin-top:9px;"><label>Resolution (if any)</label>
+    <textarea id="IS-RES" placeholder="Action taken or agreed compensation..."></textarea>
+  </div>
+  <div class="mf">
+    <button class="btn bg" onclick="saveIssue()">💾 Save Issue</button>
+    <button class="btn bgy" onclick="closeMo('MO-ISSUE')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Vendor ID Change Request Modal -->
+<div class="mo hi" id="MO-VIDREQ"><div class="md">
+  <div class="mt2">🔑 Request Vendor ID Change</div>
+  <div style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.5;">
+    Vendor ID changes affect <strong>every printed price tag</strong> for this vendor's stock.
+    Only a super admin can approve this. Submit your request and reason below.
+  </div>
+  <div class="fg">
+    <div class="fi"><label>Current ID</label><input id="VR-OLD" readonly></div>
+    <div class="fi"><label>New ID *</label><input id="VR-NEW" placeholder="3 digits" maxlength="3"></div>
+  </div>
+  <div class="fi" style="margin-top:9px;"><label>Reason *</label>
+    <textarea id="VR-REASON" placeholder="Why does this need to change?"></textarea>
+  </div>
+  <div id="VR-WARN" style="color:var(--red);font-size:11px;margin-top:8px;display:none;"></div>
+  <div class="mf">
+    <button class="btn bo" onclick="submitVendorIdRequest()">📤 Submit Request</button>
+    <button class="btn bgy" onclick="closeMo('MO-VIDREQ')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Migration Preview Modal -->
+<div class="mo hi" id="MO-MIG"><div class="md" style="max-width:720px;">
+  <div class="mt2">🔄 Legacy Migration Preview</div>
+  <div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:12px;">
+    This will explode your existing <code>inventory</code> table into SKUs + individual units,
+    create a placeholder vendor <strong>001 (Migration Seed)</strong>, and a placeholder purchase row
+    dated today. Your original <code>inventory</code> rows stay untouched.
+  </div>
+  <div id="MIG-PREVIEW" style="max-height:50vh;overflow:auto;font-size:11px;"></div>
+  <div class="mf">
+    <button class="btn bg" onclick="confirmMigration()">✓ Confirm &amp; Migrate</button>
+    <button class="btn bgy" onclick="closeMo('MO-MIG')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- ═══ AUTH MODALS (1A.5) ═══ -->
+
+<!-- Change Password (self-service) -->
+<div class="mo hi" id="MO-CHPW"><div class="md" style="max-width:420px;">
+  <div class="mt2">🔑 Change Password</div>
+  <div class="fg">
+    <div class="fi" style="grid-column:1/-1"><label>Current Password *</label><input type="password" id="CP-CUR" autocomplete="current-password"></div>
+    <div class="fi" style="grid-column:1/-1"><label>New Password *</label><input type="password" id="CP-NEW" autocomplete="new-password" placeholder="Min 8 characters"></div>
+    <div class="fi" style="grid-column:1/-1"><label>Confirm New Password *</label><input type="password" id="CP-CON" autocomplete="new-password"></div>
+  </div>
+  <div id="CP-WARN" style="color:var(--red);font-size:11px;margin-top:8px;display:none;"></div>
+  <div id="CP-FORCED-NOTE" style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:9px;font-size:12px;color:#92400e;margin-top:10px;display:none;">⚠️ Your password was reset. You must change it before continuing.</div>
+  <div class="mf">
+    <button class="btn bg" onclick="saveNewPassword()">💾 Save</button>
+    <button class="btn bgy" onclick="closeMo('MO-CHPW')" id="CP-CANCEL">Cancel</button>
+  </div>
+</div></div>
+
+<!-- Forgot Password (from login screen) -->
+<div class="mo hi" id="MO-FORGOT"><div class="md" style="max-width:460px;">
+  <div class="mt2">🔓 Forgot Password?</div>
+  <div style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.5;">
+    Enter your username. What happens next depends on your role:
+    <ul style="margin:6px 0 0 18px;">
+      <li><strong>Owners / Sales:</strong> request is sent to Rachnakar, who will reset your password and WhatsApp it to you.</li>
+      <li><strong>Rachnakar:</strong> email reset or recovery code options appear.</li>
+    </ul>
+  </div>
+  <div class="fg">
+    <div class="fi" style="grid-column:1/-1"><label>Username *</label><input id="FG-UN" autocomplete="username"></div>
+  </div>
+  <div id="FG-STAGE1" style="margin-top:10px;">
+    <div class="fi"><label>Optional note for Rachnakar</label><textarea id="FG-NOTE" placeholder="e.g. Forgot after phone reset..."></textarea></div>
+    <div class="mf">
+      <button class="btn bg" onclick="submitForgotPwd()">📤 Continue</button>
+      <button class="btn bgy" onclick="closeMo('MO-FORGOT')">Cancel</button>
+    </div>
+  </div>
+  <div id="FG-STAGE2-SA" style="display:none;margin-top:14px;padding:12px;background:#f8f6f0;border-radius:7px;">
+    <div style="font-size:13px;font-weight:700;color:var(--gdk);margin-bottom:8px;">Choose reset method:</div>
+    <div style="display:flex;gap:8px;flex-direction:column;">
+      <button class="btn bg" style="justify-content:flex-start;padding:11px;" onclick="requestEmailReset()">📧 Email reset link to the registered recovery email</button>
+      <button class="btn bgy" style="justify-content:flex-start;padding:11px;" onclick="showRecoveryCodeEntry()">🔐 Use a recovery code instead</button>
+    </div>
+    <button class="btn bgy sm" style="margin-top:10px;" onclick="closeMo('MO-FORGOT')">Cancel</button>
+  </div>
+  <div id="FG-STAGE3-EMAIL" style="display:none;margin-top:14px;padding:12px;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:7px;">
+    <div style="font-size:13px;color:#1b5e20;">📧 Email sent. Check your inbox (and spam folder) for a reset link. The link expires in 30 minutes.</div>
+    <button class="btn bgy sm" style="margin-top:10px;" onclick="closeMo('MO-FORGOT')">Close</button>
+  </div>
+  <div id="FG-STAGE3-CODE" style="display:none;margin-top:14px;">
+    <div class="fi"><label>Recovery Code *</label><input id="FG-CODE" placeholder="ABCd-EFGh-JKLm" style="font-family:monospace;text-transform:none;"></div>
+    <div class="fi" style="margin-top:8px;"><label>New Password *</label><input type="password" id="FG-NEWPW"></div>
+    <div class="fi" style="margin-top:8px;"><label>Confirm New Password *</label><input type="password" id="FG-CONPW"></div>
+    <div id="FG-CODE-WARN" style="color:var(--red);font-size:11px;margin-top:7px;display:none;"></div>
+    <div class="mf">
+      <button class="btn bg" onclick="submitRecoveryCode()">🔓 Reset Password</button>
+      <button class="btn bgy" onclick="closeMo('MO-FORGOT')">Cancel</button>
+    </div>
+  </div>
+</div></div>
+
+<!-- Email Reset Token Entry (when user clicks email link and returns with token) -->
+<div class="mo hi" id="MO-EMTOK"><div class="md" style="max-width:440px;">
+  <div class="mt2">📧 Email Reset — Set New Password</div>
+  <div style="font-size:12px;color:#555;margin-bottom:10px;">Token verified. Enter a new password.</div>
+  <div class="fg">
+    <div class="fi" style="grid-column:1/-1"><label>New Password *</label><input type="password" id="ET-NEW"></div>
+    <div class="fi" style="grid-column:1/-1"><label>Confirm New Password *</label><input type="password" id="ET-CON"></div>
+  </div>
+  <div id="ET-WARN" style="color:var(--red);font-size:11px;margin-top:8px;display:none;"></div>
+  <div class="mf">
+    <button class="btn bg" onclick="submitEmailTokenReset()">💾 Set Password</button>
+  </div>
+</div></div>
+
+<!-- Recovery Codes Display (rachnakar generates codes) -->
+<div class="mo hi" id="MO-RCODES"><div class="md" style="max-width:520px;">
+  <div class="mt2">🔐 Your Recovery Codes</div>
+  <div style="background:#fee2e2;border:1px solid #fecaca;border-radius:7px;padding:10px;font-size:12px;color:#991b1b;margin-bottom:12px;line-height:1.5;">
+    <strong>Save these codes now.</strong> Each code works exactly once. After you close this window, the plain-text codes are gone forever. If you lose them AND your password, the only way back in is a Supabase admin manually editing the database.
+  </div>
+  <div id="RC-LIST" style="font-family:monospace;background:#f8f6f0;border:1px solid var(--bd);border-radius:6px;padding:14px;font-size:14px;letter-spacing:.05em;line-height:2;text-align:center;"></div>
+  <div class="mf">
+    <button class="btn bg" onclick="downloadRecoveryCodes()">📥 Download as .txt</button>
+    <button class="btn bgn" onclick="copyRecoveryCodes()">📋 Copy all</button>
+    <button class="btn bgy" onclick="closeRecoveryCodesModal()">I've Saved Them</button>
+  </div>
+</div></div>
+
+<!-- Rachnakar: Generate temp password display for user reset -->
+<div class="mo hi" id="MO-GENPW"><div class="md" style="max-width:440px;">
+  <div class="mt2">🔑 Temporary Password Generated</div>
+  <div style="font-size:12px;color:#555;margin-bottom:10px;">
+    A new password has been set for <strong id="GP-USER"></strong>. Send it via WhatsApp. The user will be forced to change it on their next login.
+  </div>
+  <div id="GP-PW" style="font-family:monospace;background:#f8f6f0;border:2px dashed var(--gdk);border-radius:7px;padding:16px;font-size:18px;letter-spacing:.1em;text-align:center;font-weight:700;"></div>
+  <div class="mf">
+    <button class="btn bwa" onclick="whatsAppGeneratedPw()">📱 Send via WhatsApp</button>
+    <button class="btn bgn" onclick="copyGeneratedPw()">📋 Copy</button>
+    <button class="btn bgy" onclick="dismissGeneratedPw()">Done</button>
+  </div>
+</div></div>
 
 <!-- ═══ MODALS ═══ -->
 <!-- Invoice -->
@@ -562,8 +938,9 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi"><label>Username *</label><input id="U-UN" placeholder="e.g. sales2"></div>
     <div class="fi"><label>Password *</label><input type="password" id="U-PW" placeholder="Password"></div>
     <div class="fi"><label>Display Name *</label><input id="U-NM" placeholder="Full name"></div>
-    <div class="fi"><label>Role *</label><select id="U-RL"><option value="sales">Sales</option><option value="owner">Owner (Shalini/Meenakshi)</option><option value="super_admin">Super Admin (Shameen)</option></select></div>
+    <div class="fi"><label>Role *</label><select id="U-RL"><option value="sales">Sales</option><option value="owner">Owner (Shalini/Meenakshi)</option><option value="super_admin">Rachnakar (Shameen)</option></select></div>
     <div class="fi"><label>WhatsApp</label><input id="U-WA" placeholder="+91..."></div>
+    <div class="fi" style="grid-column:span 2;"><label>Email (for rachnakar password reset)</label><input id="U-EM" type="email" placeholder="user@example.com"></div>
     <div class="fi"><label>Status</label><select id="U-AC"><option value="true">Active</option><option value="false">Inactive</option></select></div>
   </div>
   <div class="mf"><button class="btn bg" onclick="saveUsr()">Save User</button><button class="btn bgy" onclick="closeMo('MO-USR')">Cancel</button></div>
@@ -579,7 +956,7 @@ const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
 const LOCAL_USERS=[{username:'shameen',password_hash:'admin@123',role:'super_admin',display_name:'Deedee',wa:'918709525218',active:true},{username:'shalini',password_hash:'shalini@123',role:'owner',display_name:'Shalini',wa:'',active:true},{username:'meenakshi',password_hash:'meenakshi@123',role:'owner',display_name:'Meenakshi',wa:'918709525218',active:true},{username:'sales1',password_hash:'sales@123',role:'sales',display_name:'Sales',wa:'',active:true}];
 // Default role permissions (super_admin can override via UI)
-const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','rev','usr'],owner:['home','inv','stock','sale','sum','pnl','rev'],sales:['sale','inv']};
+const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','rev','usr'],owner:['home','inv','stock','sale','sum','pnl','vend','rev'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
 const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',fabric:'Cotton',qty:6,sold:0,cost:3000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#2',cat:'AJRK/MODL/SLK',name:'Ajrak Modal Silk',subtype:'',fabric:'Modal Silk',qty:5,sold:0,cost:1399,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#5',cat:'PCHMPL/COT/SLK',name:'Pochampally Cotton Silk',subtype:'',fabric:'Cotton Silk',qty:1,sold:0,cost:720,mrp:1800,disc:10,sale_price:1620,photos:[]},{item_id:'#6',cat:'DOLA/SLK2',name:'Dola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:720,mrp:1500,disc:10,sale_price:1350,photos:[]},{item_id:'#7',cat:'DOLA/SLK1',name:'Dola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:899,mrp:2000,disc:10,sale_price:1800,photos:[]},{item_id:'#8',cat:'TUSS/SLK/MDHB',name:'Tussar Silk',subtype:'Madhubani',fabric:'Tussar Silk',qty:3,sold:0,cost:3200,mrp:6400,disc:10,sale_price:5760,photos:[]},{item_id:'#9',cat:'TUSS/DUPIN',name:'Tussar Dupin',subtype:'',fabric:'Tussar',qty:1,sold:0,cost:3100,mrp:6000,disc:10,sale_price:5400,photos:[]},{item_id:'#10',cat:'TUSS/HAND',name:'Tussar',subtype:'Handpainted',fabric:'Tussar',qty:2,sold:0,cost:4800,mrp:9000,disc:10,sale_price:8100,photos:[]},{item_id:'#11',cat:'TUSS/SUIT/MDHB',name:'Tussar Suit',subtype:'Madhubani',fabric:'Tussar',qty:4,sold:0,cost:3000,mrp:5600,disc:10,sale_price:5040,photos:[]},{item_id:'#12',cat:'TUSS/GHCHA',name:'Tussar',subtype:'Ghicha',fabric:'Tussar',qty:4,sold:0,cost:4200,mrp:8500,disc:10,sale_price:7650,photos:[]},{item_id:'#13',cat:'IKKT/COT',name:'Ikkat',subtype:'Cotton',fabric:'Cotton',qty:13,sold:0,cost:2000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#14',cat:'KLMK/COT',name:'Kalamkari',subtype:'Cotton',fabric:'Cotton',qty:6,sold:0,cost:1000,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#15',cat:'MUL/COT',name:'Mul Cotton',subtype:'',fabric:'Cotton',qty:1,sold:0,cost:2200,mrp:4500,disc:10,sale_price:4050,photos:[]},{item_id:'#16',cat:'GHRCHL/AJRKSEMI',name:'Gharchola',subtype:'Semi Ajrak',fabric:'Silk',qty:4,sold:0,cost:3700,mrp:7500,disc:10,sale_price:6750,photos:[]},{item_id:'#17',cat:'GHRCHL/BANDH',name:'Gharchola',subtype:'Bandhej',fabric:'Silk',qty:1,sold:0,cost:3100,mrp:6300,disc:10,sale_price:5670,photos:[]},{item_id:'#18',cat:'AJRK/PL',name:'Ajrak Plain',subtype:'',fabric:'Cotton',qty:5,sold:0,cost:2600,mrp:5500,disc:10,sale_price:4950,photos:[]},{item_id:'#19',cat:'MODAL/PL',name:'Modal Plain',subtype:'',fabric:'Modal',qty:5,sold:0,cost:1650,mrp:3300,disc:10,sale_price:2970,photos:[]},{item_id:'#20',cat:'MODAL/AJRK',name:'Modal Ajrak',subtype:'',fabric:'Modal',qty:5,sold:0,cost:2500,mrp:4800,disc:10,sale_price:4320,photos:[]},{item_id:'#21',cat:'KOTA/BLOCK',name:'Kota Doria',subtype:'Block Print',fabric:'Kota Doria',qty:2,sold:0,cost:1700,mrp:2900,disc:10,sale_price:2610,photos:[]},{item_id:'#22',cat:'KOTA/SCRN',name:'Kota Doria',subtype:'Screen Print',fabric:'Kota Doria',qty:2,sold:0,cost:1300,mrp:2500,disc:10,sale_price:2250,photos:[]},{item_id:'#23',cat:'DOLA/MODAL/SLK',name:'Dola Modal Silk',subtype:'',fabric:'Modal Silk',qty:1,sold:0,cost:2700,mrp:5800,disc:10,sale_price:5220,photos:[]},{item_id:'#24',cat:'PATOLA/SLK1',name:'Patola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:10000,mrp:17900,disc:10,sale_price:16110,photos:[]},{item_id:'#25',cat:'PATOLA/SLK2',name:'Patola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:11000,mrp:18500,disc:10,sale_price:16650,photos:[]}];
 
@@ -602,7 +979,9 @@ async function uploadFile(bucket,file){
 // STATE
 // ═══════════════════════════════════════════════
 let CU=null,inv=[],sales=[],purch=[],ohs=[],revs=[],users=[],reqs=[],popups=[],igPosts=[];
+let vendors=[],skus=[],units=[],issues=[],vidRequests=[],shorthands={patterns:{},materials:{},variants:{}};
 let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,niCatImg=null,evTmpPh=[],igTmpPh=null;
+let editVendorId=null,editIssueId=null,currentVendorDetail=null;
 const fmt=n=>Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2});
 const sp=(m,d)=>Math.round(m*(1-d/100));
 
@@ -614,18 +993,146 @@ function toast(m,c='#C9A84C'){const t=document.getElementById('toast');t.textCon
 // ═══════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// LOGIN (hardened — 1A.5)
+// ═══════════════════════════════════════════════
+
+// URL of the Supabase Edge Function for email sending. Populated from settings on startup.
+let EDGE_EMAIL_URL='';
+
+// Client-side brute-force lockout: 5 fails in 10 min → 15 min lock, per-username.
+const LOCK_ATTEMPTS=5, LOCK_WINDOW_MIN=10, LOCK_DURATION_MIN=15;
+function lockKey(u){return 'MSN_LOCK_'+u.toLowerCase();}
+function getLockState(u){
+  try{const raw=localStorage.getItem(lockKey(u));if(!raw)return{fails:[],lockedUntil:0};const o=JSON.parse(raw);return{fails:o.fails||[],lockedUntil:o.lockedUntil||0};}catch{return{fails:[],lockedUntil:0};}
+}
+function setLockState(u,s){try{localStorage.setItem(lockKey(u),JSON.stringify(s));}catch{}}
+function isLockedOut(u){
+  const s=getLockState(u);
+  if(s.lockedUntil&&Date.now()<s.lockedUntil)return Math.ceil((s.lockedUntil-Date.now())/60000);
+  return 0;
+}
+function recordFail(u){
+  const s=getLockState(u);
+  const now=Date.now();
+  const cutoff=now-LOCK_WINDOW_MIN*60000;
+  s.fails=s.fails.filter(t=>t>cutoff);
+  s.fails.push(now);
+  if(s.fails.length>=LOCK_ATTEMPTS){s.lockedUntil=now+LOCK_DURATION_MIN*60000;s.fails=[];}
+  setLockState(u,s);
+}
+function clearFails(u){setLockState(u,{fails:[],lockedUntil:0});}
+
+async function logAuthAttempt(username,success,reason){
+  try{
+    await sbIns('auth_log',{
+      username:(username||'').toLowerCase(),
+      success:!!success,
+      reason:reason||'',
+      ip_guess:'', // real IP not available from client; filled by Edge Fn server-side if ever needed
+      user_agent:(navigator.userAgent||'').slice(0,200)
+    });
+  }catch{}
+  // Fire-and-forget suspicious-activity check for failures
+  if(!success)suspiciousActivityCheck(username);
+}
+
+async function suspiciousActivityCheck(username){
+  if(!username)return;
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/recent_failed_logins`,{
+      method:'POST',headers:HDR(),
+      body:JSON.stringify({p_username:username,p_minutes:15})
+    });
+    if(!r.ok)return;
+    const count=await r.json();
+    if(count>=10){
+      // Send email alert via Edge Function. Silent if not configured.
+      if(EDGE_EMAIL_URL){
+        try{
+          await fetch(EDGE_EMAIL_URL,{
+            method:'POST',headers:HDR(),
+            body:JSON.stringify({
+              kind:'suspicious_activity',
+              username:username,
+              fail_count:count,
+              window_minutes:15
+            })
+          });
+        }catch{}
+      }
+    }
+  }catch{}
+}
+
 async function doLogin(){
   const u=document.getElementById('LU').value.trim(),p=document.getElementById('LP').value;
   const e=document.getElementById('LE');e.style.display='none';
+  const lockBox=document.getElementById('LOV-LOCKED');if(lockBox)lockBox.style.display='none';
+
   if(!u||!p){e.textContent='Enter username and password.';e.style.display='block';return;}
+
+  // Check lockout
+  const locked=isLockedOut(u);
+  if(locked){
+    const msg=`Too many failed attempts. Try again in ${locked} minute${locked===1?'':'s'}.`;
+    e.textContent=msg;e.style.display='block';
+    await logAuthAttempt(u,false,'locked_out');
+    return;
+  }
+
+  // Try DB users first
   let user=null;
   try{const rows=await sbQ('users',`?username=eq.${encodeURIComponent(u)}&password_hash=eq.${encodeURIComponent(p)}&active=eq.true`);if(rows&&rows.length)user=rows[0];}catch{}
-  if(!user){const loc=LOCAL_USERS.find(x=>x.username===u&&x.password_hash===p&&x.active);if(loc)user={...loc,id:'local-'+loc.username};}
-  if(!user){e.textContent='Incorrect username or password.';e.style.display='block';return;}
+  // LOCAL_USERS fallback only if the DB has no row for this username at all
+  // (prevents stale LOCAL_USERS password from logging in after DB password change)
+  if(!user){
+    try{
+      const existsInDb=await sbQ('users',`?username=eq.${encodeURIComponent(u)}&select=id`);
+      if(!existsInDb||!existsInDb.length){
+        const loc=LOCAL_USERS.find(x=>x.username===u&&x.password_hash===p&&x.active);
+        if(loc)user={...loc,id:'local-'+loc.username};
+      }
+    }catch{}
+  }
+
+  if(!user){
+    recordFail(u);
+    await logAuthAttempt(u,false,'bad_password');
+    const s=getLockState(u);
+    const remaining=LOCK_ATTEMPTS-s.fails.length;
+    e.textContent=`Incorrect username or password. ${remaining>0?remaining+' attempt'+(remaining===1?'':'s')+' remaining.':''}`;
+    e.style.display='block';
+    return;
+  }
+
+  clearFails(u);
+  await logAuthAttempt(u,true,'ok');
   CU=user;sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
   document.getElementById('LOV').classList.add('hi');
   if(user.id&&!user.id.startsWith('local-')){try{await sbUpd('users',`?id=eq.${user.id}`,{last_login:new Date().toISOString()});}catch{}}
+
+  // Forced password change?
+  if(user.must_change_password){
+    await initApp();
+    setTimeout(()=>openChangePwd(true),300);
+    return;
+  }
+
   initApp();
+
+  // Check URL for email-reset token (rachnakar landed here from an email link)
+  handleEmailResetLandingIfAny();
+}
+
+// If the user arrives with a ?reset_token=XYZ, verify & open the token-reset modal
+async function handleEmailResetLandingIfAny(){
+  const params=new URLSearchParams(window.location.search);
+  const tok=params.get('reset_token');
+  if(!tok)return;
+  sessionStorage.setItem('MSN_EMAIL_TOK',tok);
+  // We'll validate on form submit
+  setTimeout(()=>{document.getElementById('MO-EMTOK').classList.remove('hi');},500);
 }
 function doLogout(){sessionStorage.removeItem('MSN_USER');window.location.href='index.html';}
 
@@ -634,12 +1141,12 @@ function doLogout(){sessionStorage.removeItem('MSN_USER');window.location.href='
 // ═══════════════════════════════════════════════
 function applyRole(){
   const r=CU.role;
-  const lbl={super_admin:'Super Admin',owner:'Owner',sales:'Sales'};
+  const lbl={super_admin:'Rachnakar',owner:'Owner',sales:'Sales'};
   document.getElementById('TBU').textContent=CU.display_name+' · '+(lbl[r]||r.toUpperCase());
   if(r==='super_admin'){const el=document.getElementById('TBU');if(el)el.style.color='#C9A84C';}
   // Apply permissions: hide tabs not in the role's allowed list
   const allowed=rolePerms[r]||rolePerms.sales;
-  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',rev:'tb-rev',usr:'tb-usr'};
+  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',rev:'tb-rev',usr:'tb-usr'};
   Object.entries(tabMap).forEach(([mod,tabId])=>{
     const el=document.getElementById(tabId);
     if(!el)return;
@@ -676,6 +1183,22 @@ async function loadAll(){
       sbQ('instagram_posts','?active=eq.true&order=display_order'),
     ]);
     inv=a;sales=b;purch=c;ohs=d;revs=e;users=f;reqs=g;popups=h;igPosts=ii;
+    // Load new M1 tables (safe: empty arrays if tables missing or access denied)
+    try{
+      const [vd,sk,un,iss,ve]=await Promise.all([
+        sbQ('vendors','?order=vendor_id'),
+        sbQ('inventory_skus','?order=sku_code'),
+        sbQ('inventory_units','?order=unit_code'),
+        sbQ('vendor_issues','?order=created_at.desc'),
+        sbQ('vendor_edit_requests','?status=eq.pending&order=created_at.desc'),
+      ]);
+      vendors=vd||[];skus=sk||[];units=un||[];issues=iss||[];vidRequests=ve||[];
+    }catch(e){vendors=[];skus=[];units=[];issues=[];vidRequests=[];}
+    // Shorthand dictionary
+    try{
+      const sh=await sbQ('settings','?key=eq.sku_shorthands');
+      if(sh&&sh.length)shorthands=JSON.parse(sh[0].value||'{}');
+    }catch{}
     const sets=await sbQ('settings','?key=eq.inv_counter');
     if(sets&&sets.length)invCtr=parseInt(sets[0].value)||1000;
     // Seed inventory if empty
@@ -684,6 +1207,11 @@ async function loadAll(){
       for(const it of SEED_INV){try{await sbIns('inventory',it);}catch{}}
       inv=await sbQ('inventory','?order=item_id');
     }
+    // Load Edge Function URL for email sender (used by rachnakar password reset + suspicious activity alerts)
+    try{
+      const ef=await sbQ('settings','?key=eq.edge_email_url');
+      if(ef&&ef.length)EDGE_EMAIL_URL=ef[0].value||'';
+    }catch{}
     await loadTicker();
   }catch(err){toast('Load error: '+err.message,'var(--red)');}
 }
@@ -696,7 +1224,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();},pnl:()=>{renderPnL();renderOH();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
   renders[id]?.();
 }
 
@@ -744,6 +1272,1316 @@ function shipBadge(s){
 }
 
 async function markReqDone(id){await sbUpd('requests',`?id=eq.${id}`,{status:'done'});reqs=reqs.filter(r=>r.id!==id);renderHome();}
+
+// ═══════════════════════════════════════════════
+// VENDORS + ISSUES + MIGRATION (M1)
+// ═══════════════════════════════════════════════
+
+// XSS sanitiser — use for any Supabase-sourced text going into innerHTML
+function sanitise(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+
+// ────── Vendor helpers ─────────────────────────
+function vendorBy(vid){return vendors.find(v=>v.vendor_id===vid);}
+function vendorByUuid(u){return vendors.find(v=>v.id===u);}
+function vendorPurchases(vuuid){return purch.filter(p=>p.vendor_uuid===vuuid);}
+function vendorUnits(vcode){return units.filter(u=>u.vendor_code===vcode);}
+function vendorIssues(vuuid){return issues.filter(i=>i.vendor_uuid===vuuid);}
+function vendorTotal(vuuid){return vendorPurchases(vuuid).reduce((a,p)=>a+(p.total||0),0);}
+
+async function nextVendorId(){
+  // Try the server RPC first, then fall back to client calculation
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/next_vendor_id`,{method:'POST',headers:HDR(),body:'{}'});
+    if(r.ok){const v=await r.json();if(v)return String(v);}
+  }catch{}
+  let mx=0;vendors.forEach(v=>{const n=parseInt(v.vendor_id,10);if(!isNaN(n)&&n>mx)mx=n;});
+  return String(mx+1).padStart(3,'0');
+}
+
+function validVid(s){return /^[0-9]{3}$/.test(s||'');}
+
+// ────── Vendor register rendering ──────────────
+function renderVendorStats(){
+  const c=document.getElementById('VD-STATS');if(!c)return;
+  const total=vendors.length;
+  const active=vendors.filter(v=>v.status==='active').length;
+  const openIssues=issues.filter(i=>i.status==='open').length;
+  const totalBiz=purch.reduce((a,p)=>a+(p.total||0),0);
+  c.innerHTML=`
+    <div class="sc"><div class="sn">${total}</div><div class="sl">Vendors</div></div>
+    <div class="sc"><div class="sn">${active}</div><div class="sl">Active</div></div>
+    <div class="sc"><div class="sn" style="color:${openIssues?'var(--red)':'var(--grn)'}">${openIssues}</div><div class="sl">Open Issues</div></div>
+    <div class="sc"><div class="sn">₹${fmt(totalBiz)}</div><div class="sl">Total Purchases</div></div>`;
+}
+
+function renderVendors(){
+  const q=(document.getElementById('VD-Q')?.value||'').toLowerCase();
+  const st=document.getElementById('VD-ST')?.value||'';
+  let list=vendors.slice();
+  if(st)list=list.filter(v=>v.status===st);
+  if(q)list=list.filter(v=>(v.name||'').toLowerCase().includes(q)||v.vendor_id.includes(q)||(v.place||'').toLowerCase().includes(q));
+  const tb=document.getElementById('VD-BODY');if(!tb)return;
+  if(!list.length){
+    tb.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--gy);font-style:italic;padding:18px;">No vendors yet. Click <strong>➕ New Vendor</strong> to add one.</td></tr>`;
+    return;
+  }
+  tb.innerHTML=list.map(v=>{
+    const pc=vendorPurchases(v.id).length;
+    const tot=vendorTotal(v.id);
+    const un=vendorUnits(v.vendor_id).length;
+    const iss=vendorIssues(v.id).filter(i=>i.status==='open').length;
+    const rating=v.rating?'★'.repeat(v.rating)+'☆'.repeat(5-v.rating):'—';
+    const badge=v.status==='active'?'<span class="bx bg2">Active</span>':'<span class="bx br2">Blacklisted</span>';
+    return `<tr>
+      <td><strong style="font-family:monospace;color:var(--gdk);">${sanitise(v.vendor_id)}</strong></td>
+      <td><strong>${sanitise(v.name)}</strong></td>
+      <td>${sanitise(v.place||'—')}</td>
+      <td style="font-family:monospace;font-size:11px;">${sanitise(v.wa_number||'—')}</td>
+      <td>${pc}</td>
+      <td>₹${fmt(tot)}</td>
+      <td>${un}</td>
+      <td>${iss?`<span class="bx br2">${iss} open</span>`:'<span style="color:var(--gy);font-size:11px;">—</span>'}</td>
+      <td>${badge}</td>
+      <td style="color:#f39c12;font-size:11px;">${rating}</td>
+      <td style="display:flex;gap:3px;">
+        <button class="btn bb xs" onclick="openVendorDetail('${v.id}')">👁️</button>
+        <button class="btn bgy xs" onclick="editVendor('${v.id}')">✏️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ────── Vendor CRUD ─────────────────────────────
+async function openVendorModal(){
+  editVendorId=null;
+  document.getElementById('VEND-TITLE').textContent='➕ New Vendor';
+  ['VE-NM','VE-WA','VE-PL','VE-GST','VE-ADDR','VE-NOT'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('VE-RAT').value='';
+  document.getElementById('VE-ST').value='active';
+  document.getElementById('VE-VIDWARN').style.display='none';
+  const suggested=await nextVendorId();
+  document.getElementById('VE-VID').value=suggested;
+  document.getElementById('VE-VID').readOnly=false;
+  document.getElementById('VE-VID-HINT').textContent='Auto-suggested: '+suggested+' — editable';
+  document.getElementById('MO-VEND').classList.remove('hi');
+}
+
+function editVendor(id){
+  const v=vendorByUuid(id);if(!v){toast('Vendor not found','var(--red)');return;}
+  editVendorId=id;
+  document.getElementById('VEND-TITLE').textContent='✏️ Edit: '+v.name;
+  document.getElementById('VE-VID').value=v.vendor_id;
+  // Owners cannot change the vendor_id directly — they must request via the detail modal
+  const canEditVid=CU.role==='super_admin';
+  document.getElementById('VE-VID').readOnly=!canEditVid;
+  document.getElementById('VE-VID-HINT').textContent=canEditVid?'Super admin: you can edit this directly.':'ID is locked. Use "Request ID Change" from vendor details.';
+  document.getElementById('VE-NM').value=v.name||'';
+  document.getElementById('VE-WA').value=v.wa_number||'';
+  document.getElementById('VE-PL').value=v.place||'';
+  document.getElementById('VE-GST').value=v.gst_number||'';
+  document.getElementById('VE-ADDR').value=v.address||'';
+  document.getElementById('VE-NOT').value=v.notes||'';
+  document.getElementById('VE-RAT').value=v.rating||'';
+  document.getElementById('VE-ST').value=v.status||'active';
+  document.getElementById('VE-VIDWARN').style.display='none';
+  document.getElementById('MO-VEND').classList.remove('hi');
+}
+
+async function saveVendor(){
+  const vid=document.getElementById('VE-VID').value.trim();
+  const nm=document.getElementById('VE-NM').value.trim();
+  const warn=document.getElementById('VE-VIDWARN');
+  warn.style.display='none';
+  if(!nm){warn.textContent='Vendor name is required.';warn.style.display='block';return;}
+  if(!validVid(vid)){warn.textContent='Vendor ID must be exactly 3 digits.';warn.style.display='block';return;}
+  // Uniqueness check
+  const dup=vendors.find(v=>v.vendor_id===vid&&v.id!==editVendorId);
+  if(dup){warn.textContent='Vendor ID '+vid+' already used by '+dup.name+'.';warn.style.display='block';return;}
+  const data={
+    vendor_id:vid,
+    name:nm,
+    wa_number:document.getElementById('VE-WA').value.trim(),
+    place:document.getElementById('VE-PL').value.trim(),
+    gst_number:document.getElementById('VE-GST').value.trim(),
+    address:document.getElementById('VE-ADDR').value.trim(),
+    notes:document.getElementById('VE-NOT').value.trim(),
+    rating:parseInt(document.getElementById('VE-RAT').value)||null,
+    status:document.getElementById('VE-ST').value,
+    updated_at:new Date().toISOString()
+  };
+  try{
+    if(editVendorId){await sbUpd('vendors','?id=eq.'+editVendorId,data);}
+    else{await sbIns('vendors',data);}
+    vendors=await sbQ('vendors','?order=vendor_id');
+    renderVendors();renderVendorStats();
+    closeMo('MO-VEND');
+    toast('✅ Vendor saved','#27ae60');
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
+}
+
+// ────── Vendor detail drill-down ───────────────
+function openVendorDetail(id){
+  const v=vendorByUuid(id);if(!v)return;
+  currentVendorDetail=v;
+  document.getElementById('VDET-TITLE').textContent='🧑‍🌾 '+v.name+' ('+v.vendor_id+')';
+  document.getElementById('VDET-HEADER').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+      <div><strong>Code:</strong> ${sanitise(v.vendor_id)}</div>
+      <div><strong>Place:</strong> ${sanitise(v.place||'—')}</div>
+      <div><strong>WhatsApp:</strong> ${sanitise(v.wa_number||'—')}</div>
+      <div><strong>GST:</strong> ${sanitise(v.gst_number||'—')}</div>
+      <div><strong>Rating:</strong> ${v.rating?'★'.repeat(v.rating)+'☆'.repeat(5-v.rating):'—'}</div>
+      <div><strong>Status:</strong> ${v.status==='active'?'<span class="bx bg2">Active</span>':'<span class="bx br2">Blacklisted</span>'}</div>
+    </div>
+    ${v.notes?`<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #ccc;"><strong>Notes:</strong> ${sanitise(v.notes)}</div>`:''}`;
+  // Owner sees "Request ID change", super_admin just edits directly
+  document.getElementById('VDET-REQID').classList.toggle('hi',CU.role==='super_admin');
+  showVDTab('purchases',document.querySelector('.vdtab[data-t="purchases"]'));
+  document.getElementById('MO-VDET').classList.remove('hi');
+}
+
+function showVDTab(t,el){
+  document.querySelectorAll('.vdtab').forEach(b=>{b.classList.remove('on');b.style.color='var(--gy)';b.style.borderBottomColor='transparent';});
+  if(el){el.classList.add('on');el.style.color='var(--gdk)';el.style.borderBottomColor='var(--gdk)';}
+  const v=currentVendorDetail;if(!v)return;
+  const body=document.getElementById('VDET-BODY');
+  if(t==='purchases'){
+    const ps=vendorPurchases(v.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    if(!ps.length){body.innerHTML='<p style="color:var(--gy);font-style:italic;">No purchases recorded yet.</p>';return;}
+    body.innerHTML=`<div class="tw" style="margin-bottom:10px;"><table>
+      <thead><tr><th>Date</th><th>Invoice#</th><th>Items</th><th>Total ₹</th><th>Paid ₹</th></tr></thead>
+      <tbody>${ps.map(p=>`<tr>
+        <td>${sanitise(p.date||'—')}</td>
+        <td style="font-family:monospace;">${sanitise(p.supplier_inv||'—')}</td>
+        <td>${(p.items||[]).length} line${(p.items||[]).length===1?'':'s'}</td>
+        <td>₹${fmt(p.total||0)}</td>
+        <td>₹${fmt(p.payment?.amount||0)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <button class="btn bg sm" onclick="exportVendorPurchXL('${v.id}')">📊 Excel</button>
+    <button class="btn bb sm" onclick="exportVendorPurchPDF('${v.id}')">📄 PDF</button>`;
+  } else if(t==='units'){
+    const us=vendorUnits(v.vendor_id);
+    if(!us.length){body.innerHTML='<p style="color:var(--gy);font-style:italic;">No units yet.</p>';return;}
+    const bySku={};us.forEach(u=>{const sk=skus.find(s=>s.id===u.sku_id);const k=sk?sk.sku_code:'(unknown)';(bySku[k]=bySku[k]||[]).push(u);});
+    body.innerHTML=Object.entries(bySku).map(([code,arr])=>{
+      const stA=arr.filter(u=>u.status==='available').length;
+      const stS=arr.filter(u=>u.status==='sold').length;
+      return `<div style="margin-bottom:10px;padding:10px;border:1px solid var(--bd);border-radius:6px;">
+        <strong style="font-family:monospace;color:var(--gdk);">${sanitise(code)}</strong>
+        <span style="font-size:11px;color:var(--gy);margin-left:8px;">${arr.length} units · ${stA} available · ${stS} sold</span>
+        <div style="margin-top:6px;font-family:monospace;font-size:10px;line-height:1.8;">
+          ${arr.map(u=>{
+            const col=u.status==='sold'?'#999':u.status==='damaged'?'var(--red)':'#2d2d2d';
+            return `<span style="display:inline-block;padding:2px 6px;background:#f5f0e8;border-radius:4px;margin:2px;color:${col};">${sanitise(u.unit_code)}${u.status==='sold'?' ✓':''}</span>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')+`<div style="margin-top:8px;"><button class="btn bg sm" onclick="exportVendorUnitsXL('${v.id}')">📊 Excel</button>
+      <button class="btn bb sm" onclick="exportVendorUnitsPDF('${v.id}')">📄 PDF</button></div>`;
+  } else if(t==='issues'){
+    const vs=vendorIssues(v.id);
+    if(!vs.length){body.innerHTML='<p style="color:var(--gy);font-style:italic;">No issues logged.</p><button class="btn bgn sm" onclick="openIssueModal(\''+v.id+'\')">➕ Log First Issue</button>';return;}
+    body.innerHTML=`<div style="margin-bottom:10px;"><button class="btn bgn sm" onclick="openIssueModal('${v.id}')">➕ Log Issue</button></div>`+
+      vs.map(i=>renderIssueCard(i,true)).join('');
+  } else if(t==='profit'){
+    body.innerHTML=`<div style="padding:20px;text-align:center;background:#fdf6eb;border-radius:8px;">
+      <div style="font-size:14px;color:var(--gdk);margin-bottom:6px;">📊 Profitability analytics</div>
+      <div style="font-size:12px;color:var(--gy);">Revenue vs cost, turnover rate, and margin % per vendor arrive in <strong>Module 5 (P&L)</strong>. For now, see the basic totals in the Purchases tab.</div>
+    </div>`;
+  }
+}
+
+function renderIssueCard(i,showActions){
+  const typColor={quality:'#e74c3c',delay:'#f39c12',shortage:'#e67e22',payment:'#8e44ad',damage:'#c0392b',other:'#95a5a6'}[i.issue_type]||'#95a5a6';
+  const sku=skus.find(s=>s.id===i.sku_id);
+  const vend=vendorByUuid(i.vendor_uuid);
+  const unitList=(i.unit_ids&&i.unit_ids.length)?i.unit_ids.map(uid=>{const u=units.find(x=>x.id===uid);return u?u.unit_code:uid.slice(0,8);}).join(', '):'';
+  return `<div style="background:#fff;border:1px solid var(--bd);border-left:4px solid ${typColor};border-radius:8px;padding:11px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+      <div style="flex:1;">
+        <strong style="text-transform:uppercase;font-size:11px;color:${typColor};letter-spacing:.1em;">${sanitise(i.issue_type)}</strong>
+        <span style="font-size:11px;color:var(--gy);margin-left:8px;">${sanitise(i.issue_date||'')} · ${sanitise(vend?.name||'—')}</span>
+        <div style="margin-top:6px;font-size:13px;">${sanitise(i.description)}</div>
+        ${sku?`<div style="margin-top:4px;font-size:11px;color:var(--gdk);">📦 ${sanitise(sku.sku_code)} · Batch ${sanitise(i.batch||'—')}${unitList?' · Units: '+sanitise(unitList):''}</div>`:''}
+        ${i.resolution?`<div style="margin-top:6px;padding:6px;background:#f0fff4;border-radius:4px;font-size:12px;"><strong>Resolution:</strong> ${sanitise(i.resolution)}</div>`:''}
+      </div>
+      <div style="text-align:right;">
+        ${i.status==='resolved'?'<span class="bx bg2">Resolved</span>':'<span class="bx ba">Open</span>'}
+        ${showActions?`<div style="margin-top:6px;display:flex;gap:4px;">
+          <button class="btn bgy xs" onclick="editIssue('${i.id}')">✏️</button>
+          ${i.status==='open'?`<button class="btn bgn xs" onclick="resolveIssue('${i.id}')">✓ Resolve</button>`:''}
+        </div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ────── Issues ─────────────────────────────────
+function renderAllIssues(){
+  const fs=document.getElementById('VI-FSTAT')?.value??'open';
+  const ft=document.getElementById('VI-FTYPE')?.value||'';
+  let list=issues.slice();
+  if(fs)list=list.filter(i=>i.status===fs);
+  if(ft)list=list.filter(i=>i.issue_type===ft);
+  const tb=document.getElementById('VI-BODY');if(!tb)return;
+  if(!list.length){
+    tb.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--gy);font-style:italic;padding:18px;">No issues in this view.</td></tr>`;
+    return;
+  }
+  tb.innerHTML=list.map(i=>{
+    const v=vendorByUuid(i.vendor_uuid);
+    const sku=skus.find(s=>s.id===i.sku_id);
+    const unitList=(i.unit_ids&&i.unit_ids.length)?` · ${i.unit_ids.length} unit${i.unit_ids.length===1?'':'s'}`:'';
+    return `<tr>
+      <td>${sanitise(i.issue_date||'')}</td>
+      <td>${sanitise(v?.name||'—')} <span style="font-family:monospace;color:var(--gy);font-size:10px;">${sanitise(v?.vendor_id||'')}</span></td>
+      <td><span class="bx ba">${sanitise(i.issue_type)}</span></td>
+      <td style="font-family:monospace;font-size:11px;">${sku?sanitise(sku.sku_code)+' B'+sanitise(i.batch||'—'):'—'}${unitList}</td>
+      <td>${sanitise((i.description||'').slice(0,80))}${(i.description||'').length>80?'…':''}</td>
+      <td>${i.status==='resolved'?'<span class="bx bg2">Resolved</span>':'<span class="bx ba">Open</span>'}</td>
+      <td>${sanitise(i.resolved_date||'—')}</td>
+      <td style="display:flex;gap:3px;">
+        <button class="btn bgy xs" onclick="editIssue('${i.id}')">✏️</button>
+        ${i.status==='open'?`<button class="btn bgn xs" onclick="resolveIssue('${i.id}')">✓</button>`:''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openIssueModal(prevuuid){
+  editIssueId=null;
+  document.getElementById('ISS-TITLE').textContent='➕ Log Vendor Issue';
+  const sel=document.getElementById('IS-VEND');
+  sel.innerHTML='<option value="">— select vendor —</option>'+vendors.filter(v=>v.status==='active').map(v=>`<option value="${v.id}">${sanitise(v.vendor_id)} · ${sanitise(v.name)}</option>`).join('');
+  if(prevuuid)sel.value=prevuuid;
+  document.getElementById('IS-DT').value=new Date().toISOString().slice(0,10);
+  document.getElementById('IS-TYPE').value='quality';
+  document.getElementById('IS-STAT').value='open';
+  document.getElementById('IS-DESC').value='';
+  document.getElementById('IS-RES').value='';
+  document.getElementById('IS-BATCH').innerHTML='<option value="">— select vendor first —</option>';
+  document.getElementById('IS-UNITS').innerHTML='<option value="">— pick batch first —</option>';
+  if(prevuuid)issueLoadBatches();
+  document.getElementById('MO-ISSUE').classList.remove('hi');
+}
+
+function editIssue(id){
+  const i=issues.find(x=>x.id===id);if(!i)return;
+  editIssueId=id;
+  document.getElementById('ISS-TITLE').textContent='✏️ Edit Issue';
+  const sel=document.getElementById('IS-VEND');
+  sel.innerHTML=vendors.map(v=>`<option value="${v.id}">${sanitise(v.vendor_id)} · ${sanitise(v.name)}</option>`).join('');
+  sel.value=i.vendor_uuid;
+  document.getElementById('IS-DT').value=i.issue_date||'';
+  document.getElementById('IS-TYPE').value=i.issue_type||'quality';
+  document.getElementById('IS-STAT').value=i.status||'open';
+  document.getElementById('IS-DESC').value=i.description||'';
+  document.getElementById('IS-RES').value=i.resolution||'';
+  issueLoadBatches().then(()=>{
+    document.getElementById('IS-BATCH').value=(i.sku_id||'')+'::'+(i.batch||'');
+    issueLoadUnits().then(()=>{
+      const us=document.getElementById('IS-UNITS');
+      Array.from(us.options).forEach(o=>{o.selected=(i.unit_ids||[]).includes(o.value);});
+    });
+  });
+  document.getElementById('MO-ISSUE').classList.remove('hi');
+}
+
+async function issueLoadBatches(){
+  const vuuid=document.getElementById('IS-VEND').value;
+  const bsel=document.getElementById('IS-BATCH');
+  const usel=document.getElementById('IS-UNITS');
+  if(!vuuid){bsel.innerHTML='<option value="">— select vendor first —</option>';usel.innerHTML='<option value="">— pick batch first —</option>';return;}
+  const v=vendorByUuid(vuuid);if(!v){return;}
+  const us=vendorUnits(v.vendor_id);
+  const batchMap={};
+  us.forEach(u=>{const k=u.sku_id+'::'+u.batch;(batchMap[k]=batchMap[k]||[]).push(u);});
+  const opts=Object.keys(batchMap).sort().map(k=>{
+    const [sid,b]=k.split('::');const sk=skus.find(s=>s.id===sid);
+    return `<option value="${k}">${sanitise(sk?.sku_code||'—')} · Batch ${sanitise(b)} (${batchMap[k].length} units)</option>`;
+  });
+  bsel.innerHTML='<option value="">— whole vendor (not batch-specific) —</option>'+opts.join('');
+  usel.innerHTML='<option value="">— pick batch first —</option>';
+}
+
+async function issueLoadUnits(){
+  const bkey=document.getElementById('IS-BATCH').value;
+  const usel=document.getElementById('IS-UNITS');
+  if(!bkey){usel.innerHTML='<option value="">— pick batch first —</option>';return;}
+  const [sid,b]=bkey.split('::');
+  const us=units.filter(u=>u.sku_id===sid&&u.batch===b);
+  usel.innerHTML=us.map(u=>`<option value="${u.id}">${sanitise(u.unit_code)} (${sanitise(u.status)})</option>`).join('');
+}
+
+async function saveIssue(){
+  const vuuid=document.getElementById('IS-VEND').value;
+  const desc=document.getElementById('IS-DESC').value.trim();
+  if(!vuuid){toast('Select a vendor','var(--red)');return;}
+  if(!desc){toast('Description is required','var(--red)');return;}
+  const v=vendorByUuid(vuuid);
+  const bkey=document.getElementById('IS-BATCH').value;
+  let sid=null,batch=null;
+  if(bkey){const parts=bkey.split('::');sid=parts[0]||null;batch=parts[1]||null;}
+  const unitIds=Array.from(document.getElementById('IS-UNITS').selectedOptions).map(o=>o.value).filter(x=>x);
+  const stat=document.getElementById('IS-STAT').value;
+  const data={
+    vendor_uuid:vuuid,
+    vendor_code:v.vendor_id,
+    sku_id:sid,
+    batch:batch,
+    unit_ids:unitIds,
+    issue_date:document.getElementById('IS-DT').value||new Date().toISOString().slice(0,10),
+    issue_type:document.getElementById('IS-TYPE').value,
+    description:desc,
+    resolution:document.getElementById('IS-RES').value.trim(),
+    status:stat,
+    resolved_date:stat==='resolved'?new Date().toISOString().slice(0,10):null,
+    created_by:CU?.username||'',
+    updated_at:new Date().toISOString()
+  };
+  try{
+    if(editIssueId){await sbUpd('vendor_issues','?id=eq.'+editIssueId,data);}
+    else{await sbIns('vendor_issues',data);}
+    issues=await sbQ('vendor_issues','?order=created_at.desc');
+    renderAllIssues();renderVendors();renderVendorStats();
+    if(currentVendorDetail)showVDTab('issues',document.querySelector('.vdtab[data-t="issues"]'));
+    closeMo('MO-ISSUE');
+    toast('✅ Issue saved','#27ae60');
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
+}
+
+async function resolveIssue(id){
+  if(!confirm('Mark this issue as resolved?'))return;
+  await sbUpd('vendor_issues','?id=eq.'+id,{status:'resolved',resolved_date:new Date().toISOString().slice(0,10),updated_at:new Date().toISOString()});
+  issues=await sbQ('vendor_issues','?order=created_at.desc');
+  renderAllIssues();renderVendors();renderVendorStats();
+  toast('✅ Issue resolved','#27ae60');
+}
+
+// ────── Vendor ID change workflow ──────────────
+function requestVendorIdChange(){
+  const v=currentVendorDetail;if(!v)return;
+  document.getElementById('VR-OLD').value=v.vendor_id;
+  document.getElementById('VR-NEW').value='';
+  document.getElementById('VR-REASON').value='';
+  document.getElementById('VR-WARN').style.display='none';
+  document.getElementById('MO-VIDREQ').classList.remove('hi');
+}
+
+async function submitVendorIdRequest(){
+  const v=currentVendorDetail;
+  const newVid=document.getElementById('VR-NEW').value.trim();
+  const reason=document.getElementById('VR-REASON').value.trim();
+  const warn=document.getElementById('VR-WARN');
+  warn.style.display='none';
+  if(!validVid(newVid)){warn.textContent='New ID must be 3 digits.';warn.style.display='block';return;}
+  if(newVid===v.vendor_id){warn.textContent='New ID is same as current.';warn.style.display='block';return;}
+  if(vendors.find(x=>x.vendor_id===newVid)){warn.textContent='ID '+newVid+' already in use.';warn.style.display='block';return;}
+  if(!reason){warn.textContent='Reason is required.';warn.style.display='block';return;}
+  try{
+    await sbIns('vendor_edit_requests',{
+      vendor_uuid:v.id,
+      old_vendor_id:v.vendor_id,
+      new_vendor_id:newVid,
+      reason:reason,
+      requested_by:CU?.username||'',
+      status:'pending'
+    });
+    vidRequests=await sbQ('vendor_edit_requests','?status=eq.pending&order=created_at.desc');
+    renderVendorEditRequests();
+    closeMo('MO-VIDREQ');
+    toast('✅ Request submitted — awaiting super admin approval','#27ae60');
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
+}
+
+function renderVendorEditRequests(){
+  const card=document.getElementById('VD-REQCARD');
+  const list=document.getElementById('VD-REQLIST');
+  const isSu=CU?.role==='super_admin';
+  if(!isSu||!vidRequests.length){card.classList.add('hi');return;}
+  card.classList.remove('hi');
+  list.innerHTML=vidRequests.map(r=>{
+    const v=vendorByUuid(r.vendor_uuid);
+    return `<div style="padding:10px;border:1px solid var(--bd);border-radius:6px;margin-bottom:8px;background:#fff;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+          <strong>${sanitise(v?.name||'—')}</strong>
+          <span style="font-family:monospace;margin-left:8px;">${sanitise(r.old_vendor_id)} → ${sanitise(r.new_vendor_id)}</span><br>
+          <span style="font-size:11px;color:var(--gy);">Requested by ${sanitise(r.requested_by||'')} · ${sanitise((r.created_at||'').slice(0,10))}</span>
+          <div style="margin-top:5px;font-size:12px;">${sanitise(r.reason||'')}</div>
+        </div>
+        <div style="display:flex;gap:5px;">
+          <button class="btn bgn sm" onclick="approveVendorIdChange('${r.id}')">✓ Approve</button>
+          <button class="btn br sm" onclick="rejectVendorIdChange('${r.id}')">✕ Reject</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function approveVendorIdChange(reqId){
+  const req=vidRequests.find(r=>r.id===reqId);if(!req)return;
+  if(!confirm(`Approve ID change ${req.old_vendor_id} → ${req.new_vendor_id}?\n\nThis regenerates every unit_code for this vendor. Any printed tags will need to be reprinted.`))return;
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/change_vendor_id`,{method:'POST',headers:HDR(),body:JSON.stringify({p_vendor_uuid:req.vendor_uuid,p_new_vid:req.new_vendor_id,p_performed_by:CU?.username||''})});
+    if(!r.ok){const t=await r.text();throw new Error(t);}
+    const changed=await r.json();
+    await sbUpd('vendor_edit_requests','?id=eq.'+reqId,{status:'approved',reviewed_by:CU?.username||'',reviewed_at:new Date().toISOString()});
+    vendors=await sbQ('vendors','?order=vendor_id');
+    units=await sbQ('inventory_units','?order=unit_code');
+    vidRequests=await sbQ('vendor_edit_requests','?status=eq.pending&order=created_at.desc');
+    renderVendors();renderVendorEditRequests();renderAllIssues();
+    toast(`✅ Approved · ${changed} units re-coded. Reprint their tags!`,'#27ae60');
+  }catch(e){toast('RPC error: '+(e.message||e),'var(--red)');}
+}
+
+async function rejectVendorIdChange(reqId){
+  if(!confirm('Reject this request?'))return;
+  await sbUpd('vendor_edit_requests','?id=eq.'+reqId,{status:'rejected',reviewed_by:CU?.username||'',reviewed_at:new Date().toISOString()});
+  vidRequests=await sbQ('vendor_edit_requests','?status=eq.pending&order=created_at.desc');
+  renderVendorEditRequests();
+  toast('Request rejected','#e67e22');
+}
+
+function openVendorEdit(){if(currentVendorDetail){closeMo('MO-VDET');editVendor(currentVendorDetail.id);}}
+
+// ────── Migration (legacy inventory → SKUs + units) ─
+function renderMigrationCard(){
+  const card=document.getElementById('VD-MIGCARD');
+  const body=document.getElementById('VD-MIGBODY');
+  const btn=document.getElementById('VD-MIGRUN');
+  if(!card)return;
+  // Show only if legacy data exists AND no SKUs have been migrated from it yet
+  const hasLegacy=inv&&inv.length>0;
+  const alreadyMigrated=skus.filter(s=>s.legacy_item_id).length;
+  if(!hasLegacy){card.classList.add('hi');return;}
+  if(alreadyMigrated>=inv.length){card.classList.add('hi');return;}
+  card.classList.remove('hi');
+  btn.classList.add('hi');
+  const totalQty=inv.reduce((a,i)=>a+(i.qty||0),0);
+  const alreadyMsg=alreadyMigrated?` · ${alreadyMigrated} already migrated, ${inv.length-alreadyMigrated} remaining`:'';
+  body.innerHTML=`Your legacy <code>inventory</code> table has <strong>${inv.length} rows / ${totalQty} units</strong>${alreadyMsg}. Click Preview to see the migration plan.`;
+}
+
+function previewMigration(){
+  const alreadyIds=new Set(skus.filter(s=>s.legacy_item_id).map(s=>s.legacy_item_id));
+  const toMigrate=inv.filter(i=>!alreadyIds.has(i.item_id));
+  if(!toMigrate.length){toast('Nothing to migrate.','#27ae60');return;}
+  const preview=document.getElementById('MIG-PREVIEW');
+  preview.innerHTML=`<div style="margin-bottom:10px;font-size:12px;color:#555;">Will create:
+    <ul style="margin:6px 0 0 18px;">
+      <li>Vendor <strong>001 — Migration Seed</strong> (if not present)</li>
+      <li>One placeholder purchase dated ${new Date().toISOString().slice(0,10)} marked <code>is_migration=true</code></li>
+      <li>${toMigrate.length} new SKUs and ${toMigrate.reduce((a,i)=>a+(i.qty||0),0)} units</li>
+    </ul>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Legacy ID</th><th>Name</th><th>Proposed SKU</th><th>Qty</th><th>Units</th></tr></thead>
+    <tbody>${toMigrate.map(i=>{
+      const s=proposeSku(i);
+      return `<tr>
+        <td>${sanitise(i.item_id)}</td>
+        <td>${sanitise(i.name)}${i.subtype?' · '+sanitise(i.subtype):''} <span style="font-size:10px;color:var(--gy);">(${sanitise(i.fabric||'')})</span></td>
+        <td style="font-family:monospace;color:var(--gdk);">${s}</td>
+        <td>${i.qty||0}</td>
+        <td style="font-family:monospace;font-size:10px;">${s}-001<strong>01</strong>/01 … /${String(i.qty||1).padStart(2,'0')}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+  document.getElementById('MO-MIG').classList.remove('hi');
+}
+
+// Deterministic SKU proposal from legacy row
+function proposeSku(legacyItem){
+  // Try to match name/subtype against shorthand dictionary; fall back to truncation
+  const n=(legacyItem.name||'').toUpperCase().replace(/[^A-Z]/g,'');
+  const sub=(legacyItem.subtype||'').toUpperCase().replace(/[^A-Z]/g,'');
+  const fab=(legacyItem.fabric||'').toUpperCase().replace(/[^A-Z]/g,'');
+  // PATTERN: first 5 chars of pattern-ish name (e.g., "Paithani" -> PAITH)
+  let pattern=n.slice(0,5);
+  // Known pattern-name swaps (Kalamkari -> KALAM, Paithani -> PAITH, etc.)
+  const pMap={'PAITH':'PAITH','AJRAK':'AJRAK','TUSSA':'TUSSA','IKKAT':'IKKAT','KALAM':'KALAM','GHARC':'GHARC','KOTAD':'KOTA','PATOL':'PATOL','DOLAS':'DOLA','POCHA':'POCHA','MODAL':'MODAL','MULCO':'MULCT','AJRAK':'AJRAK'};
+  if(pMap[pattern])pattern=pMap[pattern];
+  pattern=pattern.padEnd(5,'X').slice(0,5);
+  // MATERIAL: 3-char derived from fabric
+  const fMap={'COTTON':'COT','SILK':'SLK','TUSSAR':'TUS','MODAL':'MOD','MODALSILK':'MSK','COTTONSILK':'CSK','TUSSARSILK':'TSK','KOTADORIA':'KTD'};
+  let material=fMap[fab]||fab.slice(0,3).padEnd(3,'X');
+  // VARIANT: based on subtype
+  const vMap={'HANDPAINTED':'HP','MADHUBANI':'MD','GHICHA':'GH','BLOCKPRINT':'BP','SCREENPRINT':'SP','SEMIAJRAK':'SA','BANDHEJ':'BN','SUIT':'ST','DUPIN':'DP'};
+  let variant=vMap[sub]||(sub?sub.slice(0,2):'PL');
+  variant=variant.padEnd(2,'L').slice(0,2);
+  return `${pattern}-${material}-${variant}`;
+}
+
+function confirmMigration(){closeMo('MO-MIG');runMigration();}
+
+async function runMigration(){
+  const log=document.getElementById('VD-MIGLOG');
+  const push=(m,c)=>{log.innerHTML+=`<div style="color:${c||'#2d2d2d'}">${sanitise(m)}</div>`;log.scrollTop=log.scrollHeight;};
+  log.innerHTML='';
+  push('🔄 Starting migration...','#8B6914');
+
+  // Step 1: Ensure Migration Seed vendor exists (id = '001')
+  let seedVendor=vendors.find(v=>v.vendor_id==='001'&&v.name==='Migration Seed');
+  if(!seedVendor){
+    push('Creating seed vendor 001...','#666');
+    const r=await sbIns('vendors',{
+      vendor_id:'001',
+      name:'Migration Seed',
+      place:'(legacy data)',
+      notes:'Auto-created during legacy migration. Update real vendor details when real invoices are entered.',
+      status:'active',
+      first_purchase:new Date().toISOString().slice(0,10)
+    });
+    if(!r||!r.length){
+      // ID 001 might already exist as a real vendor → try 999
+      push('⚠ vendor 001 in use, trying 999...','#e67e22');
+      const r2=await sbIns('vendors',{vendor_id:'999',name:'Migration Seed',place:'(legacy data)',notes:'Auto-created during migration. ID 001 was taken.',status:'active',first_purchase:new Date().toISOString().slice(0,10)});
+      if(!r2||!r2.length){push('✗ Could not create seed vendor.','var(--red)');return;}
+      seedVendor=r2[0];
+    } else {
+      seedVendor=r[0];
+    }
+    vendors=await sbQ('vendors','?order=vendor_id');
+  } else {
+    push('Seed vendor 001 already exists.','#666');
+  }
+
+  // Step 2: Seed placeholder purchase
+  let seedPurch=purch.find(p=>p.is_migration&&p.vendor_uuid===seedVendor.id);
+  if(!seedPurch){
+    push('Creating placeholder purchase...','#666');
+    const r=await sbIns('purchases',{
+      date:new Date().toISOString().slice(0,10),
+      seller:'Migration Seed',
+      vendor_uuid:seedVendor.id,
+      vendor_code:seedVendor.vendor_id,
+      supplier_inv:'MIGRATION-SEED',
+      items:[],
+      sub:0,gst_pct:0,gst_amt:0,total:0,
+      payment:{},
+      is_migration:true
+    });
+    if(!r||!r.length){push('✗ Could not create seed purchase.','var(--red)');return;}
+    seedPurch=r[0];
+    purch=await sbQ('purchases','?order=created_at.desc');
+  } else {
+    push('Placeholder purchase already exists.','#666');
+  }
+
+  // Step 3: Migrate each inventory row → SKU + units
+  const alreadyIds=new Set(skus.filter(s=>s.legacy_item_id).map(s=>s.legacy_item_id));
+  const toMigrate=inv.filter(i=>!alreadyIds.has(i.item_id));
+  let okCount=0,failCount=0,unitCount=0;
+
+  for(const legacy of toMigrate){
+    try{
+      let proposed=proposeSku(legacy);
+      // Handle sku_code collisions: suffix -2, -3, ... until unique
+      let finalCode=proposed,collideN=1;
+      while(skus.find(s=>s.sku_code===finalCode)){
+        collideN++;
+        finalCode=proposed+'-'+collideN;
+      }
+      // Compute AUD from settings (fallback 1.8)
+      let mult=1.8;
+      try{const am=await sbQ('settings','?key=eq.aud_multiplier');if(am&&am.length)mult=parseFloat(am[0].value)||1.8;}catch{}
+      const aud=Math.ceil((legacy.sale_price||0)*mult/5)*5;
+
+      const skuRec=await sbIns('inventory_skus',{
+        sku_code:finalCode,
+        pattern:proposed.split('-')[0]||'',
+        material:proposed.split('-')[1]||'',
+        variant:proposed.split('-')[2]||'PL',
+        name:legacy.name||'',
+        display_material:legacy.fabric||'',
+        display_variant:legacy.subtype||'',
+        tags:[],
+        cost:legacy.cost||0,
+        mrp:legacy.mrp||0,
+        disc:legacy.disc||10,
+        sale_price:legacy.sale_price||0,
+        sale_price_aud:aud,
+        hero_photo:(legacy.photos&&legacy.photos.length)?legacy.photos[0]:null,
+        description:null,
+        legacy_item_id:legacy.item_id
+      });
+      if(!skuRec||!skuRec.length){push(`  ✗ ${legacy.item_id} SKU insert failed`,'var(--red)');failCount++;continue;}
+      const newSku=skuRec[0];
+      skus.push(newSku);
+
+      // Units via RPC for atomicity
+      const qty=Math.max(0,parseInt(legacy.qty)||0);
+      const sold=Math.max(0,parseInt(legacy.sold)||0);
+      const photos=(legacy.photos||[]);
+      const phoArr=[];
+      for(let i=0;i<qty;i++)phoArr.push(photos[i]||null);
+
+      const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{
+        method:'POST',headers:HDR(),
+        body:JSON.stringify({p_sku_id:newSku.id,p_vendor_code:seedVendor.vendor_id,p_purchase_id:seedPurch.id,p_qty:qty,p_photo_urls:phoArr})
+      });
+      if(!rpcR.ok){const txt=await rpcR.text();push(`  ✗ ${legacy.item_id} units RPC failed: ${txt.slice(0,80)}`,'var(--red)');failCount++;continue;}
+      const unitsCreated=await rpcR.json();
+      unitCount+=unitsCreated.length;
+
+      // Mark `sold` units as sold (no link to real sale)
+      if(sold>0){
+        const newUnitIds=unitsCreated.slice(-sold).map(u=>u.unit_id);
+        for(const uid of newUnitIds){
+          try{await sbUpd('inventory_units','?id=eq.'+uid,{status:'sold',updated_at:new Date().toISOString()});}catch{}
+        }
+      }
+
+      push(`  ✓ ${legacy.item_id} → ${finalCode} · ${qty} units (${qty-sold} avail, ${sold} sold)`,'#27ae60');
+      okCount++;
+    }catch(e){
+      push(`  ✗ ${legacy.item_id} error: ${e.message||e}`,'var(--red)');
+      failCount++;
+    }
+  }
+
+  push(`\n✓ Done. ${okCount} SKUs migrated, ${unitCount} units created, ${failCount} failures.`,'#8B6914');
+
+  // Reload state
+  skus=await sbQ('inventory_skus','?order=sku_code');
+  units=await sbQ('inventory_units','?order=unit_code');
+  purch=await sbQ('purchases','?order=created_at.desc');
+  renderVendors();renderVendorStats();renderMigrationCard();
+}
+
+// ═══════════════════════════════════════════════
+// EXPORTS — Vendors, Units, Issues (Excel + PDF)
+// ═══════════════════════════════════════════════
+
+// Lazy-load jsPDF + autotable only when needed
+let _pdfLoaded=false;
+async function ensurePDFLib(){
+  if(_pdfLoaded)return;
+  const load=(src)=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Failed to load '+src));document.head.appendChild(s);});
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await load('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js');
+  _pdfLoaded=true;
+}
+
+function saveXL(rows,sheet,filename){
+  if(!rows.length){toast('Nothing to export','var(--red)');return;}
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheet);
+  XLSX.writeFile(wb,filename+'.xlsx');
+  toast('✅ Excel exported','#27ae60');
+}
+
+async function savePDFTable(title,head,body,filename){
+  try{
+    await ensurePDFLib();
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'landscape'});
+    doc.setFontSize(14);doc.text('Meensha · '+title,14,14);
+    doc.setFontSize(9);doc.setTextColor(120);doc.text(new Date().toLocaleString(),14,20);
+    doc.autoTable({head:[head],body:body,startY:25,styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[42,31,14],textColor:[201,168,76]}});
+    doc.save(filename+'.pdf');
+    toast('✅ PDF exported','#27ae60');
+  }catch(e){toast('PDF error: '+(e.message||e),'var(--red)');}
+}
+
+function exportVendorsXL(){
+  const rows=vendors.map(v=>({
+    'Vendor ID':v.vendor_id,
+    'Name':v.name,
+    'Place':v.place||'',
+    'WhatsApp':v.wa_number||'',
+    'GST':v.gst_number||'',
+    'Status':v.status,
+    'Rating':v.rating||'',
+    'Purchases #':vendorPurchases(v.id).length,
+    'Total ₹':vendorTotal(v.id),
+    'Units':vendorUnits(v.vendor_id).length,
+    'Open Issues':vendorIssues(v.id).filter(i=>i.status==='open').length,
+    'First Purchase':v.first_purchase||'',
+    'Notes':v.notes||''
+  }));
+  saveXL(rows,'Vendors','Meensha_Vendors_'+new Date().toISOString().slice(0,10));
+}
+
+function exportVendorsPDF(){
+  const head=['ID','Name','Place','WhatsApp','Purchases','Total ₹','Units','Status'];
+  const body=vendors.map(v=>[
+    v.vendor_id,v.name||'',v.place||'',v.wa_number||'',
+    vendorPurchases(v.id).length,fmt(vendorTotal(v.id)),
+    vendorUnits(v.vendor_id).length,v.status||''
+  ]);
+  savePDFTable('Vendor Register',head,body,'Meensha_Vendors_'+new Date().toISOString().slice(0,10));
+}
+
+function exportIssuesXL(){
+  const rows=issues.map(i=>{
+    const v=vendorByUuid(i.vendor_uuid);const sk=skus.find(s=>s.id===i.sku_id);
+    return{
+      'Date':i.issue_date||'',
+      'Vendor ID':v?.vendor_id||'',
+      'Vendor Name':v?.name||'',
+      'Type':i.issue_type,
+      'SKU':sk?.sku_code||'',
+      'Batch':i.batch||'',
+      'Units Affected':(i.unit_ids||[]).length,
+      'Description':i.description||'',
+      'Status':i.status,
+      'Resolution':i.resolution||'',
+      'Resolved Date':i.resolved_date||'',
+      'Logged By':i.created_by||''
+    };
+  });
+  saveXL(rows,'Issues','Meensha_Issues_'+new Date().toISOString().slice(0,10));
+}
+
+function exportIssuesPDF(){
+  const head=['Date','Vendor','Type','Batch','Description','Status','Resolved'];
+  const body=issues.map(i=>{
+    const v=vendorByUuid(i.vendor_uuid);const sk=skus.find(s=>s.id===i.sku_id);
+    return[
+      i.issue_date||'',
+      (v?.vendor_id||'')+' '+(v?.name||''),
+      i.issue_type,
+      sk?(sk.sku_code+' B'+(i.batch||'')):'—',
+      (i.description||'').slice(0,60),
+      i.status,
+      i.resolved_date||''
+    ];
+  });
+  savePDFTable('Vendor Issues',head,body,'Meensha_Issues_'+new Date().toISOString().slice(0,10));
+}
+
+function exportVendorPurchXL(vuuid){
+  const v=vendorByUuid(vuuid);const ps=vendorPurchases(vuuid);
+  const rows=ps.map(p=>({
+    'Date':p.date||'',
+    'Supplier Invoice':p.supplier_inv||'',
+    'Place':p.place||'',
+    'Items':(p.items||[]).length,
+    'Subtotal ₹':p.sub||0,
+    'GST ₹':p.gst_amt||0,
+    'Total ₹':p.total||0,
+    'Paid ₹':p.payment?.amount||0,
+    'Mode':p.payment?.mode||''
+  }));
+  saveXL(rows,'Purchases','Meensha_Vendor_'+(v?.vendor_id||'?')+'_Purchases');
+}
+
+function exportVendorPurchPDF(vuuid){
+  const v=vendorByUuid(vuuid);const ps=vendorPurchases(vuuid);
+  const head=['Date','Invoice#','Items','Subtotal','GST','Total','Paid'];
+  const body=ps.map(p=>[p.date||'',p.supplier_inv||'—',(p.items||[]).length,fmt(p.sub||0),fmt(p.gst_amt||0),fmt(p.total||0),fmt(p.payment?.amount||0)]);
+  savePDFTable('Purchases · '+(v?.name||'')+' ('+(v?.vendor_id||'')+')',head,body,'Meensha_Vendor_'+(v?.vendor_id||'?')+'_Purchases');
+}
+
+function exportVendorUnitsXL(vuuid){
+  const v=vendorByUuid(vuuid);const us=vendorUnits(v?.vendor_id||'');
+  const rows=us.map(u=>{const sk=skus.find(s=>s.id===u.sku_id);return{
+    'Unit Code':u.unit_code,
+    'SKU':sk?.sku_code||'',
+    'Name':sk?.name||'',
+    'Batch':u.batch,
+    'Unit #':u.unit_num,
+    'Status':u.status,
+    'Cost ₹':sk?.cost||0,
+    'Sale ₹':sk?.sale_price||0,
+    'Photo':u.photo_url||''
+  };});
+  saveXL(rows,'Units','Meensha_Vendor_'+(v?.vendor_id||'?')+'_Units');
+}
+
+function exportVendorUnitsPDF(vuuid){
+  const v=vendorByUuid(vuuid);const us=vendorUnits(v?.vendor_id||'');
+  const head=['Unit Code','SKU','Name','Batch','Status'];
+  const body=us.map(u=>{const sk=skus.find(s=>s.id===u.sku_id);return[u.unit_code,sk?.sku_code||'',sk?.name||'',u.batch,u.status];});
+  savePDFTable('Units · '+(v?.name||''),head,body,'Meensha_Vendor_'+(v?.vendor_id||'?')+'_Units');
+}
+
+async function exportVendorReportPDF(){
+  if(!currentVendorDetail){toast('Open a vendor first','var(--red)');return;}
+  try{
+    await ensurePDFLib();
+    const {jsPDF}=window.jspdf;
+    const v=currentVendorDetail;
+    const doc=new jsPDF();
+    doc.setFontSize(16);doc.text('Vendor Report · '+v.name,14,16);
+    doc.setFontSize(9);doc.setTextColor(120);
+    doc.text(`ID: ${v.vendor_id}  ·  ${v.place||''}  ·  ${v.wa_number||''}`,14,22);
+    doc.text('Generated: '+new Date().toLocaleString(),14,27);
+    doc.setTextColor(0);
+    // Purchases
+    const ps=vendorPurchases(v.id);
+    doc.setFontSize(12);doc.text('Purchases ('+ps.length+')',14,35);
+    doc.autoTable({startY:38,head:[['Date','Invoice#','Items','Total ₹','Paid ₹']],body:ps.map(p=>[p.date||'',p.supplier_inv||'—',(p.items||[]).length,fmt(p.total||0),fmt(p.payment?.amount||0)]),styles:{fontSize:8}});
+    // Issues
+    let y=doc.lastAutoTable.finalY+6;
+    const vi=vendorIssues(v.id);
+    doc.setFontSize(12);doc.text('Issues ('+vi.length+')',14,y);
+    if(vi.length){
+      doc.autoTable({startY:y+3,head:[['Date','Type','Batch','Description','Status']],body:vi.map(i=>{const sk=skus.find(s=>s.id===i.sku_id);return[i.issue_date||'',i.issue_type,(sk?.sku_code||'')+' B'+(i.batch||''),(i.description||'').slice(0,50),i.status];}),styles:{fontSize:8}});
+    }
+    doc.save('Meensha_VendorReport_'+v.vendor_id+'_'+new Date().toISOString().slice(0,10)+'.pdf');
+    toast('✅ Report downloaded','#27ae60');
+  }catch(e){toast('PDF error: '+(e.message||e),'var(--red)');}
+}
+
+// ═══════════════════════════════════════════════
+// EXPORT ALL (supersedes the simple exportAllXL below; see note)
+// The simpler `exportAllXL()` further down is redefined by this one.
+// ═══════════════════════════════════════════════
+function exportAllXL(){
+  const wb=XLSX.utils.book_new();
+  const add=(rows,name)=>{if(rows.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);}};
+  add(inv.map(i=>({ID:i.item_id,Code:i.cat,Name:i.name,Fabric:i.fabric,Qty:i.qty,Cost:i.cost,Sale:i.sale_price})),'Inventory');
+  add(sales.map(s=>({Inv:s.inv,Date:s.date,Customer:s.customer?.name||'',Total:s.total,Paid:s.paid})),'Sales');
+  add(purch.map(p=>({Date:p.date,Seller:p.seller,Inv:p.supplier_inv||'',Total:p.total})),'Purchases');
+  add(ohs.map(o=>({Date:o.date,Category:o.cat,Description:o.description,Total:o.total})),'Overheads');
+  add(vendors.map(v=>({ID:v.vendor_id,Name:v.name,Place:v.place||'',Status:v.status})),'Vendors');
+  add(issues.map(i=>({Date:i.issue_date,Type:i.issue_type,Description:i.description,Status:i.status})),'Issues');
+  XLSX.writeFile(wb,'Meensha_All_'+new Date().toISOString().slice(0,10)+'.xlsx');
+  toast('✅ Full export done','#27ae60');
+}
+
+// ═══════════════════════════════════════════════
+// AUTH MANAGEMENT (1A.5) — change password, reset flows, audit log, recovery codes
+// ═══════════════════════════════════════════════
+
+// SHA-256 helper (Web Crypto)
+async function sha256(text){
+  const buf=new TextEncoder().encode(text);
+  const hash=await crypto.subtle.digest('SHA-256',buf);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// Random alphanumeric (mixed case + digits), length n
+function randomAlphanum(n){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // no ambiguous chars
+  const arr=new Uint32Array(n);crypto.getRandomValues(arr);
+  let s='';for(let i=0;i<n;i++)s+=chars[arr[i]%chars.length];
+  return s;
+}
+
+// Recovery code: 12 mixed chars grouped 4-4-4 with dashes: Ab7-Cd2-Ef9-Gh4 → total display 15 incl dashes
+function genRecoveryCode(){
+  const r=randomAlphanum(12);
+  return `${r.slice(0,4)}-${r.slice(4,8)}-${r.slice(8,12)}`;
+}
+
+// ────── Change Password (self-service) ──────────
+let forcedPwChange=false;
+function openChangePwd(forced){
+  forcedPwChange=!!forced;
+  ['CP-CUR','CP-NEW','CP-CON'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('CP-WARN').style.display='none';
+  document.getElementById('CP-FORCED-NOTE').style.display=forced?'block':'none';
+  document.getElementById('CP-CANCEL').style.display=forced?'none':'';
+  document.getElementById('MO-CHPW').classList.remove('hi');
+}
+
+async function saveNewPassword(){
+  const cur=document.getElementById('CP-CUR').value;
+  const nw =document.getElementById('CP-NEW').value;
+  const cn =document.getElementById('CP-CON').value;
+  const warn=document.getElementById('CP-WARN');
+  warn.style.display='none';
+  if(!cur||!nw||!cn){warn.textContent='All fields required.';warn.style.display='block';return;}
+  if(nw.length<8){warn.textContent='New password must be at least 8 characters.';warn.style.display='block';return;}
+  if(nw!==cn){warn.textContent='New and confirm don\'t match.';warn.style.display='block';return;}
+  if(cur===nw){warn.textContent='New password must differ from current.';warn.style.display='block';return;}
+
+  // Validate current password. If user is a LOCAL_USERS fallback, they have no DB row — we'll upgrade them.
+  const isLocal=CU.id&&String(CU.id).startsWith('local-');
+  let valid=false, dbUser=null;
+
+  if(!isLocal){
+    const rows=await sbQ('users',`?id=eq.${CU.id}&password_hash=eq.${encodeURIComponent(cur)}&select=id,password_hash,role`);
+    if(rows&&rows.length){valid=true;dbUser=rows[0];}
+  } else {
+    const loc=LOCAL_USERS.find(x=>x.username===CU.username);
+    if(loc&&loc.password_hash===cur)valid=true;
+  }
+
+  if(!valid){warn.textContent='Current password incorrect.';warn.style.display='block';return;}
+
+  // Write
+  const body={
+    password_hash:nw,
+    must_change_password:false,
+    last_password_change:new Date().toISOString(),
+    password_updated_via:forcedPwChange?'rachnakar_reset':'self'
+  };
+  try{
+    if(isLocal){
+      // Upgrade LOCAL_USERS fallback to a real DB row
+      const ins=await sbIns('users',{
+        username:CU.username,
+        password_hash:nw,
+        display_name:CU.display_name,
+        role:CU.role,
+        wa:CU.wa||'',
+        active:true,
+        last_password_change:new Date().toISOString(),
+        password_updated_via:'self'
+      });
+      if(ins&&ins.length){CU={...ins[0]};sessionStorage.setItem('MSN_USER',JSON.stringify(CU));}
+    } else {
+      await sbUpd('users',`?id=eq.${CU.id}`,body);
+      CU.must_change_password=false;
+      sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
+    }
+    users=await sbQ('users','?order=created_at');
+    closeMo('MO-CHPW');
+    toast('✅ Password updated','#27ae60');
+    if(document.getElementById('tp-usr')?.classList.contains('on'))renderUsers();
+  }catch(e){warn.textContent='Error: '+(e.message||e);warn.style.display='block';}
+}
+
+// ────── Forgot Password ────────────────────────
+function openForgotPwd(){
+  document.getElementById('FG-UN').value='';
+  document.getElementById('FG-NOTE').value='';
+  document.getElementById('FG-STAGE1').style.display='';
+  document.getElementById('FG-STAGE2-SA').style.display='none';
+  document.getElementById('FG-STAGE3-EMAIL').style.display='none';
+  document.getElementById('FG-STAGE3-CODE').style.display='none';
+  document.getElementById('FG-CODE-WARN').style.display='none';
+  document.getElementById('MO-FORGOT').classList.remove('hi');
+}
+
+async function submitForgotPwd(){
+  const un=document.getElementById('FG-UN').value.trim();
+  if(!un){toast('Enter your username','var(--red)');return;}
+  // Look up role
+  let role='';
+  try{
+    const rows=await sbQ('users',`?username=eq.${encodeURIComponent(un)}&select=role,active`);
+    if(rows&&rows.length)role=rows[0].role;
+  }catch{}
+  if(!role){
+    // Fallback to LOCAL_USERS
+    const loc=LOCAL_USERS.find(x=>x.username===un);
+    if(loc)role=loc.role;
+  }
+  if(!role){toast('Username not found','var(--red)');return;}
+  if(role==='super_admin'){
+    // Rachnakar — show choice between email reset and recovery code
+    document.getElementById('FG-STAGE1').style.display='none';
+    document.getElementById('FG-STAGE2-SA').style.display='';
+    return;
+  }
+  // Owner/Sales — submit a request to rachnakar
+  const note=document.getElementById('FG-NOTE').value.trim();
+  try{
+    await sbIns('password_reset_requests',{username:un,note:note,status:'pending'});
+    document.getElementById('FG-STAGE1').style.display='none';
+    document.getElementById('FG-STAGE2-SA').style.display='none';
+    document.getElementById('FG-STAGE3-EMAIL').style.display='';
+    document.getElementById('FG-STAGE3-EMAIL').innerHTML='<div style="font-size:13px;color:#1b5e20;">✅ Request sent. Rachnakar will contact you on WhatsApp with a new password.</div><button class="btn bgy sm" style="margin-top:10px;" onclick="closeMo(\'MO-FORGOT\')">Close</button>';
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
+}
+
+// ────── Rachnakar: request email reset ──────────
+async function requestEmailReset(){
+  const un=document.getElementById('FG-UN').value.trim();
+  // Generate token, hash it, store hash + expiry, send plain to edge function
+  const token=randomAlphanum(32);
+  const tokHash=await sha256(token);
+  const expires=new Date(Date.now()+30*60*1000).toISOString();
+  // Get recovery email from settings
+  let recipEmail='';
+  try{
+    const s=await sbQ('settings','?key=eq.rachnakar_recovery_email');
+    if(s&&s.length)recipEmail=s[0].value||'';
+  }catch{}
+  // Also check the user's own email field
+  try{
+    const u=await sbQ('users',`?username=eq.${encodeURIComponent(un)}&select=email`);
+    if(u&&u.length&&u[0].email)recipEmail=u[0].email;
+  }catch{}
+  if(!recipEmail){toast('No recovery email configured. Use a recovery code instead.','var(--red)');return;}
+  try{
+    await sbIns('email_reset_tokens',{username:un,token_hash:tokHash,expires_at:expires,sent_to_email:recipEmail});
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');return;}
+
+  // Send via Edge Function (non-blocking: show confirmation regardless; log any failure to console)
+  document.getElementById('FG-STAGE2-SA').style.display='none';
+  document.getElementById('FG-STAGE3-EMAIL').style.display='';
+
+  if(EDGE_EMAIL_URL){
+    const resetLink=`${window.location.origin}${window.location.pathname}?reset_token=${token}`;
+    fetch(EDGE_EMAIL_URL,{
+      method:'POST',headers:HDR(),
+      body:JSON.stringify({
+        kind:'password_reset',
+        to:recipEmail,
+        username:un,
+        reset_link:resetLink,
+        expires_minutes:30
+      })
+    }).catch(err=>console.warn('Email Edge Fn failed:',err));
+  } else {
+    console.warn('EDGE_EMAIL_URL not configured. Token (dev only):',token);
+  }
+}
+
+// ────── Rachnakar: use recovery code ────────────
+function showRecoveryCodeEntry(){
+  document.getElementById('FG-STAGE2-SA').style.display='none';
+  document.getElementById('FG-STAGE3-CODE').style.display='';
+  document.getElementById('FG-CODE').value='';
+  document.getElementById('FG-NEWPW').value='';
+  document.getElementById('FG-CONPW').value='';
+}
+
+async function submitRecoveryCode(){
+  const un=document.getElementById('FG-UN').value.trim();
+  const code=document.getElementById('FG-CODE').value.trim();
+  const np=document.getElementById('FG-NEWPW').value;
+  const cp=document.getElementById('FG-CONPW').value;
+  const warn=document.getElementById('FG-CODE-WARN');
+  warn.style.display='none';
+  if(!code){warn.textContent='Enter a recovery code.';warn.style.display='block';return;}
+  if(!np||!cp){warn.textContent='Enter a new password.';warn.style.display='block';return;}
+  if(np.length<8){warn.textContent='Password must be ≥8 chars.';warn.style.display='block';return;}
+  if(np!==cp){warn.textContent='Passwords don\'t match.';warn.style.display='block';return;}
+  // Normalise code format
+  const codeNormal=code.replace(/\s/g,'');
+  const codeHash=await sha256(codeNormal);
+  try{
+    const rows=await sbQ('recovery_codes',`?username=eq.${encodeURIComponent(un)}&code_hash=eq.${encodeURIComponent(codeHash)}&used_at=is.null&select=id`);
+    if(!rows||!rows.length){warn.textContent='Code not recognised or already used.';warn.style.display='block';return;}
+    const codeId=rows[0].id;
+    // Mark code used
+    await sbUpd('recovery_codes',`?id=eq.${codeId}`,{used_at:new Date().toISOString()});
+    // Reset password
+    await sbUpd('users',`?username=eq.${encodeURIComponent(un)}`,{password_hash:np,last_password_change:new Date().toISOString(),password_updated_via:'recovery_code',must_change_password:false});
+    await logAuthAttempt(un,true,'recovery_code_reset');
+    closeMo('MO-FORGOT');
+    toast('✅ Password reset. Please log in with your new password.','#27ae60');
+  }catch(e){warn.textContent='Error: '+(e.message||e);warn.style.display='block';}
+}
+
+// ────── Email token landing (user clicks email link) ───
+async function submitEmailTokenReset(){
+  const tok=sessionStorage.getItem('MSN_EMAIL_TOK');
+  const np=document.getElementById('ET-NEW').value;
+  const cp=document.getElementById('ET-CON').value;
+  const warn=document.getElementById('ET-WARN');
+  warn.style.display='none';
+  if(!tok){warn.textContent='No active token. Start a new reset request.';warn.style.display='block';return;}
+  if(!np||!cp||np!==cp||np.length<8){warn.textContent='Enter a matching password, 8+ chars.';warn.style.display='block';return;}
+  const tokHash=await sha256(tok);
+  try{
+    const rows=await sbQ('email_reset_tokens',`?token_hash=eq.${encodeURIComponent(tokHash)}&used_at=is.null&select=id,username,expires_at`);
+    if(!rows||!rows.length){warn.textContent='Invalid or already-used token.';warn.style.display='block';return;}
+    const row=rows[0];
+    if(new Date(row.expires_at)<new Date()){warn.textContent='Token expired. Request a new reset.';warn.style.display='block';return;}
+    await sbUpd('email_reset_tokens',`?id=eq.${row.id}`,{used_at:new Date().toISOString()});
+    await sbUpd('users',`?username=eq.${encodeURIComponent(row.username)}`,{password_hash:np,last_password_change:new Date().toISOString(),password_updated_via:'email_reset',must_change_password:false});
+    sessionStorage.removeItem('MSN_EMAIL_TOK');
+    // Strip ?reset_token= from the URL
+    if(window.history&&window.history.replaceState){
+      const cleanUrl=window.location.pathname;
+      window.history.replaceState(null,'',cleanUrl);
+    }
+    closeMo('MO-EMTOK');
+    toast('✅ Password reset. Please log in.','#27ae60');
+    doLogout();
+  }catch(e){warn.textContent='Error: '+(e.message||e);warn.style.display='block';}
+}
+
+// ────── Reset Requests card (rachnakar) ────────
+async function renderResetRequestsCard(){
+  const card=document.getElementById('PRR-CARD');
+  const list=document.getElementById('PRR-LIST');
+  if(!card||CU.role!=='super_admin'){if(card)card.classList.add('hi');return;}
+  let rows=[];
+  try{rows=await sbQ('password_reset_requests','?status=eq.pending&order=created_at.desc');}catch{}
+  if(!rows.length){card.classList.add('hi');return;}
+  card.classList.remove('hi');
+  list.innerHTML=rows.map(r=>`<div style="padding:10px;border:1px solid var(--bd);border-radius:6px;margin-bottom:8px;background:#fff;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+      <div>
+        <strong>${sanitise(r.username)}</strong>
+        <span style="font-size:11px;color:var(--gy);margin-left:8px;">${sanitise((r.created_at||'').slice(0,16).replace('T',' '))}</span>
+        ${r.note?`<div style="margin-top:4px;font-size:12px;">${sanitise(r.note)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;">
+        <button class="btn bgn sm" onclick="generateResetForUser('${r.id}','${sanitise(r.username)}')">🔑 Generate Password</button>
+        <button class="btn br sm" onclick="rejectResetRequest('${r.id}')">✕ Reject</button>
+      </div>
+    </div>
+  </div>`).join('');
+}
+
+async function generateResetForUser(reqId,username){
+  const newPw=randomAlphanum(10);
+  try{
+    await sbUpd('users',`?username=eq.${encodeURIComponent(username)}`,{password_hash:newPw,must_change_password:true,last_password_change:new Date().toISOString(),password_updated_via:'rachnakar_reset'});
+    await sbUpd('password_reset_requests',`?id=eq.${reqId}`,{status:'fulfilled',fulfilled_by:CU?.username||'',fulfilled_at:new Date().toISOString(),generated_pw:newPw});
+    // Show modal
+    document.getElementById('GP-USER').textContent=username;
+    document.getElementById('GP-PW').textContent=newPw;
+    window._lastGenPw={user:username,pw:newPw,reqId:reqId};
+    document.getElementById('MO-GENPW').classList.remove('hi');
+    users=await sbQ('users','?order=created_at');
+    renderResetRequestsCard();
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
+}
+
+function whatsAppGeneratedPw(){
+  const info=window._lastGenPw;if(!info)return;
+  const u=users.find(x=>x.username===info.user);
+  const wa=u?.wa||'';
+  const msg=`Hi ${info.user}, your Meensha password has been reset to:\n\n*${info.pw}*\n\nYou will be asked to change it on first login.`;
+  if(wa){
+    window.open(`https://wa.me/${wa.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank');
+  } else {
+    navigator.clipboard.writeText(msg).then(()=>toast('No WA number on file. Message copied to clipboard.','#e67e22'));
+  }
+}
+
+function copyGeneratedPw(){
+  const info=window._lastGenPw;if(!info)return;
+  navigator.clipboard.writeText(info.pw).then(()=>toast('✅ Password copied','#27ae60'));
+}
+
+async function dismissGeneratedPw(){
+  const info=window._lastGenPw;
+  if(info&&info.reqId){
+    try{await sbUpd('password_reset_requests',`?id=eq.${info.reqId}`,{generated_pw:null});}catch{}
+  }
+  window._lastGenPw=null;
+  document.getElementById('GP-PW').textContent='';
+  closeMo('MO-GENPW');
+}
+
+async function rejectResetRequest(reqId){
+  if(!confirm('Reject this reset request?'))return;
+  await sbUpd('password_reset_requests',`?id=eq.${reqId}`,{status:'rejected',fulfilled_by:CU?.username||'',fulfilled_at:new Date().toISOString()});
+  renderResetRequestsCard();
+  toast('Request rejected','#e67e22');
+}
+
+// ────── Recovery Codes (rachnakar self-service) ─
+async function renderRecoveryCodesCard(){
+  const card=document.getElementById('RC-CARD');
+  const summary=document.getElementById('RC-SUMMARY');
+  if(!card||CU.role!=='super_admin'){if(card)card.classList.add('hi');return;}
+  card.classList.remove('hi');
+  try{
+    const rows=await sbQ('recovery_codes',`?username=eq.${encodeURIComponent(CU.username)}&select=id,used_at&order=created_at.desc`);
+    const total=rows.length;
+    const unused=rows.filter(r=>!r.used_at).length;
+    summary.innerHTML=total?`You have <strong>${unused} unused</strong> of ${total} total codes.`:'You have <strong>no recovery codes yet</strong>. Generate a set and save them somewhere safe.';
+  }catch{summary.textContent='Could not load codes.';}
+}
+
+async function generateRecoveryCodes(){
+  if(!confirm('Generate 10 new recovery codes?\n\nAny previous codes will be invalidated and cannot be used again. Make sure you save the new ones immediately — they appear ONCE.'))return;
+  try{
+    // Delete old codes
+    await sbDel('recovery_codes',`?username=eq.${encodeURIComponent(CU.username)}`);
+    // Generate 10 new
+    const codes=[];
+    for(let i=0;i<10;i++)codes.push(genRecoveryCode());
+    // Hash + insert
+    const inserts=[];
+    for(const c of codes){
+      const h=await sha256(c);
+      inserts.push({user_id:String(CU.id).startsWith('local-')?null:CU.id,username:CU.username,code_hash:h});
+    }
+    await sbIns('recovery_codes',inserts);
+    // Display
+    document.getElementById('RC-LIST').innerHTML=codes.map(c=>`<div>${c}</div>`).join('');
+    window._lastRecoveryCodes=codes;
+    document.getElementById('MO-RCODES').classList.remove('hi');
+    renderRecoveryCodesCard();
+  }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
+}
+
+function downloadRecoveryCodes(){
+  const codes=window._lastRecoveryCodes||[];
+  const txt=`MEENSHA RECOVERY CODES — ${CU.username}\nGenerated: ${new Date().toISOString()}\n\nEach code works exactly once. Keep this file in a secure location (password manager, encrypted drive, or printed and stored in a safe).\n\n`+codes.join('\n');
+  const blob=new Blob([txt],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='meensha_recovery_codes_'+CU.username+'.txt';a.click();
+  toast('✅ Codes downloaded','#27ae60');
+}
+
+function copyRecoveryCodes(){
+  const codes=window._lastRecoveryCodes||[];
+  navigator.clipboard.writeText(codes.join('\n')).then(()=>toast('✅ Codes copied','#27ae60'));
+}
+
+function closeRecoveryCodesModal(){
+  window._lastRecoveryCodes=null;
+  document.getElementById('RC-LIST').innerHTML='';
+  closeMo('MO-RCODES');
+}
+
+// ────── Secondary Rachnakar warning ─────────────
+function renderSecondaryRachnakarWarning(){
+  const card=document.getElementById('SA-WARN');
+  if(!card||CU.role!=='super_admin'){if(card)card.classList.add('hi');return;}
+  const superAdmins=users.filter(u=>u.role==='super_admin'&&u.active);
+  if(superAdmins.length<=1)card.classList.remove('hi');
+  else card.classList.add('hi');
+}
+
+// ────── Auth Log viewer (rachnakar only) ────────
+async function renderAuthLogCard(){
+  const card=document.getElementById('AL-CARD');
+  if(!card||CU.role!=='super_admin'){if(card)card.classList.add('hi');return;}
+  card.classList.remove('hi');
+  // Populate username filter
+  const f=document.getElementById('AL-FUN');
+  const current=f.value;
+  f.innerHTML='<option value="">All users</option>'+users.map(u=>`<option value="${sanitise(u.username)}">${sanitise(u.username)}</option>`).join('');
+  if(current)f.value=current;
+  renderAuthLog();
+}
+
+async function renderAuthLog(){
+  const tbody=document.getElementById('AL-BODY');if(!tbody)return;
+  const fun=document.getElementById('AL-FUN').value;
+  const fst=document.getElementById('AL-FST').value;
+  let q='?order=created_at.desc&limit=200';
+  if(fun)q+=`&username=eq.${encodeURIComponent(fun)}`;
+  if(fst!=='')q+=`&success=eq.${fst}`;
+  let rows=[];
+  try{rows=await sbQ('auth_log',q);}catch{}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gy);padding:18px;font-style:italic;">No entries.</td></tr>';return;}
+  tbody.innerHTML=rows.map(r=>{
+    const dt=(r.created_at||'').replace('T',' ').slice(0,19);
+    const ua=(r.user_agent||'').match(/(Chrome|Firefox|Safari|Edge|Opera)[^\s]*/);
+    return `<tr style="${r.success?'':'background:#fff5f5'};">
+      <td style="font-family:monospace;font-size:10px;">${sanitise(dt)}</td>
+      <td><strong>${sanitise(r.username||'—')}</strong></td>
+      <td>${r.success?'<span class="bx bg2">OK</span>':'<span class="bx br2">FAIL</span>'}</td>
+      <td style="font-size:11px;">${sanitise(r.reason||'')}</td>
+      <td style="font-size:11px;">${sanitise(ua?ua[0]:'—')}</td>
+      <td style="font-family:monospace;font-size:10px;color:var(--gy);">${sanitise(r.ip_guess||'—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportAuthLogXL(){
+  sbQ('auth_log','?order=created_at.desc&limit=5000').then(rows=>{
+    if(!rows.length){toast('Nothing to export','var(--red)');return;}
+    const out=rows.map(r=>({
+      When:r.created_at,Username:r.username,Success:r.success,
+      Reason:r.reason,'User Agent':r.user_agent,'IP (guess)':r.ip_guess
+    }));
+    const ws=XLSX.utils.json_to_sheet(out);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,'Auth Log');
+    XLSX.writeFile(wb,'Meensha_AuthLog_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    toast('✅ Exported','#27ae60');
+  });
+}
 
 // ═══════════════════════════════════════════════
 // TICKER
@@ -1023,11 +2861,34 @@ async function modRev(id,status){await sbUpd('reviews',`?id=eq.${id}`,{status,ap
 // ═══════════════════════════════════════════════
 // USERS
 // ═══════════════════════════════════════════════
-function renderUsers(){const tb=document.getElementById('USR-BODY');tb.innerHTML='';users.forEach(u=>{const tr=document.createElement('tr');tr.innerHTML=`<td><strong>${u.username}</strong></td><td>${u.display_name||''}</td><td><span class="bx ${u.role==='super_admin'?'bo':u.role==='owner'?'bg2':u.role==='admin'?'bb2':'bgy2'}">${u.role}</span></td><td>${u.wa||'—'}</td><td><span class="bx ${u.active?'bg2':'br2'}">${u.active?'Active':'Inactive'}</span></td><td style="font-size:11px;">${u.last_login?.split('T')[0]||'—'}</td><td style="display:flex;gap:3px;"><button class="btn bgy xs" onclick="editUsr('${u.id}')">✏️</button>${u.id!==CU.id?`<button class="btn br xs" onclick="delUsr('${u.id}')">🗑️</button>`:''}</td>`;tb.appendChild(tr);});}
+function renderUsers(){
+  const tb=document.getElementById('USR-BODY');tb.innerHTML='';
+  users.forEach(u=>{
+    const tr=document.createElement('tr');
+    const roleLbl=u.role==='super_admin'?'Rachnakar':(u.role||'');
+    tr.innerHTML=`<td><strong>${sanitise(u.username||'')}</strong></td>
+      <td>${sanitise(u.display_name||'')}</td>
+      <td><span class="bx ${u.role==='super_admin'?'bo':u.role==='owner'?'bg2':'bgy2'}">${sanitise(roleLbl)}</span></td>
+      <td>${sanitise(u.wa||'—')}</td>
+      <td style="font-size:11px;">${sanitise(u.email||'—')}</td>
+      <td><span class="bx ${u.active?'bg2':'br2'}">${u.active?'Active':'Inactive'}</span></td>
+      <td style="font-size:11px;">${(u.last_login||'').split('T')[0]||'—'}</td>
+      <td style="display:flex;gap:3px;">
+        <button class="btn bgy xs" onclick="editUsr('${u.id}')">✏️</button>
+        ${u.id!==CU.id?`<button class="btn br xs" onclick="delUsr('${u.id}')">🗑️</button>`:''}
+      </td>`;
+    tb.appendChild(tr);
+  });
+  // Auth-related sub-cards (rachnakar-only views)
+  renderResetRequestsCard();
+  renderRecoveryCodesCard();
+  renderSecondaryRachnakarWarning();
+  renderAuthLogCard();
+}
 let editUsrId=null;
-function openUsrModal(){editUsrId=null;document.getElementById('USR-TITLE').textContent='➕ Add User';['U-UN','U-PW','U-NM','U-WA'].forEach(id=>document.getElementById(id).value='');document.getElementById('U-RL').value='sales';document.getElementById('U-AC').value='true';document.getElementById('MO-USR').classList.remove('hi');}
-function editUsr(id){const u=users.find(x=>x.id===id);if(!u)return;editUsrId=id;document.getElementById('USR-TITLE').textContent='✏️ Edit User';document.getElementById('U-UN').value=u.username;document.getElementById('U-PW').value='';document.getElementById('U-NM').value=u.display_name||'';document.getElementById('U-RL').value=u.role;document.getElementById('U-WA').value=u.wa||'';document.getElementById('U-AC').value=String(u.active);document.getElementById('MO-USR').classList.remove('hi');}
-async function saveUsr(){const un=document.getElementById('U-UN').value.trim(),nm=document.getElementById('U-NM').value.trim();if(!un||!nm){toast('Username and name required','var(--red)');return;}const data={username:un,display_name:nm,role:document.getElementById('U-RL').value,wa:document.getElementById('U-WA').value,active:document.getElementById('U-AC').value==='true'};const pw=document.getElementById('U-PW').value;if(pw)data.password_hash=pw;try{if(editUsrId){await sbUpd('users',`?id=eq.${editUsrId}`,data);}else{await sbIns('users',data);}users=await sbQ('users','?order=created_at');renderUsers();closeMo('MO-USR');toast('✅ User saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
+function openUsrModal(){editUsrId=null;document.getElementById('USR-TITLE').textContent='➕ Add User';['U-UN','U-PW','U-NM','U-WA','U-EM'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('U-RL').value='sales';document.getElementById('U-AC').value='true';document.getElementById('MO-USR').classList.remove('hi');}
+function editUsr(id){const u=users.find(x=>x.id===id);if(!u)return;editUsrId=id;document.getElementById('USR-TITLE').textContent='✏️ Edit User';document.getElementById('U-UN').value=u.username;document.getElementById('U-PW').value='';document.getElementById('U-NM').value=u.display_name||'';document.getElementById('U-RL').value=u.role;document.getElementById('U-WA').value=u.wa||'';const em=document.getElementById('U-EM');if(em)em.value=u.email||'';document.getElementById('U-AC').value=String(u.active);document.getElementById('MO-USR').classList.remove('hi');}
+async function saveUsr(){const un=document.getElementById('U-UN').value.trim(),nm=document.getElementById('U-NM').value.trim();if(!un||!nm){toast('Username and name required','var(--red)');return;}const data={username:un,display_name:nm,role:document.getElementById('U-RL').value,wa:document.getElementById('U-WA').value,email:(document.getElementById('U-EM')?.value||'').trim(),active:document.getElementById('U-AC').value==='true'};const pw=document.getElementById('U-PW').value;if(pw)data.password_hash=pw;try{if(editUsrId){await sbUpd('users',`?id=eq.${editUsrId}`,data);}else{await sbIns('users',data);}users=await sbQ('users','?order=created_at');renderUsers();closeMo('MO-USR');toast('✅ User saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
 async function delUsr(id){if(!confirm('Delete user?'))return;await sbDel('users',`?id=eq.${id}`);users=users.filter(u=>u.id!==id);renderUsers();toast('Deleted','var(--red)');}
 
 // ═══════════════════════════════════════════════
@@ -1233,7 +3094,7 @@ async function editPurchSplit(id){
 // ═══════════════════════════════════════════════
 function renderPermissions(){
   const div=document.getElementById('PERM-PANEL');if(!div)return;
-  if(CU.role!=='super_admin'){div.innerHTML='<p style="color:var(--gy);font-style:italic;">Only Super Admin can manage permissions.</p>';return;}
+  if(CU.role!=='super_admin'){div.innerHTML='<p style="color:var(--gy);font-style:italic;">Only Rachnakar can manage permissions.</p>';return;}
   const modules=[{id:'home',label:'🏠 Home'},{id:'inv',label:'📋 Inventory'},{id:'stock',label:'📦 Add Stock'},{id:'sale',label:'🛍️ New Sale'},{id:'sum',label:'📈 Summary'},{id:'pnl',label:'💰 P&L'},{id:'rev',label:'⭐ Reviews'},{id:'usr',label:'👥 Users'}];
   const roles=['owner','sales'];
   let html='<table style="width:100%;font-size:12px;"><thead><tr><th style="text-align:left;">Module</th>';
