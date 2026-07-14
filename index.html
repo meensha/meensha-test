@@ -575,6 +575,7 @@ footer {
 .sp-pr-row { display:flex;align-items:baseline;gap:7px;margin-top:7px; }
 .sp-pr { font-size:16px;color:var(--gold-light); }
 .sp-mrp { font-size:11px;color:rgba(247,243,236,.25);text-decoration:line-through; }
+.sp-cross { font-size:10px;color:var(--gold-light);opacity:.7;margin-top:5px;font-style:italic; }
 .sp-wa { display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;border:none;padding:8px 12px;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:9px;text-decoration:none;transition:background .3s; }
 .sp-wa:hover { background:#1da851; }
 @media(max-width:700px){#shop-page>div>div:last-child{grid-template-columns:1fr!important;} #sp-grid{grid-template-columns:1fr 1fr!important;}}
@@ -631,7 +632,8 @@ footer {
     <li><a href="#weavers">Artisans</a></li>
   </ul>
   <div class="nav-right">
-    <a class="nav-btn-c" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contact</a>
+    <button id="currency-toggle" onclick="toggleCurrency()" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:5px 12px;cursor:pointer;margin-right:4px;">🇮🇳 INR</button>
+    <a class="nav-btn-c" id="contact-link" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contact</a>
     <a class="nav-btn-s" href="#shop-page" onclick="openShop('all');return false;">Shop Now</a>
   </div>
 </nav>
@@ -1012,25 +1014,61 @@ setTimeout(() => {
 /* ── SHOP ── */
 const WA_I = '<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
 const fmtR = n => Number(n||0).toLocaleString('en-IN');
-let spInv = [], spF = 'all';
+let spSkus = [], spF = 'all';
+let currency = localStorage.getItem('msh_currency') || null;
+let waIn = '918709525218', waAu = '';
+
+async function detectCurrency() {
+  if (currency) return;
+  try {
+    const r = await fetch('https://ipapi.co/json/');
+    const j = await r.json();
+    currency = (j.country_code === 'AU') ? 'AU' : 'IN';
+  } catch(e) { currency = 'IN'; }
+  updateCurrencyBtn();
+}
+
+function toggleCurrency() {
+  currency = currency === 'AU' ? 'IN' : 'AU';
+  localStorage.setItem('msh_currency', currency);
+  updateCurrencyBtn();
+  renderShopGrid();
+}
+
+function updateCurrencyBtn() {
+  const b = document.getElementById('currency-toggle');
+  if (b) b.textContent = currency === 'AU' ? '🇦🇺 AUD' : '🇮🇳 INR';
+  const c = document.getElementById('contact-link');
+  if (c) c.href = 'https://wa.me/' + (currency === 'AU' && waAu ? waAu : waIn);
+}
 
 async function loadShop() {
-  try { spInv = await spFetch('inventory', '?order=item_id'); } catch(e) { spInv = []; }
+  await detectCurrency();
+  try {
+    const [sk, un, st] = await Promise.all([
+      spFetch('inventory_skus', '?order=sku_code'),
+      spFetch('inventory_units', '?select=sku_id,status'),
+      spFetch('settings', '?key=in.(wa_num_in,wa_num_au)')
+    ]);
+    st.forEach(s => { if (s.key === 'wa_num_in' && s.value) waIn = s.value; if (s.key === 'wa_num_au' && s.value) waAu = s.value; });
+    spSkus = sk.map(s => ({ ...s, avail: un.filter(u => u.sku_id === s.id && u.status === 'available').length }));
+  } catch(e) { spSkus = []; }
+  updateCurrencyBtn();
   renderShopGrid();
 }
 
 function matchF(it, f) {
   if (f === 'all') return true;
-  const s = [it.name, it.subtype||'', it.fabric||'', it.cat||''].join(' ').toLowerCase();
+  const s = [it.name, it.display_variant||'', it.display_material||'', it.pattern||''].join(' ').toLowerCase();
   if (f === 'Ikkat') return s.includes('ikkat')||s.includes('ikat')||s.includes('pochampally');
   if (f === 'Patola') return s.includes('patola');
   if (f === 'Tussar') return s.includes('tussar');
   if (f === 'Ajrak') return s.includes('ajrak');
   if (f === 'Gharchola') return s.includes('gharchl')||s.includes('gharchola');
-  if (f === 'Cotton') return it.fabric==='Cotton' && !s.includes('ajrak');
+  if (f === 'Cotton') return (it.display_material||'')==='Cotton' && !s.includes('ajrak');
   if (f === 'Modal') return s.includes('modal');
   if (f === 'Kota') return s.includes('kota');
-  if (f === 'Silk') return ['Silk','Tussar Silk','Cotton Silk','Modal Silk'].includes(it.fabric) && !s.includes('tussar') && !s.includes('modal') && !s.includes('patola');
+  if (f === 'Silk') return ['Silk','Tussar Silk','Cotton Silk','Modal Silk'].includes(it.display_material) && !s.includes('tussar') && !s.includes('modal') && !s.includes('patola');
   return false;
 }
 
@@ -1038,28 +1076,41 @@ function renderShopGrid() {
   const showSO = document.getElementById('sp-show-sold')?.checked;
   const g = document.getElementById('sp-grid');
   if (!g) return;
-  const fl = spInv.filter(it => matchF(it, spF) && (showSO || (it.qty||0)-(it.sold||0) > 0));
-  const av = fl.filter(it => (it.qty||0)-(it.sold||0) > 0).length;
+  const marketField = currency === 'AU' ? 'au_available' : 'india_available';
+  const inMarket = spSkus.filter(it => it[marketField] && matchF(it, spF));
+  const fl = inMarket.filter(it => showSO || it.avail > 0);
+  const av = fl.filter(it => it.avail > 0).length;
   const cnt = document.getElementById('sp-count');
   if (cnt) cnt.textContent = av + ' available' + (fl.length > av ? ' · ' + (fl.length-av) + ' sold out' : '');
   if (!fl.length) { g.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:rgba(247,243,236,.3);font-style:italic;font-size:17px;">No items here yet — message us on WhatsApp!</div>'; return; }
+  const waNum = (currency === 'AU' && waAu) ? waAu : waIn;
   g.innerHTML = fl.map(it => {
-    const av2 = (it.qty||0)-(it.sold||0), sold = av2 <= 0;
-    const ph = it.photos||[], sp2 = it.sale_price||it.mrp;
-    const nm = it.name + (it.subtype ? ' ('+it.subtype+')' : '');
-    const wam = encodeURIComponent('Hi Meensha! Interested in: '+nm+' — '+it.cat+'\nCould you share details? 🙏');
+    const sold = it.avail <= 0;
+    const ph = it.photos||[];
+    const isAud = currency === 'AU';
+    const sp2 = isAud ? (it.sale_price_aud||0) : (it.sale_price||it.mrp);
+    const mrp2 = isAud ? 0 : it.mrp;
+    const sym = isAud ? 'A$' : '₹';
+    const fmtP = isAud ? (n => Number(n||0).toLocaleString('en-AU')) : fmtR;
+    const nm = it.name + (it.display_variant ? ' ('+it.display_variant+')' : '');
+    const wam = encodeURIComponent('Hi Meensha! Interested in: '+nm+' — '+it.sku_code+'\nCould you share details? 🙏');
     const som = encodeURIComponent('Hi Meensha! '+nm+' shows as Sold Out — please notify me! 🙏');
+    // Cross-market note: item also available (and priced) in the other market
+    let crossNote = '';
+    if (!isAud && it.au_available && it.sale_price_aud) crossNote = `<div class="sp-cross">Also available in Australia — A$${Number(it.sale_price_aud).toLocaleString('en-AU')}</div>`;
+    if (isAud && it.india_available && it.sale_price) crossNote = `<div class="sp-cross">Also available in India — ₹${fmtR(it.sale_price)}</div>`;
     return `<div class="sp-card${sold?' sp-sold':''}">
       <div class="sp-img">
-        ${ph.length ? `<img src="${ph[0]}" alt="${it.name}">` : `<div class="sp-noimg"><span>🧵</span><p>${it.fabric||'Handloom'}</p></div>`}
-        ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="window.open('https://wa.me/918709525218?text=${som}','_blank')">Notify Me</button></div>` : ''}
+        ${ph.length ? `<img src="${ph[0]}" alt="${it.name}">` : `<div class="sp-noimg"><span>🧵</span><p>${it.display_material||'Handloom'}</p></div>`}
+        ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="window.open('https://wa.me/${waNum}?text=${som}','_blank')">Notify Me</button></div>` : ''}
       </div>
       <div class="sp-info">
         <div class="sp-nm">${it.name}</div>
-        ${it.subtype ? `<div class="sp-sub">${it.subtype}</div>` : ''}
-        <div class="sp-fab">${it.fabric||''}</div>
-        <div class="sp-pr-row"><span class="sp-pr">₹${fmtR(sp2)}</span>${it.mrp>sp2 ? `<span class="sp-mrp">₹${fmtR(it.mrp)}</span>` : ''}</div>
-        ${!sold ? `<a class="sp-wa" href="https://wa.me/918709525218?text=${wam}" target="_blank">${WA_I} Order on WhatsApp</a>` : ''}
+        ${it.display_variant ? `<div class="sp-sub">${it.display_variant}</div>` : ''}
+        <div class="sp-fab">${it.display_material||''}</div>
+        <div class="sp-pr-row"><span class="sp-pr">${sym}${fmtP(sp2)}</span>${mrp2>sp2 ? `<span class="sp-mrp">${sym}${fmtP(mrp2)}</span>` : ''}</div>
+        ${crossNote}
+        ${!sold ? `<a class="sp-wa" href="https://wa.me/${waNum}?text=${wam}" target="_blank">${WA_I} Order on WhatsApp</a>` : ''}
       </div></div>`;
   }).join('');
 }
@@ -1077,7 +1128,7 @@ function filterShop(f, btn) {
 async function openShop(cat) {
   document.getElementById('shop-page').style.display = 'block';
   document.getElementById('shop-cta').style.display = 'none';
-  if (!spInv.length) await loadShop();
+  if (!spSkus.length) await loadShop();
   const mc = {ikat:'Ikkat',patola:'Patola',tussar:'Tussar',ajrak:'Ajrak',gharch:'Gharchola',all:'all'};
   const f2 = mc[cat] || 'all'; spF = f2;
   document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
@@ -1095,6 +1146,8 @@ function closeShop() {
   document.getElementById('shop-cta').style.display = 'block';
   document.getElementById('catalogue').scrollIntoView({behavior:'smooth'});
 }
+
+detectCurrency();
 </script>
 </body>
 </html>

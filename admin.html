@@ -223,7 +223,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <button class="btn bb sm" onclick="exportInvPDF()">📄 PDF</button>
     <button class="btn bgn sm" onclick="showTab('stock',document.getElementById('tb-stock'))">➕ Add Stock</button>
   </div>
-  <div class="tw"><table><thead><tr><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Market</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
 </div>
 
 <!-- ═══ ADD STOCK ═══ -->
@@ -893,6 +893,10 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi"><label>Disc %</label><input type="number" id="NI-DISC" value="10" min="0" max="100" oninput="calcNIPrice()"></div>
     <div class="fi"><label>Sale ₹ (INR)</label><input type="number" id="NI-SALE" placeholder="Auto"></div>
     <div class="fi"><label>Sale ₹ (AUD)</label><input type="number" id="NI-AUD" placeholder="0"></div>
+  </div>
+  <div style="display:flex;gap:18px;margin-bottom:11px;">
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="NI-IN-AVAIL" style="accent-color:var(--gdk);width:14px;height:14px;">🇮🇳 Show in India catalogue</label>
+    <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="NI-AU-AVAIL" style="accent-color:var(--gdk);width:14px;height:14px;">🇦🇺 Show in Australia catalogue</label>
   </div>
   <div id="NI-MRP-HINT" style="background:#fff8e1;border:1px dashed #ffe082;border-radius:7px;padding:9px;margin-bottom:11px;font-size:12px;display:none;"></div>
   <div style="font-size:11px;color:var(--gy);margin-bottom:11px;">To add more stock (units) to this SKU, use <strong>Add Stock</strong> — it lets you attach a vendor, batch and per-unit photos.</div>
@@ -2637,10 +2641,17 @@ function renderInv(){
     if(fab&&(s.display_material||s.material)!==fab)return;
     if(st==='in'&&av<=0)return;if(st==='low'&&(av<=0||av>2))return;if(st==='out'&&av>0)return;
     const badge=av<=0?'<span class="bx br2">Sold Out</span>':av<=2?'<span class="bx ba">Low</span>':'<span class="bx bg2">Available</span>';
+    const inOn=s.india_available!==false,auOn=!!s.au_available;
+    const mkt=`<button class="btn xs ${inOn?'bg':'bgy'}" style="opacity:${inOn?1:.4};" onclick="toggleMarket('${s.id}','india_available',${!inOn})" title="India catalogue">🇮🇳</button> <button class="btn xs ${auOn?'bg':'bgy'}" style="opacity:${auOn?1:.4};" onclick="toggleMarket('${s.id}','au_available',${!auOn})" title="Australia catalogue">🇦🇺</button>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
+    tr.innerHTML=`<td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
     tb.appendChild(tr);
   });
+}
+async function toggleMarket(skuId,field,val){
+  await sbUpd('inventory_skus','?id=eq.'+skuId,{[field]:val,updated_at:new Date().toISOString()});
+  const s=skus.find(x=>x.id===skuId);if(s)s[field]=val;
+  renderInv();
 }
 function openSkuPhGallery(skuId){
   const s=skus.find(x=>x.id===skuId);if(!s)return;
@@ -2663,6 +2674,8 @@ function editItem(id){
   document.getElementById('NI-DISC').value=s.disc;
   document.getElementById('NI-SALE').value=s.sale_price;
   document.getElementById('NI-AUD').value=s.sale_price_aud||'';
+  document.getElementById('NI-IN-AVAIL').checked=s.india_available!==false;
+  document.getElementById('NI-AU-AVAIL').checked=!!s.au_available;
   calcNIMRP();
   document.getElementById('MO-ITEM').classList.remove('hi');
 }
@@ -2682,7 +2695,7 @@ function calcNIPrice(){const m=parseFloat(document.getElementById('NI-MRP').valu
 async function saveItem(){
   const nm=document.getElementById('NI-NM').value.trim();
   if(!nm||editIdx<0){toast('Name required','var(--red)');return;}
-  const data={name:nm,display_material:document.getElementById('NI-FAB').value.trim(),display_variant:document.getElementById('NI-SUB').value.trim(),cost:parseFloat(document.getElementById('NI-COST').value)||0,mrp:parseFloat(document.getElementById('NI-MRP').value)||0,disc:parseFloat(document.getElementById('NI-DISC').value)||0,sale_price:parseFloat(document.getElementById('NI-SALE').value)||0,sale_price_aud:parseFloat(document.getElementById('NI-AUD').value)||0,updated_at:new Date().toISOString()};
+  const data={name:nm,display_material:document.getElementById('NI-FAB').value.trim(),display_variant:document.getElementById('NI-SUB').value.trim(),cost:parseFloat(document.getElementById('NI-COST').value)||0,mrp:parseFloat(document.getElementById('NI-MRP').value)||0,disc:parseFloat(document.getElementById('NI-DISC').value)||0,sale_price:parseFloat(document.getElementById('NI-SALE').value)||0,sale_price_aud:parseFloat(document.getElementById('NI-AUD').value)||0,india_available:document.getElementById('NI-IN-AVAIL').checked,au_available:document.getElementById('NI-AU-AVAIL').checked,updated_at:new Date().toISOString()};
   await sbUpd('inventory_skus',`?id=eq.${editIdx}`,data);
   skus=await sbQ('inventory_skus','?order=sku_code');closeMo('MO-ITEM');renderInvStats();renderInv();populateFabFilter();toast('✅ SKU saved','#27ae60');
 }
