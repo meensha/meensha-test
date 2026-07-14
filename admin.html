@@ -893,7 +893,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- Photo Modal -->
 <div class="mo hi" id="MO-PH"><div class="md">
   <div class="mt2">📷 Photos — <span id="PH-LBL" style="color:var(--gdk);"></span></div>
-  <div style="font-size:11px;color:var(--gy);margin-bottom:10px;">One photo per unit of stock ideally</div>
+  <div style="font-size:11px;color:var(--gy);margin-bottom:10px;" id="PH-HINT">1–4 photos</div>
   <div class="pz" id="PH-ZONE" onclick="document.getElementById('PH-FILE').click()"><input type="file" id="PH-FILE" accept="image/*" multiple style="display:none" onchange="handlePhUp(event)"><div style="font-size:22px;">📷</div><div style="color:var(--gdk);font-weight:600;font-size:12px;margin-top:4px;">Add photos</div></div>
   <div class="pts" id="PH-PTS"></div>
   <div class="mf"><button class="btn bg" onclick="savePh()">Save</button><button class="btn bgy" onclick="closeMo('MO-PH')">Close</button></div>
@@ -1163,6 +1163,9 @@ async function initApp(){
   try{const rp=await sbQ('settings','?key=eq.role_permissions');if(rp&&rp.length)rolePerms={...DEFAULT_PERMS,...JSON.parse(rp[0].value||'{}')};}catch{}
   applyRole();
   await loadAll();
+  // The initial SA-BODY row (added on window.onload, before data existed) needs its
+  // item options refreshed now that skus/inv are actually loaded.
+  if(document.querySelectorAll('#SA-BODY tr').length===1){document.getElementById('SA-BODY').innerHTML='';addSARow();}
   showTab('home',document.getElementById('tb-home'));
 }
 
@@ -2626,16 +2629,17 @@ function renderInv(){
     if(st==='in'&&av<=0)return;if(st==='low'&&(av<=0||av>2))return;if(st==='out'&&av>0)return;
     const badge=av<=0?'<span class="bx br2">Sold Out</span>':av<=2?'<span class="bx ba">Low</span>':'<span class="bx bg2">Available</span>';
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${tot}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
+    tr.innerHTML=`<td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
     tb.appendChild(tr);
   });
 }
 function openSkuPhGallery(skuId){
   const s=skus.find(x=>x.id===skuId);if(!s)return;
-  const uList=units.filter(u=>u.sku_id===skuId&&u.photo_url);
+  const photos=s.photos||[];
   document.getElementById('PH-ZONE').style.display='none';
   document.getElementById('PH-LBL').textContent=s.name;
-  document.getElementById('PH-PTS').innerHTML=uList.length?uList.map(u=>`<div class="pt"><img src="${u.photo_url}"><div style="font-size:9px;text-align:center;color:var(--gy);">${u.unit_code}</div></div>`).join(''):'<p style="font-size:12px;color:var(--gy);">No unit photos yet.</p>';
+  document.getElementById('PH-HINT').textContent='Photos';
+  document.getElementById('PH-PTS').innerHTML=photos.length?photos.map(p=>`<div class="pt"><img src="${p}"></div>`).join(''):'<p style="font-size:12px;color:var(--gy);">No photos yet.</p>';
   phCtx=null;document.getElementById('MO-PH').classList.remove('hi');
 }
 function editItem(id){
@@ -2781,6 +2785,8 @@ async function saveSIEntry(){
     const code=(document.getElementById('SI-CODE-'+idx)?.value||'').trim();
     const nm=document.getElementById('SI-NM-'+idx)?.value.trim()||'';
     if(!code||!nm){toast('SKU Code and Name required on all rows','var(--red)');return;}
+    const rawPh=JSON.parse(r.dataset.photos||'[]');
+    if(!rawPh.length){toast('Add at least 1 photo (row '+(parseInt(idx)+1)+')','var(--red)');return;}
   }
   const gst=document.getElementById('SI-GST').checked,gp=gst?(parseFloat(document.getElementById('SI-GSTP').value)||0):0;
   const rowData=[];let sub2=0;
@@ -2806,22 +2812,20 @@ async function saveSIEntry(){
   const purchRec=purchIns[0];
   let unitCount=0,skuCount=0;
   for(const rd of rowData){
+    const photos=await uploadTmpPhs('item-photos',rd.rawPh.slice(0,4));
     let skuRec=skus.find(s=>s.sku_code===rd.code);
     if(skuRec){
-      await sbUpd('inventory_skus','?id=eq.'+skuRec.id,{cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud||skuRec.sale_price_aud,display_material:rd.material||skuRec.display_material,display_variant:rd.variant||skuRec.display_variant,updated_at:new Date().toISOString()});
-      skuRec={...skuRec,cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud||skuRec.sale_price_aud};
+      await sbUpd('inventory_skus','?id=eq.'+skuRec.id,{cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud||skuRec.sale_price_aud,display_material:rd.material||skuRec.display_material,display_variant:rd.variant||skuRec.display_variant,photos,hero_photo:photos[0]||skuRec.hero_photo,updated_at:new Date().toISOString()});
+      skuRec={...skuRec,cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud||skuRec.sale_price_aud,photos,hero_photo:photos[0]||skuRec.hero_photo};
     }else{
       const parts=rd.code.split('-');
-      const skuIns=await sbIns('inventory_skus',{sku_code:rd.code,pattern:parts[0]||'',material:parts[1]||'',variant:parts[2]||'PL',name:rd.name,display_material:rd.material,display_variant:rd.variant,tags:[],cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud});
+      const skuIns=await sbIns('inventory_skus',{sku_code:rd.code,pattern:parts[0]||'',material:parts[1]||'',variant:parts[2]||'PL',name:rd.name,display_material:rd.material,display_variant:rd.variant,tags:[],cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud,photos,hero_photo:photos[0]||null});
       if(!skuIns||!skuIns.length){toast('SKU insert failed for '+rd.code,'var(--red)');continue;}
       skuRec=skuIns[0];skus.push(skuRec);skuCount++;
     }
-    const photos=await uploadTmpPhs('item-photos',rd.rawPh);
-    const phoArr=[];for(let i=0;i<rd.qty;i++)phoArr.push(photos[i]||null);
-    const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{method:'POST',headers:HDR(),body:JSON.stringify({p_sku_id:skuRec.id,p_vendor_code:vendor.vendor_id,p_purchase_id:purchRec.id,p_qty:rd.qty,p_photo_urls:phoArr})});
+    const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{method:'POST',headers:HDR(),body:JSON.stringify({p_sku_id:skuRec.id,p_vendor_code:vendor.vendor_id,p_purchase_id:purchRec.id,p_qty:rd.qty,p_photo_urls:[]})});
     if(!rpcR.ok){const t=await rpcR.text();toast('Units failed for '+rd.code+': '+t.slice(0,60),'var(--red)');continue;}
     const created=await rpcR.json();unitCount+=created.length;
-    if(!skuRec.hero_photo&&photos[0]){await sbUpd('inventory_skus','?id=eq.'+skuRec.id,{hero_photo:photos[0]});skuRec.hero_photo=photos[0];}
   }
   purch=await sbQ('purchases','?order=created_at.desc');skus=await sbQ('inventory_skus','?order=sku_code');units=await sbQ('inventory_units','?order=unit_code');vendors=await sbQ('vendors','?order=vendor_id');
   renderInvStats();renderInv();populateFabFilter();renderVendors();renderVendorStats();
@@ -2842,7 +2846,7 @@ function resolveSaleItem(val){
   }
   if(val.startsWith('sku:')){
     const skuId=val.slice(4);const s=skus.find(x=>x.id===skuId);if(!s)return null;
-    return{source:'sku',skuId,id:s.id,name:s.name,subtype:s.display_variant||'',cat:s.sku_code,mrp:s.mrp||0,cost:s.cost||0,sale_price:s.sale_price||0,avail:skuAvail(s.id),photos:units.filter(u=>u.sku_id===s.id&&u.photo_url).map(u=>u.photo_url)};
+    return{source:'sku',skuId,id:s.id,name:s.name,subtype:s.display_variant||'',cat:s.sku_code,mrp:s.mrp||0,cost:s.cost||0,sale_price:s.sale_price||0,avail:skuAvail(s.id),photos:s.photos||[]};
   }
   return null;
 }
@@ -3058,10 +3062,36 @@ async function delIg(id){if(!confirm('Remove?'))return;await sbUpd('instagram_po
 // ═══════════════════════════════════════════════
 // PHOTOS
 // ═══════════════════════════════════════════════
-function openPhMo(kind,idx){phCtx={kind,idx};let ex=[];if(kind==='inv'){const it=inv.find(i=>i.id===idx);ex=it?.photos||[];}tmpPh=[...ex];document.getElementById('PH-LBL').textContent=kind==='inv'?(inv.find(i=>i.id===idx)?.name||''):'Item';document.getElementById('PH-ZONE').style.display='';renderPhPts();document.getElementById('MO-PH').classList.remove('hi');}
-function handlePhUp(e){Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{tmpPh.push(ev.target.result);renderPhPts();};r.readAsDataURL(f);});}
+function phMax(kind){return kind==='si-row'?4:99;}
+function openPhMo(kind,idx){
+  phCtx={kind,idx};let ex=[];
+  if(kind==='inv'){const it=inv.find(i=>i.id===idx);ex=it?.photos||[];}
+  else if(kind==='si-row'){const row=document.getElementById('SIR-'+idx);ex=row?JSON.parse(row.dataset.photos||'[]'):[];}
+  tmpPh=[...ex];
+  document.getElementById('PH-LBL').textContent=kind==='inv'?(inv.find(i=>i.id===idx)?.name||''):'Item';
+  document.getElementById('PH-HINT').textContent=kind==='si-row'?'1–4 photos for this item (shown on storefront)':'Photos';
+  document.getElementById('PH-ZONE').style.display='';
+  renderPhPts();document.getElementById('MO-PH').classList.remove('hi');
+}
+function handlePhUp(e){
+  const max=phMax(phCtx?.kind);
+  Array.from(e.target.files).forEach(f=>{
+    if(tmpPh.length>=max){toast(`Max ${max} photos`,'var(--red)');return;}
+    const r=new FileReader();r.onload=ev=>{if(tmpPh.length<max){tmpPh.push(ev.target.result);renderPhPts();}};r.readAsDataURL(f);
+  });
+  e.target.value='';
+}
 function renderPhPts(){document.getElementById('PH-PTS').innerHTML=tmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="tmpPh.splice(${i},1);renderPhPts();">✕</button></div>`).join('');}
-async function savePh(){if(!phCtx){closeMo('MO-PH');return;}const{kind,idx}=phCtx;if(kind==='inv'){const urls=await uploadTmpPhs('item-photos',tmpPh);await sbUpd('inventory',`?id=eq.${idx}`,{photos:urls,updated_at:new Date().toISOString()});const it=inv.find(i=>i.id===idx);if(it)it.photos=urls;renderInv();toast(`✅ ${urls.length} photos saved`,'#27ae60');}else if(kind==='si-row'){const row=document.getElementById('SIR-'+idx);if(row){row.dataset.photos=JSON.stringify(tmpPh);const c=document.getElementById('SI-PC-'+idx);if(c)c.textContent=tmpPh.length;}}closeMo('MO-PH');}
+async function savePh(){
+  if(!phCtx){closeMo('MO-PH');return;}
+  const{kind,idx}=phCtx;
+  if(kind==='inv'){const urls=await uploadTmpPhs('item-photos',tmpPh);await sbUpd('inventory',`?id=eq.${idx}`,{photos:urls,updated_at:new Date().toISOString()});const it=inv.find(i=>i.id===idx);if(it)it.photos=urls;renderInv();toast(`✅ ${urls.length} photos saved`,'#27ae60');}
+  else if(kind==='si-row'){
+    if(!tmpPh.length){toast('Add at least 1 photo','var(--red)');return;}
+    const row=document.getElementById('SIR-'+idx);if(row){row.dataset.photos=JSON.stringify(tmpPh);const c=document.getElementById('SI-PC-'+idx);if(c)c.textContent=tmpPh.length;}
+  }
+  closeMo('MO-PH');
+}
 async function uploadTmpPhs(bucket,phs){const urls=[];for(const ph of phs){if(ph.startsWith('http')){urls.push(ph);continue;}try{const blob=await fetch(ph).then(r=>r.blob());const url=await uploadFile(bucket,new File([blob],'ph.jpg',{type:'image/jpeg'}));urls.push(url);}catch{urls.push(ph);}}return urls;}
 
 // ═══════════════════════════════════════════════
