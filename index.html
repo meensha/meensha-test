@@ -83,14 +83,25 @@ nav.scrolled {
   border-bottom:1px solid var(--gold-dim);
 }
 
-/* ── CHANGE 1: Logo — pre-rendered animated coin-rotation (navbar_80.webp) ── */
+/* ── CHANGE 1: Logo — Hindi face for India, English face for Australia, flips on market toggle ── */
 .nav-logo {
   position:relative; height:92px; width:120px;
   display:flex; align-items:center;
+  perspective:1000px;
 }
-.nav-logo img {
-  height:80px; width:80px; object-fit:contain;
+.nav-logo .coin {
+  position:relative; width:80px; height:80px;
+  transform-style:preserve-3d;
+  transition:transform .7s cubic-bezier(.4,.2,.2,1);
 }
+.nav-logo .coin.flipped { transform:rotateY(180deg); }
+.nav-logo .coin img {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  object-fit:contain;
+  backface-visibility:hidden;
+}
+.nav-logo .logo-hindi { transform:rotateY(0deg); }
+.nav-logo .logo-eng   { transform:rotateY(180deg); }
 
 .nav-links { display:flex; gap:32px; list-style:none; }
 .nav-links a {
@@ -573,7 +584,38 @@ footer {
 .sp-cross { font-size:10px;color:var(--gold-light);opacity:.7;margin-top:5px;font-style:italic; }
 .sp-wa { display:flex;align-items:center;justify-content:center;gap:6px;background:#25D366;color:#fff;border:none;padding:8px 12px;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:9px;text-decoration:none;transition:background .3s; }
 .sp-wa:hover { background:#1da851; }
+.sp-cart-btn { display:flex;align-items:center;justify-content:center;gap:6px;background:var(--gold);color:var(--dark);border:none;padding:8px 12px;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:9px;text-decoration:none;transition:background .3s; }
+.sp-cart-btn:hover { background:var(--gold-light); }
+.sp-cart-btn:disabled { opacity:.4;cursor:not-allowed; }
 @media(max-width:700px){#shop-page>div>div:last-child{grid-template-columns:1fr!important;} #sp-grid{grid-template-columns:1fr 1fr!important;}}
+
+/* ── CART DRAWER ── */
+#cart-overlay { position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:none; }
+#cart-overlay.on { display:block; }
+#cart-drawer { position:fixed;top:0;right:-380px;width:360px;max-width:88vw;height:100%;background:var(--dark2);z-index:901;transition:right .35s ease;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.4); }
+#cart-drawer.on { right:0; }
+.cart-head { display:flex;align-items:center;justify-content:space-between;padding:20px 22px;border-bottom:1px solid var(--gold-dim); }
+.cart-head h3 { font-family:'Cinzel',serif;font-size:13px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-light);font-weight:400; }
+.cart-close { background:none;border:none;color:var(--cream);font-size:16px;cursor:pointer;opacity:.6; }
+.cart-close:hover { opacity:1; }
+#cart-items { flex:1;overflow-y:auto;padding:14px 22px; }
+.cart-item { display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(201,168,76,.12); }
+.cart-item img { width:56px;height:56px;object-fit:cover;border-radius:4px;flex-shrink:0; }
+.cart-item-noimg { width:56px;height:56px;border-radius:4px;flex-shrink:0;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:18px; }
+.cart-item-info { flex:1;min-width:0; }
+.cart-item-nm { font-size:14px;color:var(--cream); }
+.cart-item-sub { font-size:10px;color:rgba(247,243,236,.4);font-style:italic;margin-top:2px; }
+.cart-item-pr { font-size:13px;color:var(--gold-light);margin-top:4px; }
+.cart-item-rm { background:none;border:none;color:rgba(247,243,236,.35);cursor:pointer;font-size:13px;align-self:flex-start; }
+.cart-item-rm:hover { color:#e74c3c; }
+.cart-empty { text-align:center;padding:60px 20px;color:rgba(247,243,236,.35);font-style:italic;font-size:14px; }
+#cart-foot { padding:16px 22px 22px;border-top:1px solid var(--gold-dim); }
+.cart-total-row { display:flex;justify-content:space-between;font-size:16px;color:var(--cream);margin-bottom:6px; }
+.cart-total-row span:last-child { color:var(--gold-light);font-weight:600; }
+.cart-hold-note { font-size:10px;color:rgba(247,243,236,.4);margin-bottom:12px; }
+.cart-checkout-btn { display:flex;align-items:center;justify-content:center;gap:7px;background:#25D366;color:#fff;border:none;padding:11px 14px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;width:100%;text-decoration:none;transition:background .3s; }
+.cart-checkout-btn:hover { background:#1da851; }
+.cart-checkout-btn.disabled { pointer-events:none;opacity:.4; }
 </style>
 </head>
 <body>
@@ -614,9 +656,12 @@ footer {
 
 <!-- ════ FIXED NAV ════ -->
 <nav id="main-nav">
-  <!-- CHANGE 1: Logo — pre-rendered animated coin-rotation between Hindi/English faces -->
+  <!-- CHANGE 1: Logo — Hindi face for India market, English face for Australia -->
   <div class="nav-logo">
-    <img src="navbar_80.webp" alt="Meensha · मीनशा">
+    <div class="coin" id="nav-coin">
+      <img class="logo-hindi" src="logo.svg" alt="मीनशा">
+      <img class="logo-eng" src="logo_eng.svg" alt="Meensha">
+    </div>
   </div>
   <ul class="nav-links">
     <li><a href="#heritage">Heritage</a></li>
@@ -628,6 +673,7 @@ footer {
   </ul>
   <div class="nav-right">
     <button id="currency-toggle" onclick="toggleCurrency()" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:5px 12px;cursor:pointer;margin-right:4px;">🇮🇳 INR</button>
+    <button id="cart-toggle" onclick="openCart()" style="position:relative;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:6px 12px;cursor:pointer;margin-right:4px;font-size:14px;">🛍️<span id="cart-count" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--gold);color:var(--dark);font-family:'Cinzel',serif;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;">0</span></button>
     <a class="nav-btn-c" id="contact-link" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contact</a>
     <a class="nav-btn-s" href="#shop-page" onclick="openShop('all');return false;">Shop Now</a>
   </div>
@@ -931,8 +977,8 @@ footer {
 <footer>
   <div class="footer-grid">
     <div class="footer-brand">
-      <!-- CHANGE 2: Footer logo = English ornate PNG -->
-      <img src="meensha_logo_en.png" alt="Meensha">
+      <!-- CHANGE 2: Footer logo = English ornate PNG (transparent scalloped badge) -->
+      <img src="meensha_logo_eng.png" alt="Meensha">
       <p>करघों की विरासत<br>Heritage Weaves of India<br><br>Preserving the living art of the Indian loom, one thread at a time.</p>
     </div>
     <div class="footer-col">
@@ -967,11 +1013,27 @@ footer {
   </div>
 </footer>
 
+<!-- ════ CART DRAWER ════ -->
+<div id="cart-overlay" onclick="closeCart()"></div>
+<div id="cart-drawer">
+  <div class="cart-head">
+    <h3>Your Selection</h3>
+    <button onclick="closeCart()" class="cart-close">✕</button>
+  </div>
+  <div id="cart-items"></div>
+  <div id="cart-foot">
+    <div class="cart-total-row"><span>Total</span><span id="cart-total">₹0</span></div>
+    <p class="cart-hold-note">Items are held for you for 15 minutes.</p>
+    <a id="cart-checkout" class="cart-checkout-btn" href="#" target="_blank" onclick="onCartCheckout()"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Confirm Order on WhatsApp</a>
+  </div>
+</div>
+
 <script>
 /* ── SUPABASE ── */
 const _SB='https://eglanmhhcccsuhbxywua.supabase.co',_SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
 async function spFetch(t,q=''){const r=await fetch(`${_SB}/rest/v1/${t}${q}`,{headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}});if(!r.ok)return[];try{return await r.json();}catch{return[];}}
 async function spPost(t,d){return fetch(`${_SB}/rest/v1/${t}`,{method:'POST',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify(d)});}
+async function spPostRPC(fn,args={}){const r=await fetch(`${_SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json'},body:JSON.stringify(args)});if(!r.ok)return null;try{return await r.json();}catch{return null;}}
 
 /* ── SLIDESHOW ── */
 let current = 0;
@@ -1009,7 +1071,8 @@ setTimeout(() => {
 /* ── SHOP ── */
 const WA_I = '<svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>';
 const fmtR = n => Number(n||0).toLocaleString('en-IN');
-let spSkus = [], spF = 'all';
+let spSkus = [], spUnits = [], spF = 'all';
+let cart = JSON.parse(localStorage.getItem('msh_cart')||'[]');
 let currency = localStorage.getItem('msh_currency') || null;
 let waIn = '918709525218', waAu = '';
 
@@ -1035,21 +1098,34 @@ function updateCurrencyBtn() {
   if (b) b.textContent = currency === 'AU' ? '🇦🇺 AUD' : '🇮🇳 INR';
   const c = document.getElementById('contact-link');
   if (c) c.href = 'https://wa.me/' + (currency === 'AU' && waAu ? waAu : waIn);
+  const coin = document.getElementById('nav-coin');
+  if (coin) coin.classList.toggle('flipped', currency === 'AU');
 }
 
 async function loadShop() {
   await detectCurrency();
+  try { await spPostRPC('release_expired_reservations'); } catch(e) {}
   try {
     const [sk, un, st] = await Promise.all([
       spFetch('inventory_skus', '?order=sku_code'),
-      spFetch('inventory_units', '?select=sku_id,status'),
+      spFetch('inventory_units', '?select=id,sku_id,status'),
       spFetch('settings', '?key=in.(wa_num_in,wa_num_au)')
     ]);
     st.forEach(s => { if (s.key === 'wa_num_in' && s.value) waIn = s.value; if (s.key === 'wa_num_au' && s.value) waAu = s.value; });
+    spUnits = un;
     spSkus = sk.map(s => ({ ...s, avail: un.filter(u => u.sku_id === s.id && u.status === 'available').length }));
-  } catch(e) { spSkus = []; }
+  } catch(e) { spSkus = []; spUnits = []; }
+  reconcileCart();
   updateCurrencyBtn();
+  updateCartBadge();
   renderShopGrid();
+}
+
+// Drop any cart items whose unit is no longer reserved by us (expired / sold / released elsewhere)
+function reconcileCart() {
+  const before = cart.length;
+  cart = cart.filter(c => spUnits.some(u => u.id === c.unitId && u.status === 'reserved'));
+  if (cart.length !== before) saveCart();
 }
 
 function matchF(it, f) {
@@ -1105,9 +1181,102 @@ function renderShopGrid() {
         <div class="sp-fab">${it.display_material||''}</div>
         <div class="sp-pr-row"><span class="sp-pr">${sym}${fmtP(sp2)}</span>${mrp2>sp2 ? `<span class="sp-mrp">${sym}${fmtP(mrp2)}</span>` : ''}</div>
         ${crossNote}
-        ${!sold ? `<a class="sp-wa" href="https://wa.me/${waNum}?text=${wam}" target="_blank">${WA_I} Order on WhatsApp</a>` : ''}
+        ${!sold ? `<button class="sp-cart-btn" onclick="addToCart('${it.id}')" ${cartHasUnitForSku(it.id)?'disabled':''}>🛍️ ${cartHasUnitForSku(it.id)?'In Cart':'Add to Cart'}</button>` : ''}
       </div></div>`;
   }).join('');
+}
+
+/* ── CART ── */
+function saveCart(){ localStorage.setItem('msh_cart', JSON.stringify(cart)); updateCartBadge(); }
+function cartHasUnitForSku(skuId){ return cart.some(c => c.skuId === skuId); }
+function updateCartBadge(){
+  const el = document.getElementById('cart-count');
+  if (!el) return;
+  if (cart.length) { el.style.display = 'flex'; el.textContent = cart.length; }
+  else { el.style.display = 'none'; }
+}
+async function addToCart(skuId, btn) {
+  btn = btn || event?.target;
+  const sku = spSkus.find(s => s.id === skuId);
+  if (!sku || sku.avail <= 0) return;
+  const origText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  const avUnit = spUnits.find(u => u.sku_id === skuId && u.status === 'available');
+  if (!avUnit) { if (btn) btn.textContent = 'Sold Out'; return; }
+  const ok = await spPostRPC('reserve_unit', { p_unit_id: avUnit.id });
+  if (!ok) { if (btn) { btn.disabled = false; btn.textContent = origText; } renderShopGrid(); return; }
+  avUnit.status = 'reserved';
+  sku.avail -= 1;
+  cart.push({ unitId: avUnit.id, skuId: sku.id, sku_code: sku.sku_code, name: sku.name, variant: sku.display_variant||'', photo: (sku.photos||[])[0]||'', price_inr: sku.sale_price||sku.mrp, price_aud: sku.sale_price_aud||0 });
+  saveCart();
+  renderShopGrid();
+  renderCart();
+}
+async function removeFromCart(unitId) {
+  const idx = cart.findIndex(c => c.unitId === unitId);
+  if (idx < 0) return;
+  const item = cart[idx];
+  cart.splice(idx, 1);
+  saveCart();
+  spPostRPC('unreserve_unit', { p_unit_id: unitId }).catch(()=>{});
+  const sku = spSkus.find(s => s.id === item.skuId);
+  if (sku) sku.avail += 1;
+  const unit = spUnits.find(u => u.id === unitId);
+  if (unit) unit.status = 'available';
+  renderShopGrid();
+  renderCart();
+}
+function renderCart() {
+  const el = document.getElementById('cart-items');
+  if (!el) return;
+  const isAud = currency === 'AU';
+  const sym = isAud ? 'A$' : '₹';
+  const fmtP = isAud ? (n => Number(n||0).toLocaleString('en-AU')) : fmtR;
+  if (!cart.length) {
+    el.innerHTML = '<div class="cart-empty">Your selection is empty.<br>Browse the collection to add pieces.</div>';
+  } else {
+    el.innerHTML = cart.map(c => {
+      const price = isAud ? (c.price_aud||0) : (c.price_inr||0);
+      return `<div class="cart-item">
+        ${c.photo ? `<img src="${c.photo}" alt="${c.name}">` : `<div class="cart-item-noimg">🧵</div>`}
+        <div class="cart-item-info">
+          <div class="cart-item-nm">${c.name}</div>
+          ${c.variant ? `<div class="cart-item-sub">${c.variant}</div>` : ''}
+          <div class="cart-item-pr">${sym}${fmtP(price)}</div>
+        </div>
+        <button class="cart-item-rm" onclick="removeFromCart('${c.unitId}')">✕</button>
+      </div>`;
+    }).join('');
+  }
+  const total = cart.reduce((a,c) => a + (isAud ? (c.price_aud||0) : (c.price_inr||0)), 0);
+  const totalEl = document.getElementById('cart-total');
+  if (totalEl) totalEl.textContent = sym + fmtP(total);
+  const waNum = (isAud && waAu) ? waAu : waIn;
+  const checkoutBtn = document.getElementById('cart-checkout');
+  if (!checkoutBtn) return;
+  if (cart.length) {
+    const lines = cart.map(c => '• ' + c.name + (c.variant ? ' (' + c.variant + ')' : '') + ' — ' + c.sku_code).join('\n');
+    const msg = encodeURIComponent(`Hi Meensha! I'd like to order:\n\n${lines}\n\nTotal: ${sym}${fmtP(total)}\n\nCould you confirm availability and next steps? 🙏`);
+    checkoutBtn.href = `https://wa.me/${waNum}?text=${msg}`;
+    checkoutBtn.classList.remove('disabled');
+  } else {
+    checkoutBtn.href = '#';
+    checkoutBtn.classList.add('disabled');
+  }
+}
+function onCartCheckout() {
+  if (!cart.length) return;
+  // Reservations stay held server-side; just clear the browser-side selection view
+  setTimeout(() => { cart = []; saveCart(); renderCart(); renderShopGrid(); closeCart(); }, 400);
+}
+function openCart() {
+  document.getElementById('cart-overlay').classList.add('on');
+  document.getElementById('cart-drawer').classList.add('on');
+  renderCart();
+}
+function closeCart() {
+  document.getElementById('cart-overlay').classList.remove('on');
+  document.getElementById('cart-drawer').classList.remove('on');
 }
 
 function filterShop(f, btn) {
@@ -1143,6 +1312,7 @@ function closeShop() {
 }
 
 detectCurrency();
+updateCartBadge();
 </script>
 </body>
 </html>
