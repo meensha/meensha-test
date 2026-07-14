@@ -254,6 +254,15 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     </div>
   </div>
   <div class="card">
+    <div class="ct">📸 Scan Invoice <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:6px;">Optional — upload a photo, review the AI's guesses, then add rows below. Nothing is saved until you click Save Purchase.</span></div>
+    <div class="pz" id="INVSCAN-ZONE" onclick="document.getElementById('INVSCAN-FILE').click()" style="padding:14px;">
+      <input type="file" id="INVSCAN-FILE" accept="image/*" style="display:none" onchange="handleInvoiceScan(event)">
+      <div style="font-size:22px;">📸</div><div style="color:var(--gdk);font-weight:600;font-size:12px;margin-top:4px;">Upload invoice photo</div>
+    </div>
+    <div id="INVSCAN-STATUS" style="font-size:11px;color:var(--gy);margin-top:6px;"></div>
+    <div id="INVSCAN-RESULTS"></div>
+  </div>
+  <div class="card">
     <div class="ct">🧵 Items <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:6px;">Amber row = MRP suggestion (editable) · typing an existing SKU Code adds a new batch to it</span></div>
     <div class="tw"><table id="SI-TABLE">
       <thead><tr><th>#</th><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Cost ₹</th><th>Qty</th><th>Total Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Photos</th><th></th></tr></thead>
@@ -2717,6 +2726,78 @@ async function callGeminiSearch(query){
     return j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||null;
   }catch{return null;}
 }
+let invScanResults=[];
+async function handleInvoiceScan(e){
+  const f=e.target.files[0];if(!f){return;}
+  const status=document.getElementById('INVSCAN-STATUS');
+  const key=await getGeminiKey();
+  if(!key){toast('Add your Gemini API key above first','var(--red)');e.target.value='';return;}
+  status.textContent='⏳ Reading invoice...';
+  try{
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+    const prompt=`This is a photo of a handloom saree vendor's purchase invoice/bill. Extract each saree/textile line item. Return ONLY a raw JSON array (no markdown code fences, no explanation), each object exactly: {"name":"","material":"","variant":"","qty":0,"unit_cost":0}. Skip subtotal/tax/shipping/total lines. If a field is unclear, make a reasonable guess from context or use empty string / 0.`;
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt},{inline_data:{mime_type:f.type||'image/jpeg',data:b64}}]}]})});
+    if(!r.ok){status.textContent='';toast('Invoice scan failed','var(--red)');e.target.value='';return;}
+    const j=await r.json();
+    let txt=j?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||'';
+    txt=txt.replace(/```json/gi,'').replace(/```/g,'').trim();
+    let items;
+    try{items=JSON.parse(txt);}catch{status.textContent='';toast('Could not read the invoice — try a clearer photo','var(--red)');e.target.value='';return;}
+    if(!Array.isArray(items)||!items.length){status.textContent='';toast('No items detected in the photo','var(--red)');e.target.value='';return;}
+    invScanResults=items;
+    renderInvScanResults();
+    status.textContent=`✅ Found ${items.length} item(s) — review below, then Add`;
+  }catch(err){status.textContent='';toast('Scan error: '+(err.message||err),'var(--red)');}
+  e.target.value='';
+}
+function renderInvScanResults(){
+  const el=document.getElementById('INVSCAN-RESULTS');
+  if(!invScanResults.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="tw" style="margin-top:10px;"><table><thead><tr><th>Name</th><th>Material</th><th>Variant</th><th>Qty</th><th>Unit Cost ₹</th><th></th></tr></thead><tbody>${invScanResults.map((it,i)=>`<tr><td><input id="ISR-NM-${i}" value="${sanitise(it.name||'')}" style="width:120px;"></td><td><input id="ISR-MAT-${i}" value="${sanitise(it.material||'')}" style="width:90px;"></td><td><input id="ISR-VAR-${i}" value="${sanitise(it.variant||'')}" style="width:80px;"></td><td><input type="number" id="ISR-QTY-${i}" value="${it.qty||1}" style="width:50px;"></td><td><input type="number" id="ISR-COST-${i}" value="${it.unit_cost||0}" style="width:75px;"></td><td><button class="btn xs bg" onclick="addInvScanRow(${i})">+ Add</button></td></tr>`).join('')}</tbody></table></div><button class="btn bg sm" style="margin-top:8px;" onclick="addAllInvScanRows()">+ Add All ${invScanResults.length} Rows</button> <button class="btn bgy sm" style="margin-top:8px;" onclick="invScanResults=[];renderInvScanResults();document.getElementById('INVSCAN-STATUS').textContent='';">Discard</button>`;
+}
+function addInvScanRow(i){
+  const it=invScanResults[i];if(!it)return;
+  const nm=document.getElementById('ISR-NM-'+i)?.value||it.name||'';
+  const mat=document.getElementById('ISR-MAT-'+i)?.value||it.material||'';
+  const varnt=document.getElementById('ISR-VAR-'+i)?.value||it.variant||'';
+  const qty=document.getElementById('ISR-QTY-'+i)?.value||it.qty||1;
+  const cost=document.getElementById('ISR-COST-'+i)?.value||it.unit_cost||0;
+  addSIRow();
+  const idx=siRC-1;
+  document.getElementById('SI-NM-'+idx).value=nm;
+  document.getElementById('SI-MAT-'+idx).value=mat;
+  document.getElementById('SI-VAR-'+idx).value=varnt;
+  document.getElementById('SI-QTY-'+idx).value=qty;
+  document.getElementById('SI-COST-'+idx).value=cost;
+  document.getElementById('SI-CODE-'+idx).value=proposeSku({name:nm,subtype:varnt,fabric:mat});
+  checkSIRowSku(idx);checkDupName(idx);updMRPSug(idx);calcSITot();
+  invScanResults[i]=null;
+  invScanResults=invScanResults.filter(x=>x!==null);
+  renderInvScanResults();
+}
+function addAllInvScanRows(){
+  const all=invScanResults.map((it,i)=>({
+    name:document.getElementById('ISR-NM-'+i)?.value||it.name||'',
+    material:document.getElementById('ISR-MAT-'+i)?.value||it.material||'',
+    variant:document.getElementById('ISR-VAR-'+i)?.value||it.variant||'',
+    qty:document.getElementById('ISR-QTY-'+i)?.value||it.qty||1,
+    unit_cost:document.getElementById('ISR-COST-'+i)?.value||it.unit_cost||0
+  }));
+  invScanResults=[];renderInvScanResults();
+  document.getElementById('INVSCAN-STATUS').textContent='';
+  all.forEach(it=>{
+    addSIRow();
+    const idx=siRC-1;
+    document.getElementById('SI-NM-'+idx).value=it.name;
+    document.getElementById('SI-MAT-'+idx).value=it.material;
+    document.getElementById('SI-VAR-'+idx).value=it.variant;
+    document.getElementById('SI-QTY-'+idx).value=it.qty;
+    document.getElementById('SI-COST-'+idx).value=it.unit_cost;
+    document.getElementById('SI-CODE-'+idx).value=proposeSku({name:it.name,subtype:it.variant,fabric:it.material});
+    checkSIRowSku(idx);checkDupName(idx);updMRPSug(idx);calcSITot();
+  });
+}
 async function suggestPrice(idx,currency,btn){
   const nm=document.getElementById('SI-NM-'+idx)?.value||'',mat=document.getElementById('SI-MAT-'+idx)?.value||'',varnt=document.getElementById('SI-VAR-'+idx)?.value||'';
   if(!nm){toast('Enter item name first','var(--red)');return;}
@@ -2733,9 +2814,29 @@ async function suggestPrice(idx,currency,btn){
 function addSIRow(){
   const tb=document.getElementById('SI-BODY'),idx=siRC++;
   const ir=tb.insertRow();ir.id='SIR-'+idx;ir.dataset.photos='[]';
-  ir.innerHTML=`<td style="color:var(--gy);font-weight:700;">${idx+1}</td><td><input id="SI-CODE-${idx}" placeholder="AUTO" style="width:95px;text-transform:uppercase;" onblur="checkSIRowSku(${idx})"> <button class="btn xs bgy" style="margin-top:3px;" onclick="document.getElementById('SI-CODE-${idx}').value=proposeSku({name:document.getElementById('SI-NM-${idx}').value,subtype:document.getElementById('SI-VAR-${idx}').value,fabric:document.getElementById('SI-MAT-${idx}').value});checkSIRowSku(${idx});">↻</button></td><td><input id="SI-NM-${idx}" placeholder="e.g. Paithani Cotton" style="width:120px;"></td><td><input id="SI-MAT-${idx}" placeholder="Cotton" style="width:90px;" oninput="updMRPSug(${idx})"></td><td><input id="SI-VAR-${idx}" placeholder="Plain" style="width:80px;"></td><td><input type="number" id="SI-COST-${idx}" placeholder="0" min="0" oninput="updMRPSug(${idx});calcSITot()" style="width:75px;"></td><td><input type="number" id="SI-QTY-${idx}" value="1" min="1" oninput="calcSITot()" style="width:45px;"></td><td class="ac" id="SI-RT-${idx}">₹ 0</td><td><input type="number" id="SI-MRP-${idx}" placeholder="Suggested" style="width:75px;background:#fff8e1;border-color:#ffe082;" oninput="calcSISP(${idx})"></td><td><input type="number" id="SI-DISC-${idx}" value="10" min="0" max="100" style="width:45px;" oninput="calcSISP(${idx})"></td><td class="ac" id="SI-SP-${idx}">₹ 0</td><td><input type="number" id="SI-AUD-${idx}" placeholder="0" min="0" style="width:65px;"></td><td><button class="btn bgy xs" onclick="openPhMo('si-row',${idx})">📷 <span id="SI-PC-${idx}">0</span></button></td><td><button class="btn br xs" onclick="rmSIRow(${idx})">✕</button></td>`;
+  ir.innerHTML=`<td style="color:var(--gy);font-weight:700;">${idx+1}</td><td><input id="SI-CODE-${idx}" placeholder="AUTO" style="width:95px;text-transform:uppercase;" onblur="checkSIRowSku(${idx})"> <button class="btn xs bgy" style="margin-top:3px;" onclick="document.getElementById('SI-CODE-${idx}').value=proposeSku({name:document.getElementById('SI-NM-${idx}').value,subtype:document.getElementById('SI-VAR-${idx}').value,fabric:document.getElementById('SI-MAT-${idx}').value});checkSIRowSku(${idx});">↻</button></td><td><input id="SI-NM-${idx}" placeholder="e.g. Paithani Cotton" style="width:120px;" onblur="checkDupName(${idx})"></td><td><input id="SI-MAT-${idx}" placeholder="Cotton" style="width:90px;" oninput="updMRPSug(${idx})"></td><td><input id="SI-VAR-${idx}" placeholder="Plain" style="width:80px;"></td><td><input type="number" id="SI-COST-${idx}" placeholder="0" min="0" oninput="updMRPSug(${idx});calcSITot()" style="width:75px;"></td><td><input type="number" id="SI-QTY-${idx}" value="1" min="1" oninput="calcSITot()" style="width:45px;"></td><td class="ac" id="SI-RT-${idx}">₹ 0</td><td><input type="number" id="SI-MRP-${idx}" placeholder="Suggested" style="width:75px;background:#fff8e1;border-color:#ffe082;" oninput="calcSISP(${idx})"></td><td><input type="number" id="SI-DISC-${idx}" value="10" min="0" max="100" style="width:45px;" oninput="calcSISP(${idx})"></td><td class="ac" id="SI-SP-${idx}">₹ 0</td><td><input type="number" id="SI-AUD-${idx}" placeholder="0" min="0" style="width:65px;"></td><td><button class="btn bgy xs" onclick="openPhMo('si-row',${idx})">📷 <span id="SI-PC-${idx}">0</span></button></td><td><button class="btn br xs" onclick="rmSIRow(${idx})">✕</button></td>`;
   const mr=tb.insertRow();mr.id='SIM-'+idx;mr.className='mr-row';
-  mr.innerHTML=`<td colspan="2" style="padding-left:14px;font-size:10px;color:var(--gdk);font-weight:700;text-transform:uppercase;">💡 Suggestions</td><td colspan="11"><span id="SI-SUGG-${idx}" style="font-size:11px;color:var(--gdk);font-style:italic;">Enter cost to see MRP suggestion</span> <button class="btn xs bgy" onclick="suggestPrice(${idx},'inr',this)">🔍 AI Price (INR)</button> <button class="btn xs bgy" onclick="suggestPrice(${idx},'aud',this)">🔍 AI Price (AUD)</button></td>`;
+  mr.innerHTML=`<td colspan="2" style="padding-left:14px;font-size:10px;color:var(--gdk);font-weight:700;text-transform:uppercase;">💡 Suggestions</td><td colspan="11"><span id="SI-SUGG-${idx}" style="font-size:11px;color:var(--gdk);font-style:italic;">Enter cost to see MRP suggestion</span> <button class="btn xs bgy" onclick="suggestPrice(${idx},'inr',this)">🔍 AI Price (INR)</button> <button class="btn xs bgy" onclick="suggestPrice(${idx},'aud',this)">🔍 AI Price (AUD)</button><div id="SI-DUPE-${idx}"></div></td>`;
+}
+function normName(s){return(s||'').toLowerCase().trim().replace(/\s+/g,' ');}
+function checkDupName(idx){
+  const el=document.getElementById('SI-DUPE-'+idx);if(!el)return;
+  el.innerHTML='';
+  const nm=normName(document.getElementById('SI-NM-'+idx)?.value);
+  if(!nm)return;
+  const curCode=(document.getElementById('SI-CODE-'+idx)?.value||'').trim().toUpperCase();
+  const skuMatch=skus.find(s=>s.sku_code!==curCode&&(normName(s.name)===nm||normName(s.name).includes(nm)||nm.includes(normName(s.name))));
+  if(skuMatch){
+    const av=skuAvail(skuMatch.id),tot=skuTotal(skuMatch.id);
+    const added=skuMatch.created_at?new Date(skuMatch.created_at).toLocaleDateString('en-IN'):'—';
+    el.innerHTML=`<div style="margin-top:5px;padding:6px 9px;background:#fff3e0;border:1px solid #ffcc80;border-radius:6px;">⚠ "<strong>${sanitise(skuMatch.name)}</strong>" already in inventory (SKU: <strong>${sanitise(skuMatch.sku_code)}</strong>, added ${added}, ${av}/${tot} available). <button class="btn xs bg" onclick="document.getElementById('SI-CODE-${idx}').value='${skuMatch.sku_code}';checkSIRowSku(${idx});document.getElementById('SI-DUPE-${idx}').innerHTML='';">Use existing SKU</button> <button class="btn xs bgy" onclick="document.getElementById('SI-DUPE-${idx}').innerHTML='';">Keep as new entry</button></div>`;
+    return;
+  }
+  const legMatch=inv.find(i=>normName(i.name)===nm||normName(i.name).includes(nm)||nm.includes(normName(i.name)));
+  if(legMatch){
+    const av=(legMatch.qty||0)-(legMatch.sold||0);
+    el.innerHTML=`<div style="margin-top:5px;padding:6px 9px;background:#fff3e0;border:1px solid #ffcc80;border-radius:6px;">⚠ "<strong>${sanitise(legMatch.name)}</strong>" already in legacy inventory (${legMatch.item_id}, ${av}/${legMatch.qty} available) — not yet migrated to the new SKU system. <button class="btn xs bgy" onclick="document.getElementById('SI-DUPE-${idx}').innerHTML='';">Keep as new entry</button></div>`;
+  }
 }
 function rmSIRow(idx){['SIR-','SIM-'].forEach(p=>{const el=document.getElementById(p+idx);if(el)el.remove();});calcSITot();}
 function checkSIRowSku(idx){
