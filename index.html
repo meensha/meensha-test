@@ -83,28 +83,13 @@ nav.scrolled {
   border-bottom:1px solid var(--gold-dim);
 }
 
-/* ── CHANGE 1: Dual logo — spins like a coin between Hindi and English faces ── */
+/* ── CHANGE 1: Logo — pre-rendered animated coin-rotation (navbar_80.webp) ── */
 .nav-logo {
   position:relative; height:92px; width:120px;
   display:flex; align-items:center;
-  perspective:1000px;
 }
-.nav-logo .coin {
-  position:relative; width:100%; height:100%;
-  transform-style:preserve-3d;
-  animation: coinFlip 12s ease-in-out infinite;
-}
-.nav-logo .coin img {
-  position:absolute; top:0; left:0; width:100%; height:100%;
-  object-fit:contain;
-  backface-visibility:hidden;
-}
-.nav-logo .logo-hindi { transform:rotateY(0deg); }
-.nav-logo .logo-eng   { transform:rotateY(180deg); }
-@keyframes coinFlip {
-  0%, 42%  { transform:rotateY(0deg); }
-  50%      { transform:rotateY(180deg); }
-  92%,100% { transform:rotateY(360deg); }
+.nav-logo img {
+  height:80px; width:80px; object-fit:contain;
 }
 
 .nav-links { display:flex; gap:32px; list-style:none; }
@@ -629,12 +614,9 @@ footer {
 
 <!-- ════ FIXED NAV ════ -->
 <nav id="main-nav">
-  <!-- CHANGE 1: Dual logo — spins like a coin between logo.svg (Hindi) and logo_eng.svg (English) -->
+  <!-- CHANGE 1: Logo — pre-rendered animated coin-rotation between Hindi/English faces -->
   <div class="nav-logo">
-    <div class="coin">
-      <img class="logo-hindi" src="logo.svg" alt="मीनशा">
-      <img class="logo-eng" src="logo_eng.svg" alt="Meensha">
-    </div>
+    <img src="navbar_80.webp" alt="Meensha · मीनशा">
   </div>
   <ul class="nav-links">
     <li><a href="#heritage">Heritage</a></li>
