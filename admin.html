@@ -396,9 +396,10 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <div class="card"><div class="ct">💰 Payment</div>
     <div class="fg">
       <div class="fi"><label>Amount Received ₹</label><input type="number" id="SA-PAID" placeholder="0" oninput="calcSABal()"></div>
-      <div class="fi"><label>Mode</label><select id="SA-MD"><option>UPI</option><option>Cash</option><option>Card</option><option>Bank Transfer</option></select></div>
+      <div class="fi"><label>Mode</label><select id="SA-MD" onchange="toggleRzpNote()"><option>Cash</option><option>UPI Direct</option><option>Razorpay</option></select></div>
       <div class="fi"><label>Balance Due ₹</label><input id="SA-BAL" readonly></div>
     </div>
+    <div id="SA-RZPNOTE" style="display:none;background:#fff8e1;border:1px dashed #ffe082;border-radius:7px;padding:9px;margin-bottom:11px;font-size:12px;color:#8B6914;"></div>
     <div class="fi"><label>Notes</label><textarea id="SA-NOT" placeholder="Special requests..."></textarea></div>
   </div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;">
@@ -412,6 +413,11 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- ═══ SUMMARY ═══ -->
 <div id="tp-sum" class="tp">
   <div class="sr" id="SM-STATS"></div>
+  <div class="card">
+    <div class="ct">💰 Daily Payment Summary <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:6px;">Cross-verify Razorpay net against their dashboard</span></div>
+    <div class="fi" style="max-width:200px;margin-bottom:12px;"><label>Date</label><input type="date" id="DPS-DATE" onchange="renderDailyPaymentSummary()"></div>
+    <div id="DPS-BODY"></div>
+  </div>
   <div class="card"><div class="ct">📊 Sales Register</div>
     <div class="flt">
       <input type="text" id="SM-Q" placeholder="🔍 Customer, invoice..." oninput="renderSales()">
@@ -1234,7 +1240,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
   renders[id]?.();
 }
 
@@ -2977,9 +2983,26 @@ function calcSATot(){
   let sub=0,disc2=0;
   document.querySelectorAll('#SA-BODY tr').forEach(r=>{const sel=r.querySelector('select');const it=resolveSaleItem(sel?.value);const nums=r.querySelectorAll('input[type="number"]');const sp2=parseFloat(nums[0]?.value)||0,qty=parseFloat(nums[1]?.value)||1,d=parseFloat(nums[2]?.value)||0;const mrp=it?.mrp||0;const cells=r.querySelectorAll('td.ac');if(cells[0])cells[0].textContent='₹ '+fmt(mrp);const amt=Math.max(0,sp2*qty-d);sub+=mrp*qty;disc2+=(mrp-sp2)*qty+d;if(cells[1])cells[1].textContent='₹ '+fmt(amt);});
   const gst=document.getElementById('SA-GST').checked,gp=gst?(parseFloat(document.getElementById('SA-GSTP').value)||0):0;const net=sub-disc2;const ga=net*gp/100;const tot=net+ga;
-  document.getElementById('SA-SUB').textContent='₹ '+fmt(sub);document.getElementById('SA-DISC').textContent='₹ '+fmt(disc2);document.getElementById('SA-GSTA').textContent='₹ '+fmt(ga);document.getElementById('SA-GSTR').classList.toggle('hi',!gst);document.getElementById('SA-TOT').textContent='₹ '+fmt(tot);calcSABal();
+  document.getElementById('SA-SUB').textContent='₹ '+fmt(sub);document.getElementById('SA-DISC').textContent='₹ '+fmt(disc2);document.getElementById('SA-GSTA').textContent='₹ '+fmt(ga);document.getElementById('SA-GSTR').classList.toggle('hi',!gst);document.getElementById('SA-TOT').textContent='₹ '+fmt(tot);calcSABal();toggleRzpNote();
 }
 function calcSABal(){const tt=parseFloat((document.getElementById('SA-TOT').textContent||'').replace(/[^\d.]/g,''))||0,pd=parseFloat(document.getElementById('SA-PAID').value)||0,bal=Math.max(0,tt-pd);const el=document.getElementById('SA-BAL');el.value=fmt(bal);el.style.color=bal>0?'var(--red)':'var(--grn)';}
+function toggleRzpNote(){
+  const md=document.getElementById('SA-MD').value;
+  const note=document.getElementById('SA-RZPNOTE');
+  if(md==='Razorpay'){
+    const tt=parseFloat((document.getElementById('SA-TOT').textContent||'').replace(/[^\d.]/g,''))||0;
+    const fee=Math.round(tt*0.02);
+    note.style.display='block';
+    note.innerHTML=`💳 Razorpay fee: <strong>₹${fmt(fee)}</strong> (2% of ₹${fmt(tt)}) — absorbed by Meensha, customer pays full amount.`;
+  }else{
+    note.style.display='none';
+  }
+}
+function rzpFee(){
+  if(document.getElementById('SA-MD').value!=='Razorpay')return 0;
+  const tt=parseFloat((document.getElementById('SA-TOT').textContent||'').replace(/[^\d.]/g,''))||0;
+  return Math.round(tt*0.02);
+}
 async function saveSale(){
   const nm=document.getElementById('SA-NM').value.trim(),dt=document.getElementById('SA-DT').value;
   if(!nm||!dt){toast('Name and date required','var(--red)');return;}
@@ -2997,7 +3020,7 @@ async function saveSale(){
   const inv2='MSH-'+invCtr;document.getElementById('SA-INV').value=inv2;
   const tt=parseFloat((document.getElementById('SA-TOT').textContent||'').replace(/[^\d.]/g,''))||0,pd=parseFloat(document.getElementById('SA-PAID').value)||0;
   const dm=document.querySelector('input[name="DM"]:checked')?.value||'offline';
-  const saleData={inv:inv2,date:dt,customer:{name:nm,wa:document.getElementById('SA-WA').value},items,total:tt,paid:pd,balance:Math.max(0,tt-pd),pay_mode:document.getElementById('SA-MD').value,notes:document.getElementById('SA-NOT').value,gst_pct:document.getElementById('SA-GST').checked?(parseFloat(document.getElementById('SA-GSTP').value)||0):0,delivery_mode:dm,shipping_status:dm==='shipping'?'pending':'na',shipping_address:document.getElementById('SA-ADDR')?.value||'',created_by:CU.username,source:'manual'};
+  const saleData={inv:inv2,date:dt,customer:{name:nm,wa:document.getElementById('SA-WA').value},items,total:tt,paid:pd,balance:Math.max(0,tt-pd),pay_mode:document.getElementById('SA-MD').value,razorpay_fee:rzpFee(),notes:document.getElementById('SA-NOT').value,gst_pct:document.getElementById('SA-GST').checked?(parseFloat(document.getElementById('SA-GSTP').value)||0):0,delivery_mode:dm,shipping_status:dm==='shipping'?'pending':'na',shipping_address:document.getElementById('SA-ADDR')?.value||'',created_by:CU.username,source:'manual'};
   const saved=await sbIns('sales',saleData);
   if(saved&&saved[0])saleData.id=saved[0].id;
   for(const {it,qty} of rowInfo){
@@ -3051,6 +3074,22 @@ function printInv(){const c=document.getElementById('PRINT-INV')?.outerHTML||'';
 function renderSumStats(){
   const rev=sales.reduce((a,s)=>a+(s.total||0),0),paid2=sales.reduce((a,s)=>a+(s.paid||0),0),bal=sales.reduce((a,s)=>a+(s.balance||0),0);
   document.getElementById('SM-STATS').innerHTML=`<div class="sc"><div class="sn">${sales.length}</div><div class="sl">Total Sales</div></div><div class="sc"><div class="sn">₹${fmt(rev)}</div><div class="sl">Revenue</div></div><div class="sc"><div class="sn">₹${fmt(paid2)}</div><div class="sl">Collected</div></div><div class="sc"><div class="sn">₹${fmt(bal)}</div><div class="sl">Pending</div></div>`;
+}
+function renderDailyPaymentSummary(){
+  const dateEl=document.getElementById('DPS-DATE');if(!dateEl)return;
+  if(!dateEl.value)dateEl.value=new Date().toISOString().slice(0,10);
+  const day=dateEl.value;
+  const daySales=sales.filter(s=>s.date===day);
+  const body=document.getElementById('DPS-BODY');if(!body)return;
+  if(!daySales.length){body.innerHTML='<p style="color:var(--gy);font-size:12px;font-style:italic;">No sales recorded for this date.</p>';return;}
+  const byMode={};
+  daySales.forEach(s=>{const m=s.pay_mode||'Unspecified';byMode[m]=byMode[m]||{count:0,gross:0,fee:0};byMode[m].count++;byMode[m].gross+=(s.paid||0);byMode[m].fee+=(s.razorpay_fee||0);});
+  const rows=Object.entries(byMode).map(([mode,d])=>{
+    const net=d.gross-d.fee;
+    return `<tr><td>${mode}</td><td>${d.count}</td><td>₹${fmt(d.gross)}</td><td>${d.fee?'₹'+fmt(d.fee):'—'}</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(net)}</td></tr>`;
+  }).join('');
+  const totGross=daySales.reduce((a,s)=>a+(s.paid||0),0),totFee=daySales.reduce((a,s)=>a+(s.razorpay_fee||0),0),totNet=totGross-totFee;
+  body.innerHTML=`<div class="tw"><table><thead><tr><th>Mode</th><th>Sales</th><th>Collected ₹</th><th>Razorpay Fee ₹</th><th>Net ₹</th></tr></thead><tbody>${rows}<tr style="border-top:2px solid var(--gdk);"><td style="font-weight:700;">Total</td><td style="font-weight:700;">${daySales.length}</td><td style="font-weight:700;">₹${fmt(totGross)}</td><td style="font-weight:700;">₹${fmt(totFee)}</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(totNet)}</td></tr></tbody></table></div>`;
 }
 function renderSales(){
   const q=(document.getElementById('SM-Q').value||'').toLowerCase(),dm=document.getElementById('SM-DM').value,ss=document.getElementById('SM-SS').value,fr=document.getElementById('SM-FR').value,to=document.getElementById('SM-TO').value;
