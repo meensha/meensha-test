@@ -202,12 +202,23 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <div id="EV-LIST"></div>
     </div>
     <!-- Instagram -->
-    <div>
+    <div style="margin-bottom:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <strong style="font-size:13px;">📸 Instagram Posts</strong>
         <button class="btn bg sm" onclick="openIgModal()">+ Add Post</button>
       </div>
       <div id="IG-LIST" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
+    </div>
+    <!-- Razorpay checkout kill-switch — super_admin only. Keys/secrets live in
+         Supabase Edge Function secrets, never here (this panel only talks to
+         the DB with the public anon key). -->
+    <div class="hi" id="RZP-LINK-SECTION">
+      <strong style="font-size:13px;">💳 Razorpay Checkout (Storefront)</strong>
+      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Turns the "Pay via Razorpay" button on/off in the storefront cart (India only). The actual API keys are configured in Supabase, not here.</div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="RZP-ENABLED" onchange="saveRzpEnabled()" style="accent-color:var(--gdk);width:16px;height:16px;">
+        Enable Razorpay checkout on meensha.in
+      </label>
     </div>
   </div>
 </div>
@@ -1172,6 +1183,19 @@ function applyRole(){
   if(r!=='super_admin'&&!allowed.includes('usr'))document.getElementById('tb-usr')?.classList.add('hi');
   // Hide Site Admin section for non-owners
   if(r==='sales')document.getElementById('SA-SECTION')?.classList.add('hi');
+  // Razorpay kill-switch is super_admin only, even though the rest of Site Admin is owner+super_admin
+  const rzpSec=document.getElementById('RZP-LINK-SECTION');
+  if(rzpSec)rzpSec.classList.toggle('hi',r!=='super_admin');
+}
+async function loadRzpEnabled(){
+  const el=document.getElementById('RZP-ENABLED');if(!el)return;
+  try{const r=await sbQ('settings','?key=eq.razorpay_enabled');el.checked=r&&r.length&&r[0].value==='true';}catch{}
+}
+async function saveRzpEnabled(){
+  const val=document.getElementById('RZP-ENABLED').checked?'true':'false';
+  const ex=await sbQ('settings','?key=eq.razorpay_enabled');
+  if(ex&&ex.length)await sbUpd('settings','?key=eq.razorpay_enabled',{value:val});else await sbIns('settings',{key:'razorpay_enabled',value:val});
+  toast('✅ Razorpay checkout '+(val==='true'?'enabled':'disabled'),'#27ae60');
 }
 
 // ═══════════════════════════════════════════════
@@ -1182,6 +1206,7 @@ async function initApp(){
   try{const rp=await sbQ('settings','?key=eq.role_permissions');if(rp&&rp.length)rolePerms={...DEFAULT_PERMS,...JSON.parse(rp[0].value||'{}')};}catch{}
   applyRole();
   await loadAll();
+  if(CU.role==='super_admin')loadRzpEnabled();
   // The initial SA-BODY row (added on window.onload, before data existed) needs its
   // item options refreshed now that skus/inv are actually loaded.
   if(document.querySelectorAll('#SA-BODY tr').length===1){document.getElementById('SA-BODY').innerHTML='';addSARow();}
