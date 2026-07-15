@@ -83,25 +83,14 @@ nav.scrolled {
   border-bottom:1px solid var(--gold-dim);
 }
 
-/* ── CHANGE 1: Logo — Hindi face for India, English face for Australia, flips on market toggle ── */
+/* ── CHANGE 1: Logo — pre-rendered animated coin-rotation ── */
 .nav-logo {
   position:relative; height:92px; width:120px;
   display:flex; align-items:center;
-  perspective:1000px;
 }
-.nav-logo .coin {
-  position:relative; width:80px; height:80px;
-  transform-style:preserve-3d;
-  transition:transform .7s cubic-bezier(.4,.2,.2,1);
+.nav-logo img {
+  height:80px; width:80px; object-fit:contain;
 }
-.nav-logo .coin.flipped { transform:rotateY(180deg); }
-.nav-logo .coin img {
-  position:absolute; top:0; left:0; width:100%; height:100%;
-  object-fit:contain;
-  backface-visibility:hidden;
-}
-.nav-logo .logo-hindi { transform:rotateY(0deg); }
-.nav-logo .logo-eng   { transform:rotateY(180deg); }
 
 .nav-links { display:flex; gap:32px; list-style:none; }
 .nav-links a {
@@ -656,12 +645,9 @@ footer {
 
 <!-- ════ FIXED NAV ════ -->
 <nav id="main-nav">
-  <!-- CHANGE 1: Logo — Hindi face for India market, English face for Australia -->
+  <!-- CHANGE 1: Logo — pre-rendered animated coin-rotation -->
   <div class="nav-logo">
-    <div class="coin" id="nav-coin">
-      <img class="logo-hindi" src="logo.svg" alt="मीनशा">
-      <img class="logo-eng" src="logo_eng.svg" alt="Meensha">
-    </div>
+    <img src="navbar_80.webp" alt="Meensha · मीनशा">
   </div>
   <ul class="nav-links">
     <li><a href="#heritage">Heritage</a></li>
@@ -977,8 +963,8 @@ footer {
 <footer>
   <div class="footer-grid">
     <div class="footer-brand">
-      <!-- CHANGE 2: Footer logo = English ornate PNG (transparent scalloped badge) -->
-      <img src="meensha_logo_eng.png" alt="Meensha">
+      <!-- CHANGE 2: Footer logo = pre-rendered animated coin-rotation -->
+      <img src="meensha_rotating_logo.gif" alt="Meensha">
       <p>करघों की विरासत<br>Heritage Weaves of India<br><br>Preserving the living art of the Indian loom, one thread at a time.</p>
     </div>
     <div class="footer-col">
@@ -1101,8 +1087,6 @@ function updateCurrencyBtn() {
     const el = document.getElementById(id);
     if (el) el.href = waNum;
   });
-  const coin = document.getElementById('nav-coin');
-  if (coin) coin.classList.toggle('flipped', currency === 'AU');
 }
 
 async function loadShop() {
