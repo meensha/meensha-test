@@ -1008,6 +1008,19 @@ footer {
   </div>
   <div id="cart-items"></div>
   <div id="cart-foot">
+    <div id="cart-coupon-box" style="margin-bottom:8px;">
+      <div id="cart-coupon-form" style="display:flex;gap:6px;">
+        <input id="cart-coupon-code" placeholder="Coupon code" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+        <input id="cart-coupon-wa" placeholder="Your WhatsApp #" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+        <button onclick="applyCoupon()" style="padding:7px 12px;font-size:12px;background:var(--gold-dim);color:var(--cream);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Apply</button>
+      </div>
+      <div id="cart-coupon-applied" style="display:none;font-size:12px;color:#8fdb8f;justify-content:space-between;align-items:center;">
+        <span id="cart-coupon-applied-text"></span>
+        <button onclick="removeCoupon()" style="background:none;border:none;color:var(--gold-dim);cursor:pointer;font-size:11px;">Remove</button>
+      </div>
+      <div id="cart-coupon-msg" style="font-size:11px;color:#e08a8a;margin-top:4px;"></div>
+    </div>
+    <div class="cart-total-row" id="cart-subtotal-row" style="display:none;font-size:12px;opacity:.7;"><span>Subtotal</span><span id="cart-subtotal"></span></div>
     <div class="cart-total-row"><span>Total</span><span id="cart-total">₹0</span></div>
     <p class="cart-hold-note">Items are held for you for 15 minutes.</p>
     <div id="cart-contact-form" style="display:none;margin-bottom:8px;">
@@ -1069,6 +1082,7 @@ let cart = JSON.parse(localStorage.getItem('msh_cart')||'[]');
 let currency = localStorage.getItem('msh_currency') || null;
 let waIn = '918709525218', waAu = '', razorpayEnabled = false;
 let checkoutCustomer = JSON.parse(sessionStorage.getItem('msh_checkout_customer')||'null');
+let appliedCoupon = JSON.parse(sessionStorage.getItem('msh_coupon')||'null');
 
 async function detectCurrency() {
   if (currency) return;
@@ -1244,9 +1258,22 @@ function renderCart() {
       </div>`;
     }).join('');
   }
-  const total = cart.reduce((a,c) => a + (isAud ? (c.price_aud||0) : (c.price_inr||0)), 0);
+  const subtotal = cart.reduce((a,c) => a + (isAud ? (c.price_aud||0) : (c.price_inr||0)), 0);
+  const region = isAud ? 'australia' : 'india';
+  let discount = 0, couponValid = false;
+  if (appliedCoupon && (appliedCoupon.region === 'all' || appliedCoupon.region === region)) {
+    couponValid = true;
+    discount = appliedCoupon.discount_type === 'percent' ? subtotal * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
+    discount = Math.min(discount, subtotal);
+  }
+  const total = subtotal - discount;
+  const subRow = document.getElementById('cart-subtotal-row');
+  if (subRow) subRow.style.display = discount > 0 ? 'flex' : 'none';
+  const subEl = document.getElementById('cart-subtotal');
+  if (subEl) subEl.textContent = sym + fmtP(subtotal);
   const totalEl = document.getElementById('cart-total');
   if (totalEl) totalEl.textContent = sym + fmtP(total);
+  renderCouponUI(couponValid, region);
   const waNum = (isAud && waAu) ? waAu : waIn;
   const checkoutBtn = document.getElementById('cart-checkout');
   const rzpBtn = document.getElementById('cart-razorpay');
@@ -1257,7 +1284,8 @@ function renderCart() {
   if (rzpBtn) rzpBtn.style.display = (showRzp && cart.length) ? 'flex' : 'none';
   if (cart.length) {
     const lines = cart.map(c => '• ' + c.name + (c.variant ? ' (' + c.variant + ')' : '') + ' — ' + c.sku_code).join('\n');
-    const msg = encodeURIComponent(`Hi Meensha! I'd like to order:\n\n${lines}\n\nTotal: ${sym}${fmtP(total)}\n\nCould you confirm availability and next steps? 🙏`);
+    const discLine = discount > 0 ? `\nCoupon ${appliedCoupon.code}: -${sym}${fmtP(discount)}` : '';
+    const msg = encodeURIComponent(`Hi Meensha! I'd like to order:\n\n${lines}\n\nSubtotal: ${sym}${fmtP(subtotal)}${discLine}\nTotal: ${sym}${fmtP(total)}\n\nCould you confirm availability and next steps? 🙏`);
     checkoutBtn.href = `https://wa.me/${waNum}?text=${msg}`;
     checkoutBtn.classList.remove('disabled');
   } else {
@@ -1265,10 +1293,57 @@ function renderCart() {
     checkoutBtn.classList.add('disabled');
   }
 }
+function renderCouponUI(couponValid, region) {
+  const form = document.getElementById('cart-coupon-form');
+  const applied = document.getElementById('cart-coupon-applied');
+  const msg = document.getElementById('cart-coupon-msg');
+  if (!form) return;
+  if (appliedCoupon && couponValid) {
+    form.style.display = 'none';
+    applied.style.display = 'flex';
+    const sym = region === 'australia' ? 'A$' : '₹';
+    const discTxt = appliedCoupon.discount_type === 'percent' ? `${appliedCoupon.discount_value}% off` : `${sym}${appliedCoupon.discount_value} off`;
+    document.getElementById('cart-coupon-applied-text').textContent = `✅ ${appliedCoupon.code} applied — ${discTxt}`;
+    msg.textContent = '';
+  } else if (appliedCoupon && !couponValid) {
+    form.style.display = 'none';
+    applied.style.display = 'flex';
+    document.getElementById('cart-coupon-applied-text').textContent = `${appliedCoupon.code} not valid for this market`;
+    msg.textContent = '';
+  } else {
+    form.style.display = 'flex';
+    applied.style.display = 'none';
+  }
+}
+async function applyCoupon() {
+  const code = document.getElementById('cart-coupon-code').value.trim();
+  const wa = document.getElementById('cart-coupon-wa').value.trim();
+  const msg = document.getElementById('cart-coupon-msg');
+  if (!code || !wa) { msg.textContent = 'Enter both the code and your WhatsApp number.'; return; }
+  const region = currency === 'AU' ? 'australia' : 'india';
+  msg.textContent = 'Checking...';
+  const res = await spPostRPC('validate_coupon', { p_code: code, p_wa: wa, p_region: region });
+  if (res && res.valid) {
+    appliedCoupon = { code: res.code, discount_type: res.discount_type, discount_value: parseFloat(res.discount_value), region, wa };
+    sessionStorage.setItem('msh_coupon', JSON.stringify(appliedCoupon));
+    msg.textContent = '';
+    renderCart();
+  } else {
+    msg.textContent = (res && res.message) || 'Could not validate this code.';
+  }
+}
+function removeCoupon() {
+  appliedCoupon = null;
+  sessionStorage.removeItem('msh_coupon');
+  document.getElementById('cart-coupon-code').value = '';
+  document.getElementById('cart-coupon-wa').value = '';
+  renderCart();
+}
 function onCartCheckout() {
   if (!cart.length) return;
+  if (appliedCoupon) spPostRPC('consume_coupon', { p_code: appliedCoupon.code, p_wa: appliedCoupon.wa });
   // Reservations stay held server-side; just clear the browser-side selection view
-  setTimeout(() => { cart = []; saveCart(); renderCart(); renderShopGrid(); closeCart(); }, 400);
+  setTimeout(() => { cart = []; saveCart(); removeCoupon(); renderShopGrid(); closeCart(); }, 400);
 }
 function payViaRazorpay() {
   if (!cart.length) return;
@@ -1292,14 +1367,20 @@ async function createRazorpayLink() {
   const statusEl = document.getElementById('cart-rzp-status');
   statusEl.style.display = 'block';
   statusEl.textContent = 'Preparing your payment link…';
-  const total = cart.reduce((a,c) => a + (c.price_inr||0), 0);
+  const subtotal = cart.reduce((a,c) => a + (c.price_inr||0), 0);
+  let discount = 0;
+  if (appliedCoupon && (appliedCoupon.region === 'all' || appliedCoupon.region === 'india')) {
+    discount = appliedCoupon.discount_type === 'percent' ? subtotal * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
+    discount = Math.min(discount, subtotal);
+  }
+  const total = subtotal - discount;
   const items = cart.map(c => ({ name: c.name, variant: c.variant||'', sku_code: c.sku_code, price: c.price_inr }));
   const unit_ids = cart.map(c => c.unitId);
   try {
     const res = await fetch(`${_SB}/functions/v1/create-payment-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
-      body: JSON.stringify({ items, total, customer: checkoutCustomer, unit_ids, currency: 'INR' })
+      body: JSON.stringify({ items, total, customer: checkoutCustomer, unit_ids, currency: 'INR', coupon: appliedCoupon ? { code: appliedCoupon.code, wa: appliedCoupon.wa } : null })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not create payment link');

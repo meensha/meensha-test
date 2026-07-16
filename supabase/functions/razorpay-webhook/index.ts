@@ -105,6 +105,13 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  if (order.coupon?.code && order.coupon?.wa) {
+    await supabase.rpc("consume_coupon", {
+      p_code: order.coupon.code,
+      p_wa: order.coupon.wa,
+    });
+  }
+
   return new Response("ok", { status: 200 });
 });
 

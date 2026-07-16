@@ -168,6 +168,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <button class="tab" onclick="showTab('sum',this)" id="tb-sum">📈 Summary</button>
   <button class="tab" onclick="showTab('pnl',this)" id="tb-pnl">💰 P&L</button>
   <button class="tab" onclick="showTab('vend',this)" id="tb-vend">🧑‍🌾 Vendors</button>
+  <button class="tab" onclick="showTab('coup',this)" id="tb-coup">🎟️ Coupons</button>
   <button class="tab" onclick="showTab('rev',this)" id="tb-rev">⭐ Reviews</button>
   <button class="tab" onclick="showTab('usr',this)" id="tb-usr">👥 Users</button>
 </div>
@@ -208,6 +209,18 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
         <button class="btn bg sm" onclick="openIgModal()">+ Add Post</button>
       </div>
       <div id="IG-LIST" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
+    </div>
+    <!-- General settings: WA numbers + AUD multiplier -->
+    <div style="margin-bottom:20px;">
+      <strong style="font-size:13px;">⚙️ General Settings</strong>
+      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Read by both admin.html and the storefront — changes apply immediately.</div>
+      <div class="fg">
+        <div class="fi"><label>🇮🇳 India WhatsApp # <span style="font-weight:400;color:var(--gy);">(digits only, with country code)</span></label><input id="SET-WAIN" placeholder="918709525218"></div>
+        <div class="fi"><label>🇦🇺 Australia WhatsApp # <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input id="SET-WAAU" placeholder="61..."></div>
+        <div class="fi"><label>AUD Multiplier</label><input type="number" step="0.01" id="SET-MULT" placeholder="1.8" oninput="previewMult()"></div>
+      </div>
+      <div id="SET-MULT-PREVIEW" style="font-size:11px;color:var(--gy);margin-bottom:8px;"></div>
+      <button class="btn bgn sm" onclick="saveGeneralSettings()">💾 Save Settings</button>
     </div>
     <!-- Razorpay checkout kill-switch — super_admin only. Keys/secrets live in
          Supabase Edge Function secrets, never here (this panel only talks to
@@ -615,6 +628,41 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   </div>
 </div>
 
+<!-- ═══ COUPONS ═══ -->
+<div id="tp-coup" class="tp">
+  <div class="card">
+    <div class="ct">🎟️ New Coupon <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Locked to one customer — code + their WhatsApp number must both match at checkout</span></div>
+    <div class="fg">
+      <div class="fi"><label>Code *</label><input id="CP-CODE" placeholder="e.g. VIP-001" style="text-transform:uppercase;"></div>
+      <div class="fi"><label>Customer Name *</label><input id="CP-NM" placeholder="Full name"></div>
+      <div class="fi"><label>Customer WhatsApp *</label><input id="CP-WA" placeholder="+91..."></div>
+      <div class="fi"><label>Discount Type *</label><select id="CP-TYPE" onchange="onCpTypeChange()"><option value="percent">% Off</option><option value="flat">₹/A$ Off (flat)</option></select></div>
+      <div class="fi"><label>Discount Value *</label><input type="number" id="CP-VAL" placeholder="10"></div>
+      <div class="fi"><label>Region *</label>
+        <select id="CP-REGION">
+          <option value="all">🌏 Both (India + Australia)</option>
+          <option value="india">🇮🇳 India only</option>
+          <option value="australia">🇦🇺 Australia only</option>
+        </select>
+      </div>
+      <div class="fi"><label>Valid From <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input type="date" id="CP-FROM"></div>
+      <div class="fi"><label>Valid Until <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input type="date" id="CP-UNTIL"></div>
+    </div>
+    <div style="font-size:10px;color:var(--gy);margin-bottom:8px;" id="CP-FLATNOTE"></div>
+    <button class="btn bg" onclick="createCoupon()">➕ Create Coupon</button>
+  </div>
+  <div class="card">
+    <div class="ct">📋 Coupon Register</div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Code</th><th>Customer</th><th>WhatsApp</th><th>Discount</th><th>Region</th>
+        <th>Valid</th><th>Used?</th><th>Active</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="CP-BODY"></tbody>
+    </table></div>
+  </div>
+</div>
+
 <!-- Vendor Modal -->
 <div class="mo hi" id="MO-VEND"><div class="md">
   <div class="mt2" id="VEND-TITLE">➕ New Vendor</div>
@@ -983,7 +1031,7 @@ const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
 const LOCAL_USERS=[{username:'shameen',password_hash:'admin@123',role:'super_admin',display_name:'Deedee',wa:'918709525218',active:true},{username:'shalini',password_hash:'shalini@123',role:'owner',display_name:'Shalini',wa:'',active:true},{username:'meenakshi',password_hash:'meenakshi@123',role:'owner',display_name:'Meenakshi',wa:'918709525218',active:true},{username:'sales1',password_hash:'sales@123',role:'sales',display_name:'Sales',wa:'',active:true}];
 // Default role permissions (super_admin can override via UI)
-const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','rev','usr'],owner:['home','inv','stock','sale','sum','pnl','vend','rev'],sales:['sale','inv']};
+const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','coup','rev','usr'],owner:['home','inv','stock','sale','sum','pnl','vend','coup','rev'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
 const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',fabric:'Cotton',qty:6,sold:0,cost:3000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#2',cat:'AJRK/MODL/SLK',name:'Ajrak Modal Silk',subtype:'',fabric:'Modal Silk',qty:5,sold:0,cost:1399,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#5',cat:'PCHMPL/COT/SLK',name:'Pochampally Cotton Silk',subtype:'',fabric:'Cotton Silk',qty:1,sold:0,cost:720,mrp:1800,disc:10,sale_price:1620,photos:[]},{item_id:'#6',cat:'DOLA/SLK2',name:'Dola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:720,mrp:1500,disc:10,sale_price:1350,photos:[]},{item_id:'#7',cat:'DOLA/SLK1',name:'Dola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:899,mrp:2000,disc:10,sale_price:1800,photos:[]},{item_id:'#8',cat:'TUSS/SLK/MDHB',name:'Tussar Silk',subtype:'Madhubani',fabric:'Tussar Silk',qty:3,sold:0,cost:3200,mrp:6400,disc:10,sale_price:5760,photos:[]},{item_id:'#9',cat:'TUSS/DUPIN',name:'Tussar Dupin',subtype:'',fabric:'Tussar',qty:1,sold:0,cost:3100,mrp:6000,disc:10,sale_price:5400,photos:[]},{item_id:'#10',cat:'TUSS/HAND',name:'Tussar',subtype:'Handpainted',fabric:'Tussar',qty:2,sold:0,cost:4800,mrp:9000,disc:10,sale_price:8100,photos:[]},{item_id:'#11',cat:'TUSS/SUIT/MDHB',name:'Tussar Suit',subtype:'Madhubani',fabric:'Tussar',qty:4,sold:0,cost:3000,mrp:5600,disc:10,sale_price:5040,photos:[]},{item_id:'#12',cat:'TUSS/GHCHA',name:'Tussar',subtype:'Ghicha',fabric:'Tussar',qty:4,sold:0,cost:4200,mrp:8500,disc:10,sale_price:7650,photos:[]},{item_id:'#13',cat:'IKKT/COT',name:'Ikkat',subtype:'Cotton',fabric:'Cotton',qty:13,sold:0,cost:2000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#14',cat:'KLMK/COT',name:'Kalamkari',subtype:'Cotton',fabric:'Cotton',qty:6,sold:0,cost:1000,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#15',cat:'MUL/COT',name:'Mul Cotton',subtype:'',fabric:'Cotton',qty:1,sold:0,cost:2200,mrp:4500,disc:10,sale_price:4050,photos:[]},{item_id:'#16',cat:'GHRCHL/AJRKSEMI',name:'Gharchola',subtype:'Semi Ajrak',fabric:'Silk',qty:4,sold:0,cost:3700,mrp:7500,disc:10,sale_price:6750,photos:[]},{item_id:'#17',cat:'GHRCHL/BANDH',name:'Gharchola',subtype:'Bandhej',fabric:'Silk',qty:1,sold:0,cost:3100,mrp:6300,disc:10,sale_price:5670,photos:[]},{item_id:'#18',cat:'AJRK/PL',name:'Ajrak Plain',subtype:'',fabric:'Cotton',qty:5,sold:0,cost:2600,mrp:5500,disc:10,sale_price:4950,photos:[]},{item_id:'#19',cat:'MODAL/PL',name:'Modal Plain',subtype:'',fabric:'Modal',qty:5,sold:0,cost:1650,mrp:3300,disc:10,sale_price:2970,photos:[]},{item_id:'#20',cat:'MODAL/AJRK',name:'Modal Ajrak',subtype:'',fabric:'Modal',qty:5,sold:0,cost:2500,mrp:4800,disc:10,sale_price:4320,photos:[]},{item_id:'#21',cat:'KOTA/BLOCK',name:'Kota Doria',subtype:'Block Print',fabric:'Kota Doria',qty:2,sold:0,cost:1700,mrp:2900,disc:10,sale_price:2610,photos:[]},{item_id:'#22',cat:'KOTA/SCRN',name:'Kota Doria',subtype:'Screen Print',fabric:'Kota Doria',qty:2,sold:0,cost:1300,mrp:2500,disc:10,sale_price:2250,photos:[]},{item_id:'#23',cat:'DOLA/MODAL/SLK',name:'Dola Modal Silk',subtype:'',fabric:'Modal Silk',qty:1,sold:0,cost:2700,mrp:5800,disc:10,sale_price:5220,photos:[]},{item_id:'#24',cat:'PATOLA/SLK1',name:'Patola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:10000,mrp:17900,disc:10,sale_price:16110,photos:[]},{item_id:'#25',cat:'PATOLA/SLK2',name:'Patola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:11000,mrp:18500,disc:10,sale_price:16650,photos:[]}];
 
@@ -1173,7 +1221,7 @@ function applyRole(){
   if(r==='super_admin'){const el=document.getElementById('TBU');if(el)el.style.color='#C9A84C';}
   // Apply permissions: hide tabs not in the role's allowed list
   const allowed=rolePerms[r]||rolePerms.sales;
-  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',rev:'tb-rev',usr:'tb-usr'};
+  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr'};
   Object.entries(tabMap).forEach(([mod,tabId])=>{
     const el=document.getElementById(tabId);
     if(!el)return;
@@ -1199,6 +1247,99 @@ async function saveRzpEnabled(){
 }
 
 // ═══════════════════════════════════════════════
+// GENERAL SETTINGS: WA numbers + AUD multiplier
+// ═══════════════════════════════════════════════
+async function saveSetting(key,value){
+  const ex=await sbQ('settings','?key=eq.'+key);
+  if(ex&&ex.length)await sbUpd('settings','?key=eq.'+key,{value});else await sbIns('settings',{key,value});
+}
+async function loadGeneralSettings(){
+  const rows=await sbQ('settings','?key=in.(wa_num_in,wa_num_au,aud_multiplier)');
+  const byKey={};(rows||[]).forEach(r=>byKey[r.key]=r.value);
+  const waIn=document.getElementById('SET-WAIN'),waAu=document.getElementById('SET-WAAU'),mult=document.getElementById('SET-MULT');
+  if(waIn)waIn.value=byKey.wa_num_in||'';
+  if(waAu)waAu.value=byKey.wa_num_au||'';
+  if(mult)mult.value=byKey.aud_multiplier||'1.8';
+  previewMult();
+}
+function previewMult(){
+  const el=document.getElementById('SET-MULT-PREVIEW');if(!el)return;
+  const m=parseFloat(document.getElementById('SET-MULT').value)||0;
+  el.textContent=m>0?`Preview: ₹1000 → A$${(1000*m/83).toFixed(0)} (rough, uses ₹83/A$1 for display only)`:'';
+}
+async function saveGeneralSettings(){
+  const waIn=document.getElementById('SET-WAIN').value.replace(/[^0-9]/g,'');
+  const waAu=document.getElementById('SET-WAAU').value.replace(/[^0-9]/g,'');
+  const mult=parseFloat(document.getElementById('SET-MULT').value);
+  if(!waIn||waIn.length<10){toast('India WhatsApp number looks invalid','var(--red)');return;}
+  if(!mult||mult<=0){toast('AUD multiplier must be a positive number','var(--red)');return;}
+  await Promise.all([
+    saveSetting('wa_num_in',waIn),
+    saveSetting('wa_num_au',waAu),
+    saveSetting('aud_multiplier',String(mult))
+  ]);
+  toast('✅ Settings saved','#27ae60');
+}
+
+// ═══════════════════════════════════════════════
+// COUPONS
+// ═══════════════════════════════════════════════
+let coupons=[];
+function onCpTypeChange(){
+  const isFlat=document.getElementById('CP-TYPE').value==='flat';
+  document.getElementById('CP-FLATNOTE').textContent=isFlat?'Flat discounts must be region-locked to India or Australia (not "Both") since the currency differs.':'';
+}
+async function createCoupon(){
+  const code=document.getElementById('CP-CODE').value.trim().toUpperCase();
+  const name=document.getElementById('CP-NM').value.trim();
+  const wa=document.getElementById('CP-WA').value.replace(/[^0-9]/g,'');
+  const type=document.getElementById('CP-TYPE').value;
+  const val=parseFloat(document.getElementById('CP-VAL').value);
+  const region=document.getElementById('CP-REGION').value;
+  const from=document.getElementById('CP-FROM').value||null;
+  const until=document.getElementById('CP-UNTIL').value||null;
+  if(!code||!name||wa.length<10||!val||val<=0){toast('Fill in code, customer name, WhatsApp and a discount value','var(--red)');return;}
+  if(type==='flat'&&region==='all'){toast('Flat discounts need a single region (India or Australia)','var(--red)');return;}
+  if(type==='percent'&&val>100){toast('Percent discount can\'t exceed 100','var(--red)');return;}
+  const r=await sbIns('coupons',{code,customer_name:name,customer_wa:wa,discount_type:type,discount_value:val,region,valid_from:from,valid_until:until});
+  if(!r){toast('Could not create coupon — code may already exist','var(--red)');return;}
+  toast('✅ Coupon created','#27ae60');
+  document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';
+  renderCoupons();
+}
+async function renderCoupons(){
+  const body=document.getElementById('CP-BODY');if(!body)return;
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_coupons`,{method:'POST',headers:HDR(),body:'{}'});
+  coupons=r.ok?(await r.json()):[];
+  const regionLbl={india:'🇮🇳 India',australia:'🇦🇺 Australia',all:'🌏 Both'};
+  body.innerHTML=coupons.map(c=>{
+    const disc=c.discount_type==='percent'?`${c.discount_value}%`:`${c.region==='australia'?'A$':'₹'}${c.discount_value}`;
+    const valid=[c.valid_from,c.valid_until].filter(Boolean).join(' → ')||'No limit';
+    return `<tr>
+      <td style="font-family:monospace;font-weight:700;">${sanitise(c.code)}</td>
+      <td>${sanitise(c.customer_name)}</td>
+      <td>${sanitise(c.customer_wa)}</td>
+      <td>${disc}</td>
+      <td>${regionLbl[c.region]||c.region}</td>
+      <td style="font-size:11px;">${valid}</td>
+      <td>${c.used?'✅ '+new Date(c.used_at).toLocaleDateString():'—'}</td>
+      <td><input type="checkbox" ${c.active?'checked':''} onchange="toggleCouponActive('${c.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
+      <td><button class="btn br xs" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--gy);">No coupons yet</td></tr>';
+}
+async function toggleCouponActive(id,active){
+  await sbUpd('coupons','?id=eq.'+id,{active});
+  toast(active?'Coupon activated':'Coupon paused','#27ae60');
+}
+async function deleteCoupon(id){
+  if(!confirm('Delete this coupon?'))return;
+  await sbDel('coupons','?id=eq.'+id);
+  toast('Coupon deleted','#27ae60');
+  renderCoupons();
+}
+
+// ═══════════════════════════════════════════════
 // INIT + LOAD
 // ═══════════════════════════════════════════════
 async function initApp(){
@@ -1207,6 +1348,7 @@ async function initApp(){
   applyRole();
   await loadAll();
   if(CU.role==='super_admin')loadRzpEnabled();
+  if(CU.role!=='sales')loadGeneralSettings();
   // The initial SA-BODY row (added on window.onload, before data existed) needs its
   // item options refreshed now that skus/inv are actually loaded.
   if(document.querySelectorAll('#SA-BODY tr').length===1){document.getElementById('SA-BODY').innerHTML='';addSARow();}
@@ -1265,7 +1407,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
   renders[id]?.();
 }
 
