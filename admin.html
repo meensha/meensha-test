@@ -1301,8 +1301,8 @@ async function createCoupon(){
   if(!code||!name||wa.length<10||!val||val<=0){toast('Fill in code, customer name, WhatsApp and a discount value','var(--red)');return;}
   if(type==='flat'&&region==='all'){toast('Flat discounts need a single region (India or Australia)','var(--red)');return;}
   if(type==='percent'&&val>100){toast('Percent discount can\'t exceed 100','var(--red)');return;}
-  const r=await sbIns('coupons',{code,customer_name:name,customer_wa:wa,discount_type:type,discount_value:val,region,valid_from:from,valid_until:until});
-  if(!r){toast('Could not create coupon — code may already exist','var(--red)');return;}
+  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until})});
+  if(!rr.ok){toast('Could not create coupon — code may already exist','var(--red)');return;}
   toast('✅ Coupon created','#27ae60');
   document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';
   renderCoupons();
@@ -1329,12 +1329,12 @@ async function renderCoupons(){
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--gy);">No coupons yet</td></tr>';
 }
 async function toggleCouponActive(id,active){
-  await sbUpd('coupons','?id=eq.'+id,{active});
+  await fetch(`${SB}/rest/v1/rpc/admin_set_coupon_active`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id,p_active:active})});
   toast(active?'Coupon activated':'Coupon paused','#27ae60');
 }
 async function deleteCoupon(id){
   if(!confirm('Delete this coupon?'))return;
-  await sbDel('coupons','?id=eq.'+id);
+  await fetch(`${SB}/rest/v1/rpc/admin_delete_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
   toast('Coupon deleted','#27ae60');
   renderCoupons();
 }
