@@ -1029,7 +1029,6 @@ const SB='https://eglanmhhcccsuhbxywua.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
 const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,'Cotton Silk':2.2,'Tussar Silk':2.0,'Kota Doria':1.8,'default':2.0};
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
-const LOCAL_USERS=[{username:'shameen',password_hash:'admin@123',role:'super_admin',display_name:'Deedee',wa:'918709525218',active:true},{username:'shalini',password_hash:'shalini@123',role:'owner',display_name:'Shalini',wa:'',active:true},{username:'meenakshi',password_hash:'meenakshi@123',role:'owner',display_name:'Meenakshi',wa:'918709525218',active:true},{username:'sales1',password_hash:'sales@123',role:'sales',display_name:'Sales',wa:'',active:true}];
 // Default role permissions (super_admin can override via UI)
 const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','coup','rev','usr'],owner:['home','inv','stock','sale','sum','pnl','vend','coup','rev'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
@@ -1156,20 +1155,14 @@ async function doLogin(){
     return;
   }
 
-  // Try DB users first
+  // Password check happens server-side via the login() RPC — the hash never
+  // reaches the browser, and this is the only source of truth (no local
+  // fallback with hardcoded credentials anymore).
   let user=null;
-  try{const rows=await sbQ('users',`?username=eq.${encodeURIComponent(u)}&password_hash=eq.${encodeURIComponent(p)}&active=eq.true`);if(rows&&rows.length)user=rows[0];}catch{}
-  // LOCAL_USERS fallback only if the DB has no row for this username at all
-  // (prevents stale LOCAL_USERS password from logging in after DB password change)
-  if(!user){
-    try{
-      const existsInDb=await sbQ('users',`?username=eq.${encodeURIComponent(u)}&select=id`);
-      if(!existsInDb||!existsInDb.length){
-        const loc=LOCAL_USERS.find(x=>x.username===u&&x.password_hash===p&&x.active);
-        if(loc)user={...loc,id:'local-'+loc.username};
-      }
-    }catch{}
-  }
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/login`,{method:'POST',headers:HDR(),body:JSON.stringify({p_username:u,p_password:p})});
+    if(r.ok){const j=await r.json();if(j)user=j;}
+  }catch{}
 
   if(!user){
     recordFail(u);
@@ -1185,7 +1178,7 @@ async function doLogin(){
   await logAuthAttempt(u,true,'ok');
   CU=user;sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
   document.getElementById('LOV').classList.add('hi');
-  if(user.id&&!user.id.startsWith('local-')){try{await sbUpd('users',`?id=eq.${user.id}`,{last_login:new Date().toISOString()});}catch{}}
+  // last_login is stamped server-side inside the login() RPC now.
 
   // Forced password change?
   if(user.must_change_password){
@@ -2375,46 +2368,25 @@ async function saveNewPassword(){
   if(nw!==cn){warn.textContent='New and confirm don\'t match.';warn.style.display='block';return;}
   if(cur===nw){warn.textContent='New password must differ from current.';warn.style.display='block';return;}
 
-  // Validate current password. If user is a LOCAL_USERS fallback, they have no DB row — we'll upgrade them.
-  const isLocal=CU.id&&String(CU.id).startsWith('local-');
-  let valid=false, dbUser=null;
-
-  if(!isLocal){
-    const rows=await sbQ('users',`?id=eq.${CU.id}&password_hash=eq.${encodeURIComponent(cur)}&select=id,password_hash,role`);
-    if(rows&&rows.length){valid=true;dbUser=rows[0];}
-  } else {
-    const loc=LOCAL_USERS.find(x=>x.username===CU.username);
-    if(loc&&loc.password_hash===cur)valid=true;
-  }
+  // Validate current password server-side — the hash is never readable by the browser.
+  let valid=false;
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/verify_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:CU.id,p_password:cur})});
+    if(r.ok)valid=await r.json();
+  }catch{}
 
   if(!valid){warn.textContent='Current password incorrect.';warn.style.display='block';return;}
 
-  // Write
   const body={
-    password_hash:nw,
     must_change_password:false,
     last_password_change:new Date().toISOString(),
     password_updated_via:forcedPwChange?'rachnakar_reset':'self'
   };
   try{
-    if(isLocal){
-      // Upgrade LOCAL_USERS fallback to a real DB row
-      const ins=await sbIns('users',{
-        username:CU.username,
-        password_hash:nw,
-        display_name:CU.display_name,
-        role:CU.role,
-        wa:CU.wa||'',
-        active:true,
-        last_password_change:new Date().toISOString(),
-        password_updated_via:'self'
-      });
-      if(ins&&ins.length){CU={...ins[0]};sessionStorage.setItem('MSN_USER',JSON.stringify(CU));}
-    } else {
-      await sbUpd('users',`?id=eq.${CU.id}`,body);
-      CU.must_change_password=false;
-      sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
-    }
+    await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:CU.id,p_new_password:nw})});
+    await sbUpd('users',`?id=eq.${CU.id}`,body);
+    CU.must_change_password=false;
+    sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
     users=await sbQ('users','?order=created_at');
     closeMo('MO-CHPW');
     toast('✅ Password updated','#27ae60');
@@ -2443,11 +2415,6 @@ async function submitForgotPwd(){
     const rows=await sbQ('users',`?username=eq.${encodeURIComponent(un)}&select=role,active`);
     if(rows&&rows.length)role=rows[0].role;
   }catch{}
-  if(!role){
-    // Fallback to LOCAL_USERS
-    const loc=LOCAL_USERS.find(x=>x.username===un);
-    if(loc)role=loc.role;
-  }
   if(!role){toast('Username not found','var(--red)');return;}
   if(role==='super_admin'){
     // Rachnakar — show choice between email reset and recovery code
@@ -2603,7 +2570,10 @@ async function renderResetRequestsCard(){
 async function generateResetForUser(reqId,username){
   const newPw=randomAlphanum(10);
   try{
-    await sbUpd('users',`?username=eq.${encodeURIComponent(username)}`,{password_hash:newPw,must_change_password:true,last_password_change:new Date().toISOString(),password_updated_via:'rachnakar_reset'});
+    const target=users.find(x=>x.username===username);
+    if(!target){toast('User not found','var(--red)');return;}
+    await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:target.id,p_new_password:newPw})});
+    await sbUpd('users',`?username=eq.${encodeURIComponent(username)}`,{must_change_password:true,last_password_change:new Date().toISOString(),password_updated_via:'rachnakar_reset'});
     await sbUpd('password_reset_requests',`?id=eq.${reqId}`,{status:'fulfilled',fulfilled_by:CU?.username||'',fulfilled_at:new Date().toISOString(),generated_pw:newPw});
     // Show modal
     document.getElementById('GP-USER').textContent=username;
@@ -3370,7 +3340,7 @@ function renderUsers(){
 let editUsrId=null;
 function openUsrModal(){editUsrId=null;document.getElementById('USR-TITLE').textContent='➕ Add User';['U-UN','U-PW','U-NM','U-WA','U-EM'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('U-RL').value='sales';document.getElementById('U-AC').value='true';document.getElementById('MO-USR').classList.remove('hi');}
 function editUsr(id){const u=users.find(x=>x.id===id);if(!u)return;editUsrId=id;document.getElementById('USR-TITLE').textContent='✏️ Edit User';document.getElementById('U-UN').value=u.username;document.getElementById('U-PW').value='';document.getElementById('U-NM').value=u.display_name||'';document.getElementById('U-RL').value=u.role;document.getElementById('U-WA').value=u.wa||'';const em=document.getElementById('U-EM');if(em)em.value=u.email||'';document.getElementById('U-AC').value=String(u.active);document.getElementById('MO-USR').classList.remove('hi');}
-async function saveUsr(){const un=document.getElementById('U-UN').value.trim(),nm=document.getElementById('U-NM').value.trim();if(!un||!nm){toast('Username and name required','var(--red)');return;}const data={username:un,display_name:nm,role:document.getElementById('U-RL').value,wa:document.getElementById('U-WA').value,email:(document.getElementById('U-EM')?.value||'').trim(),active:document.getElementById('U-AC').value==='true'};const pw=document.getElementById('U-PW').value;if(pw)data.password_hash=pw;try{if(editUsrId){await sbUpd('users',`?id=eq.${editUsrId}`,data);}else{await sbIns('users',data);}users=await sbQ('users','?order=created_at');renderUsers();closeMo('MO-USR');toast('✅ User saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
+async function saveUsr(){const un=document.getElementById('U-UN').value.trim(),nm=document.getElementById('U-NM').value.trim();if(!un||!nm){toast('Username and name required','var(--red)');return;}const data={username:un,display_name:nm,role:document.getElementById('U-RL').value,wa:document.getElementById('U-WA').value,active:document.getElementById('U-AC').value==='true'};const pw=document.getElementById('U-PW').value;try{let uid=editUsrId;if(editUsrId){await sbUpd('users',`?id=eq.${editUsrId}`,data);}else{const ins=await sbIns('users',data);if(!ins||!ins.length){toast('Error creating user','var(--red)');return;}uid=ins[0].id;}if(pw)await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:uid,p_new_password:pw})});users=await sbQ('users','?order=created_at');renderUsers();closeMo('MO-USR');toast('✅ User saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
 async function delUsr(id){if(!confirm('Delete user?'))return;await sbDel('users',`?id=eq.${id}`);users=users.filter(u=>u.id!==id);renderUsers();toast('Deleted','var(--red)');}
 
 // ═══════════════════════════════════════════════
