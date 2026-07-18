@@ -3134,24 +3134,37 @@ async function saveSIEntryInner(){
   const purchIns=await sbIns('purchases',{date:dt,seller:vendor.name,vendor_uuid:vendor.id,vendor_code:vendor.vendor_id,place:vendor.place||'',supplier_inv:document.getElementById('SI-SUPINV').value.trim(),items:rowData.map(({rawPh,...rest})=>rest),sub:sub2,gst_pct:gp,gst_amt:ga,total:tot,payment:{date:document.getElementById('SI-PDT').value,amount:payAm,mode:document.getElementById('SI-PMD').value,shalini:sh,meenakshi:me2,notes:document.getElementById('SI-NOT').value}});
   if(!purchIns||!purchIns.length){toast('Failed to save purchase','var(--red)');return;}
   const purchRec=purchIns[0];
-  let unitCount=0,skuCount=0;
+  let unitCount=0,skuCount=0;const failedRows=[];
   for(const rd of rowData){
-    const photos=await uploadTmpPhs('item-photos',rd.rawPh.slice(0,4));
-    let skuRec=skus.find(s=>s.sku_code===rd.code);
-    if(skuRec){
-      await sbUpd('inventory_skus','?id=eq.'+skuRec.id,{cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud||skuRec.sale_price_aud,display_material:rd.material||skuRec.display_material,display_variant:rd.variant||skuRec.display_variant,photos,hero_photo:photos[0]||skuRec.hero_photo,updated_at:new Date().toISOString()});
-      skuRec={...skuRec,cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud||skuRec.sale_price_aud,photos,hero_photo:photos[0]||skuRec.hero_photo};
-    }else{
+    // Each row's DB writes are already immediate/committed (not part of one
+    // transaction), so if anything here throws unexpectedly, the previous
+    // rows' work must not be lost silently — catch per-row and keep going,
+    // instead of one bad row silently aborting every row after it (this is
+    // exactly what caused 28 retries on one purchase: a mid-loop exception
+    // with no toast, so nothing looked like it had happened at all).
+    try{
+      const photos=await uploadTmpPhs('item-photos',rd.rawPh.slice(0,4));
+      let skuRec=skus.find(s=>s.sku_code===rd.code);
+      if(skuRec){
+        // Already exists in this session's local cache — don't re-create a
+        // fresh batch of units on a retry for a row already processed.
+        toast(`⚠️ ${rd.code} already added this session — skipping units (edit existing SKU in Inventory if this is wrong)`,'var(--orn)');
+        continue;
+      }
       const parts=rd.code.split('-');
       const skuIns=await sbIns('inventory_skus',{sku_code:rd.code,pattern:parts[0]||'',material:parts[1]||'',variant:parts[2]||'PL',name:rd.name,display_material:rd.material,display_variant:rd.variant,tags:[],cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud,photos,hero_photo:photos[0]||null});
-      if(!skuIns||!skuIns.length){toast('SKU insert failed for '+rd.code,'var(--red)');continue;}
+      if(!skuIns||!skuIns.length){toast('SKU insert failed for '+rd.code,'var(--red)');failedRows.push(rd.code);continue;}
       skuRec=skuIns[0];skus.push(skuRec);skuCount++;
+      const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{method:'POST',headers:HDR(),body:JSON.stringify({p_sku_id:skuRec.id,p_vendor_code:vendor.vendor_id,p_purchase_id:purchRec.id,p_qty:rd.qty,p_photo_urls:[]})});
+      if(!rpcR.ok){const t=await rpcR.text();toast('Units failed for '+rd.code+': '+t.slice(0,60),'var(--red)');failedRows.push(rd.code);continue;}
+      const created=await rpcR.json();unitCount+=created.length;
+    }catch(err){
+      toast(`⚠️ Row ${rd.code} hit an error: ${(err.message||err).toString().slice(0,80)} — continuing with remaining rows`,'var(--red)');
+      failedRows.push(rd.code);
     }
-    const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{method:'POST',headers:HDR(),body:JSON.stringify({p_sku_id:skuRec.id,p_vendor_code:vendor.vendor_id,p_purchase_id:purchRec.id,p_qty:rd.qty,p_photo_urls:[]})});
-    if(!rpcR.ok){const t=await rpcR.text();toast('Units failed for '+rd.code+': '+t.slice(0,60),'var(--red)');continue;}
-    const created=await rpcR.json();unitCount+=created.length;
   }
   purch=await sbQ('purchases','?order=created_at.desc');skus=await sbQ('inventory_skus','?order=sku_code');units=await sbQ('inventory_units','?order=unit_code');vendors=await sbQ('vendors','?order=vendor_id');
+  if(failedRows.length){toast(`⚠️ ${failedRows.length} row(s) need attention: ${failedRows.join(', ')} — check Inventory tab`,'var(--red)');}
   renderInvStats();renderInv();populateFabFilter();renderVendors();renderVendorStats();
   toast(`✅ Purchase saved! ${rowData.length} rows, ${unitCount} units added.`,'#27ae60');
   clearSI();
