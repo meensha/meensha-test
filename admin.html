@@ -45,6 +45,8 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:#2d2d2d;font-s
 .bg{background:var(--gdk);color:#fff;}.bg:hover{background:var(--dark);}
 .bgn{background:var(--grn);color:#fff;}.bgn:hover{background:#1e9146;}
 .br{background:var(--red);color:#fff;}.br:hover{background:#c0392b;}
+.needs-photo{background:var(--red)!important;color:#fff!important;animation:needsPhotoPulse 1.5s ease-in-out infinite;}
+@keyframes needsPhotoPulse{0%,100%{opacity:1;}50%{opacity:.6;}}
 .bb{background:var(--blu);color:#fff;}.bb:hover{background:#1a6a9a;}
 .bo{background:var(--orn);color:#fff;}.bo:hover{background:#d35400;}
 .bgy{background:#ecf0f1;color:#2d2d2d;border:1px solid var(--bd);}.bgy:hover{background:#dfe6e9;}
@@ -3023,7 +3025,7 @@ async function suggestPrice(idx,currency,btn){
 function addSIRow(){
   const tb=document.getElementById('SI-BODY'),idx=siRC++;
   const ir=tb.insertRow();ir.id='SIR-'+idx;ir.dataset.photos='[]';
-  ir.innerHTML=`<td style="color:var(--gy);font-weight:700;">${idx+1}</td><td><input id="SI-CODE-${idx}" placeholder="AUTO" style="width:95px;text-transform:uppercase;" onblur="checkSIRowSku(${idx})"> <button class="btn xs bgy" style="margin-top:3px;" onclick="document.getElementById('SI-CODE-${idx}').value=proposeSku({name:document.getElementById('SI-NM-${idx}').value,subtype:document.getElementById('SI-VAR-${idx}').value,fabric:document.getElementById('SI-MAT-${idx}').value});checkSIRowSku(${idx});">↻</button></td><td><input id="SI-NM-${idx}" placeholder="e.g. Paithani Cotton" style="width:120px;" onblur="checkDupName(${idx})"></td><td><input id="SI-MAT-${idx}" placeholder="Cotton" style="width:90px;" oninput="updMRPSug(${idx})"></td><td><input id="SI-VAR-${idx}" placeholder="Plain" style="width:80px;"></td><td><input type="number" id="SI-COST-${idx}" placeholder="0" min="0" oninput="updMRPSug(${idx});calcSITot()" style="width:75px;"></td><td><input type="number" id="SI-QTY-${idx}" value="1" min="1" oninput="calcSITot()" style="width:45px;"></td><td class="ac" id="SI-RT-${idx}">₹ 0</td><td><input type="number" id="SI-MRP-${idx}" placeholder="Suggested" style="width:75px;background:#fff8e1;border-color:#ffe082;" oninput="calcSISP(${idx})"></td><td><input type="number" id="SI-DISC-${idx}" value="10" min="0" max="100" style="width:45px;" oninput="calcSISP(${idx})"></td><td class="ac" id="SI-SP-${idx}">₹ 0</td><td><input type="number" id="SI-AUD-${idx}" placeholder="0" min="0" style="width:65px;"></td><td><button class="btn bgy xs" onclick="openPhMo('si-row',${idx})">📷 <span id="SI-PC-${idx}">0</span></button></td><td><button class="btn br xs" onclick="rmSIRow(${idx})">✕</button></td>`;
+  ir.innerHTML=`<td style="color:var(--gy);font-weight:700;">${idx+1}</td><td><input id="SI-CODE-${idx}" placeholder="AUTO" style="width:95px;text-transform:uppercase;" onblur="checkSIRowSku(${idx})"> <button class="btn xs bgy" style="margin-top:3px;" onclick="document.getElementById('SI-CODE-${idx}').value=proposeSku({name:document.getElementById('SI-NM-${idx}').value,subtype:document.getElementById('SI-VAR-${idx}').value,fabric:document.getElementById('SI-MAT-${idx}').value});checkSIRowSku(${idx});">↻</button></td><td><input id="SI-NM-${idx}" placeholder="e.g. Paithani Cotton" style="width:120px;" onblur="checkDupName(${idx})"></td><td><input id="SI-MAT-${idx}" placeholder="Cotton" style="width:90px;" oninput="updMRPSug(${idx})"></td><td><input id="SI-VAR-${idx}" placeholder="Plain" style="width:80px;"></td><td><input type="number" id="SI-COST-${idx}" placeholder="0" min="0" oninput="updMRPSug(${idx});calcSITot()" style="width:75px;"></td><td><input type="number" id="SI-QTY-${idx}" value="1" min="1" oninput="calcSITot()" style="width:45px;"></td><td class="ac" id="SI-RT-${idx}">₹ 0</td><td><input type="number" id="SI-MRP-${idx}" placeholder="Suggested" style="width:75px;background:#fff8e1;border-color:#ffe082;" oninput="calcSISP(${idx})"></td><td><input type="number" id="SI-DISC-${idx}" value="10" min="0" max="100" style="width:45px;" oninput="calcSISP(${idx})"></td><td class="ac" id="SI-SP-${idx}">₹ 0</td><td><input type="number" id="SI-AUD-${idx}" placeholder="0" min="0" style="width:65px;"></td><td><button class="btn xs needs-photo" id="SI-PHBTN-${idx}" onclick="openPhMo('si-row',${idx})">📷 <span id="SI-PC-${idx}">0</span></button></td><td><button class="btn br xs" onclick="rmSIRow(${idx})">✕</button></td>`;
   const mr=tb.insertRow();mr.id='SIM-'+idx;mr.className='mr-row';
   mr.innerHTML=`<td colspan="2" style="padding-left:14px;font-size:10px;color:var(--gdk);font-weight:700;text-transform:uppercase;">💡 Suggestions</td><td colspan="11"><span id="SI-SUGG-${idx}" style="font-size:11px;color:var(--gdk);font-style:italic;">Enter cost to see MRP suggestion</span> <button class="btn xs bgy" onclick="suggestPrice(${idx},'inr',this)">🔍 AI Price (INR)</button> <button class="btn xs bgy" onclick="suggestPrice(${idx},'aud',this)">🔍 AI Price (AUD)</button><div id="SI-DUPE-${idx}"></div></td>`;
 }
@@ -3097,13 +3099,18 @@ async function saveSIEntryInner(){
   if(!vid||!dt){toast('Vendor and Date required','var(--red)');return;}
   const vendor=vendorByUuid(vid);if(!vendor){toast('Vendor not found','var(--red)');return;}
   const rows=document.querySelectorAll('[id^="SIR-"]');if(!rows.length){toast('Add at least one item','var(--red)');return;}
+  const missingPhotoRows=[];
   for(const r of rows){
     const idx=r.id.replace('SIR-','');
     const code=(document.getElementById('SI-CODE-'+idx)?.value||'').trim();
     const nm=document.getElementById('SI-NM-'+idx)?.value.trim()||'';
     if(!code||!nm){toast('SKU Code and Name required on all rows','var(--red)');return;}
     const rawPh=JSON.parse(r.dataset.photos||'[]');
-    if(!rawPh.length){toast('Add at least 1 photo (row '+(parseInt(idx)+1)+')','var(--red)');return;}
+    if(!rawPh.length)missingPhotoRows.push(parseInt(idx)+1);
+  }
+  if(missingPhotoRows.length){
+    toast(`📷 Add a photo to row${missingPhotoRows.length>1?'s':''} ${missingPhotoRows.join(', ')} — highlighted below`,'var(--red)');
+    return;
   }
   const gst=document.getElementById('SI-GST').checked,gp=gst?(parseFloat(document.getElementById('SI-GSTP').value)||0):0;
   const rowData=[];let sub2=0;
@@ -3515,7 +3522,7 @@ async function savePh(){
   if(kind==='inv'){const urls=await uploadTmpPhs('item-photos',tmpPh);await sbUpd('inventory',`?id=eq.${idx}`,{photos:urls,updated_at:new Date().toISOString()});const it=inv.find(i=>i.id===idx);if(it)it.photos=urls;renderInv();toast(`✅ ${urls.length} photos saved`,'#27ae60');}
   else if(kind==='si-row'){
     if(!tmpPh.length){toast('Add at least 1 photo','var(--red)');return;}
-    const row=document.getElementById('SIR-'+idx);if(row){row.dataset.photos=JSON.stringify(tmpPh);const c=document.getElementById('SI-PC-'+idx);if(c)c.textContent=tmpPh.length;}
+    const row=document.getElementById('SIR-'+idx);if(row){row.dataset.photos=JSON.stringify(tmpPh);const c=document.getElementById('SI-PC-'+idx);if(c)c.textContent=tmpPh.length;const btn=document.getElementById('SI-PHBTN-'+idx);if(btn)btn.classList.remove('needs-photo');}
   }
   closeMo('MO-PH');
 }
