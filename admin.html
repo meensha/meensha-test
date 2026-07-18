@@ -980,7 +980,10 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <label style="font-size:12px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="NI-AU-AVAIL" style="accent-color:var(--gdk);width:14px;height:14px;">🇦🇺 Show in Australia catalogue</label>
   </div>
   <div id="NI-MRP-HINT" style="background:#fff8e1;border:1px dashed #ffe082;border-radius:7px;padding:9px;margin-bottom:11px;font-size:12px;display:none;"></div>
-  <div style="font-size:11px;color:var(--gy);margin-bottom:11px;">To add more stock (units) to this SKU, use <strong>Add Stock</strong> — it lets you attach a vendor, batch and per-unit photos.</div>
+  <div style="font-size:10px;font-weight:700;color:var(--gdk);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;">📷 Photos (max 4)</div>
+  <div class="pz" onclick="document.getElementById('NI-PH-FILE').click()"><input type="file" id="NI-PH-FILE" accept="image/*" multiple style="display:none" onchange="handleNiPhUp(event)"><div style="font-size:22px;">📷</div><div style="color:var(--gdk);font-weight:600;font-size:12px;margin-top:4px;">Add photos</div></div>
+  <div class="pts" id="NI-PH-PTS" style="margin-bottom:11px;"></div>
+  <div style="font-size:11px;color:var(--gy);margin-bottom:11px;">To add more <strong>stock</strong> (units) to this SKU, use <strong>Add Stock</strong> — it lets you attach a vendor and batch.</div>
   <div class="mf"><button class="btn bg" onclick="saveItem()">Save</button><button class="btn bgy" onclick="closeMo('MO-ITEM')">Cancel</button></div>
 </div></div>
 
@@ -1070,7 +1073,7 @@ async function uploadFile(bucket,file){
 // ═══════════════════════════════════════════════
 let CU=null,inv=[],sales=[],purch=[],ohs=[],revs=[],users=[],reqs=[],popups=[],igPosts=[];
 let vendors=[],skus=[],units=[],issues=[],vidRequests=[],shorthands={patterns:{},materials:{},variants:{}};
-let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,niCatImg=null,evTmpPh=[],igTmpPh=null;
+let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,niCatImg=null,evTmpPh=[],igTmpPh=null,niTmpPh=[];
 let editVendorId=null,editIssueId=null,currentVendorDetail=null;
 const fmt=n=>Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2});
 const sp=(m,d)=>Math.round(m*(1-d/100));
@@ -2853,13 +2856,12 @@ async function toggleMarket(skuId,field,val){
 }
 function openSkuPhGallery(skuId){
   const s=skus.find(x=>x.id===skuId);if(!s)return;
-  phCtx={kind:'sku',idx:skuId};
-  tmpPh=[...(s.photos||[])];
-  document.getElementById('PH-ZONE').style.display='';
+  const photos=s.photos||[];
+  document.getElementById('PH-ZONE').style.display='none';
   document.getElementById('PH-LBL').textContent=s.name;
-  document.getElementById('PH-HINT').textContent='1–4 photos (shown on storefront)';
-  renderPhPts();
-  document.getElementById('MO-PH').classList.remove('hi');
+  document.getElementById('PH-HINT').textContent='Photos — use ✏️ Edit to add/remove';
+  document.getElementById('PH-PTS').innerHTML=photos.length?photos.map(p=>`<div class="pt"><img src="${p}"></div>`).join(''):'<p style="font-size:12px;color:var(--gy);">No photos yet.</p>';
+  phCtx=null;document.getElementById('MO-PH').classList.remove('hi');
 }
 function editItem(id){
   editIdx=id;const s=skus.find(x=>x.id===id);if(!s)return;
@@ -2875,8 +2877,18 @@ function editItem(id){
   document.getElementById('NI-AUD').value=s.sale_price_aud||'';
   document.getElementById('NI-IN-AVAIL').checked=s.india_available!==false;
   document.getElementById('NI-AU-AVAIL').checked=!!s.au_available;
+  niTmpPh=[...(s.photos||[])];
+  renderNiPhPts();
   calcNIMRP();
   document.getElementById('MO-ITEM').classList.remove('hi');
+}
+function renderNiPhPts(){document.getElementById('NI-PH-PTS').innerHTML=niTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="niTmpPh.splice(${i},1);renderNiPhPts();">✕</button></div>`).join('');}
+function handleNiPhUp(e){
+  Array.from(e.target.files).forEach(f=>{
+    if(niTmpPh.length>=4){toast('Max 4 photos','var(--red)');return;}
+    const r=new FileReader();r.onload=ev=>{if(niTmpPh.length<4){niTmpPh.push(ev.target.result);renderNiPhPts();}};r.readAsDataURL(f);
+  });
+  e.target.value='';
 }
 async function delItem(id){
   const s=skus.find(x=>x.id===id);if(!s)return;
@@ -2894,8 +2906,10 @@ function calcNIPrice(){const m=parseFloat(document.getElementById('NI-MRP').valu
 async function saveItem(){
   const nm=document.getElementById('NI-NM').value.trim();
   if(!nm||editIdx<0){toast('Name required','var(--red)');return;}
-  const data={name:nm,display_material:document.getElementById('NI-FAB').value.trim(),display_variant:document.getElementById('NI-SUB').value.trim(),cost:parseFloat(document.getElementById('NI-COST').value)||0,mrp:parseFloat(document.getElementById('NI-MRP').value)||0,disc:parseFloat(document.getElementById('NI-DISC').value)||0,sale_price:parseFloat(document.getElementById('NI-SALE').value)||0,sale_price_aud:parseFloat(document.getElementById('NI-AUD').value)||0,india_available:document.getElementById('NI-IN-AVAIL').checked,au_available:document.getElementById('NI-AU-AVAIL').checked,updated_at:new Date().toISOString()};
-  await sbUpd('inventory_skus',`?id=eq.${editIdx}`,data);
+  const photos=await uploadTmpPhs('item-photos',niTmpPh);
+  const data={name:nm,display_material:document.getElementById('NI-FAB').value.trim(),display_variant:document.getElementById('NI-SUB').value.trim(),cost:parseFloat(document.getElementById('NI-COST').value)||0,mrp:parseFloat(document.getElementById('NI-MRP').value)||0,disc:parseFloat(document.getElementById('NI-DISC').value)||0,sale_price:parseFloat(document.getElementById('NI-SALE').value)||0,sale_price_aud:parseFloat(document.getElementById('NI-AUD').value)||0,india_available:document.getElementById('NI-IN-AVAIL').checked,au_available:document.getElementById('NI-AU-AVAIL').checked,photos,hero_photo:photos[0]||null,updated_at:new Date().toISOString()};
+  const ok=await sbUpd('inventory_skus',`?id=eq.${editIdx}`,data);
+  if(!ok){toast('❌ Save failed — check your connection and try again','var(--red)');return;}
   skus=await sbQ('inventory_skus','?order=sku_code');closeMo('MO-ITEM');renderInvStats();renderInv();populateFabFilter();toast('✅ SKU saved','#27ae60');
 }
 
@@ -3534,12 +3548,6 @@ async function savePh(){
   if(!phCtx){closeMo('MO-PH');return;}
   const{kind,idx}=phCtx;
   if(kind==='inv'){const urls=await uploadTmpPhs('item-photos',tmpPh);await sbUpd('inventory',`?id=eq.${idx}`,{photos:urls,updated_at:new Date().toISOString()});const it=inv.find(i=>i.id===idx);if(it)it.photos=urls;renderInv();toast(`✅ ${urls.length} photos saved`,'#27ae60');}
-  else if(kind==='sku'){
-    const urls=await uploadTmpPhs('item-photos',tmpPh);
-    await sbUpd('inventory_skus',`?id=eq.${idx}`,{photos:urls,hero_photo:urls[0]||null,updated_at:new Date().toISOString()});
-    const s=skus.find(x=>x.id===idx);if(s){s.photos=urls;s.hero_photo=urls[0]||null;}
-    renderInv();toast(`✅ ${urls.length} photo(s) saved`,'#27ae60');
-  }
   else if(kind==='si-row'){
     if(!tmpPh.length){toast('Add at least 1 photo','var(--red)');return;}
     const row=document.getElementById('SIR-'+idx);if(row){row.dataset.photos=JSON.stringify(tmpPh);const c=document.getElementById('SI-PC-'+idx);if(c)c.textContent=tmpPh.length;const btn=document.getElementById('SI-PHBTN-'+idx);if(btn)btn.classList.remove('needs-photo');}
