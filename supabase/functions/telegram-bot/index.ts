@@ -78,6 +78,7 @@ Deno.serve(async (req: Request) => {
 
   const text: string | undefined = update.message?.text;
   const callbackData: string | undefined = update.callback_query?.data;
+  const photo: { file_id: string }[] | undefined = update.message?.photo;
 
   if (text === "/start") {
     await showTopMenu(chatId);
@@ -88,6 +89,8 @@ Deno.serve(async (req: Request) => {
     await tgSend(chatId, "Enter inventory mode isn't built yet — coming soon.");
   } else if (callbackData?.startsWith("godown:")) {
     await handleGodown(supabase, chatId, state, data, callbackData);
+  } else if (photo?.length && state === "godown_discrepancy_note") {
+    await handleGodownPhoto(supabase, chatId, data, photo);
   } else if (text && state.startsWith("godown_")) {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text) {
@@ -719,10 +722,161 @@ async function handleGodown(
   if (state === "godown_discrepancy_type" && callbackData.startsWith("godown:disc:")) {
     const typeMap: Record<string, string> = { missing: "shortage", damage: "damage", extra: "other" };
     data.discType = typeMap[callbackData.split(":")[2]] ?? "other";
-    await tgSend(chatId, 'Add a note about it, or type "skip":', { inline_keyboard: [GODOWN_EXIT_ROW] });
-    await saveSession(supabase, chatId, "godown_discrepancy_note", data);
+    data.selectedUnitIds = [];
+    // "Extra" means ground stock the system doesn't know about at all —
+    // there's no existing unit record to tie it to, so skip straight to
+    // the note. Missing/Damaged are both about a specific physical piece,
+    // so offer to pick which one(s) first.
+    if (data.discType === "other") {
+      await promptGodownNote(chatId);
+      await saveSession(supabase, chatId, "godown_discrepancy_note", data);
+    } else {
+      await showGodownUnitPicker(supabase, chatId, data);
+    }
     return;
   }
+
+  if (state === "godown_unit_pick" && callbackData.startsWith("godown:unitpick:")) {
+    const val = callbackData.split(":")[2];
+    if (val === "done") {
+      await promptGodownNote(chatId);
+      await saveSession(supabase, chatId, "godown_discrepancy_note", data);
+      return;
+    }
+    const selected: string[] = data.selectedUnitIds ?? [];
+    data.selectedUnitIds = selected.includes(val) ? selected.filter((x: string) => x !== val) : [...selected, val];
+    await showGodownUnitPicker(supabase, chatId, data);
+    return;
+  }
+
+  if (state === "godown_discrepancy_note" && (callbackData === "godown:disc:skip" || callbackData === "godown:disc:notedone")) {
+    await finalizeGodownDiscrepancy(supabase, chatId, data, "");
+    return;
+  }
+}
+
+async function promptGodownNote(chatId: number) {
+  await tgSend(chatId, "Add a note, attach a photo, or tap Skip:", {
+    inline_keyboard: [[{ text: "⏭ Skip", callback_data: "godown:disc:skip" }], GODOWN_EXIT_ROW],
+  });
+}
+
+async function showGodownUnitPicker(supabase: SB, chatId: number, data: SessionData) {
+  const item: GodownItem = data.discItem;
+  const { data: units } = await supabase
+    .from("inventory_units")
+    .select("id, unit_code")
+    .eq("sku_id", item.sku_id)
+    .eq("status", "available");
+  const selected: string[] = data.selectedUnitIds ?? [];
+  const buttons = (units ?? []).map((u: { id: string; unit_code: string }) => [{
+    text: `${selected.includes(u.id) ? "✅ " : ""}${u.unit_code}`,
+    callback_data: `godown:unitpick:${u.id}`,
+  }]);
+  buttons.push([{ text: `➡️ Done (${selected.length} selected)`, callback_data: "godown:unitpick:done" }]);
+  buttons.push(GODOWN_EXIT_ROW);
+  await tgSend(chatId, `Which piece(s) of "${item.name}" is this about? (optional — tap Done to skip)`, { inline_keyboard: buttons });
+  await saveSession(supabase, chatId, "godown_unit_pick", data);
+}
+
+async function handleGodownPhoto(supabase: SB, chatId: number, data: SessionData, photoSizes: { file_id: string }[]) {
+  const largest = photoSizes[photoSizes.length - 1];
+  const url = await uploadTelegramPhoto(largest.file_id);
+  if (!url) {
+    await tgSend(chatId, "Couldn't save that photo — try again, or type a note / tap Skip.");
+    return;
+  }
+  data.discPhotoUrl = url;
+  await tgSend(chatId, "📷 Photo attached. Add a text note too, or tap Done to save.", {
+    inline_keyboard: [[{ text: "✅ Done", callback_data: "godown:disc:notedone" }], GODOWN_EXIT_ROW],
+  });
+  await saveSession(supabase, chatId, "godown_discrepancy_note", data);
+}
+
+// Mirrors the download-then-reupload pattern from the Enter Inventory plan's
+// photo handling (not yet built there, but the pattern is simple enough to
+// use here now): resolve Telegram's file_id to a real URL, fetch the bytes,
+// re-upload to the same item-photos bucket admin.html already uses.
+async function uploadTelegramPhoto(fileId: string): Promise<string | null> {
+  const fileRes = await fetch(`${TG_API}/getFile?file_id=${fileId}`);
+  const fileJson = await fileRes.json();
+  const filePath = fileJson?.result?.file_path;
+  if (!filePath) return null;
+  const imgRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`);
+  const imgBuf = await imgRes.arrayBuffer();
+  const objectName = `${Date.now()}-godown-telegram.jpg`;
+  const uploadRes = await fetch(
+    `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/item-photos/${objectName}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "Content-Type": "image/jpeg",
+      },
+      body: imgBuf,
+    },
+  );
+  if (!uploadRes.ok) return null;
+  return `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/item-photos/${objectName}`;
+}
+
+// Shared by the Skip button, the "Done" button after a photo, and typed
+// text (handleGodownText) — the one place that actually writes the
+// vendor_issues row, whichever way the note step was completed.
+async function finalizeGodownDiscrepancy(supabase: SB, chatId: number, data: SessionData, note: string) {
+  const item: GodownItem = data.discItem;
+  const selectedUnitIds: string[] = data.selectedUnitIds ?? [];
+
+  const { data: unitRow } = await supabase
+    .from("inventory_units")
+    .select("vendor_code")
+    .eq("sku_id", item.sku_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const vendorCode: string | null = unitRow?.vendor_code ?? null;
+  let vendorUuid: string | null = null;
+  if (vendorCode) {
+    const { data: vRow } = await supabase.from("vendors").select("id").eq("vendor_id", vendorCode).maybeSingle();
+    vendorUuid = vRow?.id ?? null;
+  }
+
+  const cleanNote = note.trim();
+  const photoLine = data.discPhotoUrl ? `\nPhoto: ${data.discPhotoUrl}` : "";
+  const source = data.discFromState === "godown_eod_item" ? "EOD reconciliation" : "spot check";
+  const description = `${cleanNote || "(no note)"}${photoLine} — found during ${source} via Telegram bot`;
+
+  if (vendorUuid) {
+    await supabase.from("vendor_issues").insert({
+      vendor_uuid: vendorUuid,
+      vendor_code: vendorCode,
+      sku_id: item.sku_id,
+      batch: null,
+      unit_ids: selectedUnitIds,
+      issue_date: new Date().toISOString().slice(0, 10),
+      issue_type: data.discType ?? "other",
+      description,
+      status: "open",
+      created_by: "telegram_bot",
+    });
+    const pieceNote = selectedUnitIds.length ? ` (${selectedUnitIds.length} piece${selectedUnitIds.length > 1 ? "s" : ""})` : "";
+    await tgSend(chatId, `⚠️ Logged: ${item.name}${pieceNote} — added to Vendor Issues for follow-up.`);
+  } else {
+    await tgSend(chatId, `⚠️ Couldn't resolve a vendor for ${item.name} — please log this one manually in admin.html's Vendor Issues.`);
+  }
+
+  // Damaged pieces: flip their status so they stop showing as sellable —
+  // "damaged" is already a valid inventory_units status, no schema change
+  // needed. Missing pieces aren't touched — there's no "missing" status,
+  // and guessing wrong (it could just be misplaced) is worse than leaving
+  // it as a logged issue only.
+  if (data.discType === "damage" && selectedUnitIds.length) {
+    await supabase.from("inventory_units").update({ status: "damaged", updated_at: new Date().toISOString() }).in("id", selectedUnitIds);
+  }
+
+  data.discPhotoUrl = undefined;
+  data.selectedUnitIds = undefined;
+  await advanceGodown(supabase, chatId, data.discFromState, data);
 }
 
 async function handleGodownText(supabase: SB, chatId: number, state: string, data: SessionData, text: string) {
@@ -751,43 +905,8 @@ async function handleGodownText(supabase: SB, chatId: number, state: string, dat
   }
 
   if (state === "godown_discrepancy_note") {
-    const note = text.trim();
-    const item: GodownItem = data.discItem;
-
-    const { data: unitRow } = await supabase
-      .from("inventory_units")
-      .select("vendor_code")
-      .eq("sku_id", item.sku_id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const vendorCode: string | null = unitRow?.vendor_code ?? null;
-    let vendorUuid: string | null = null;
-    if (vendorCode) {
-      const { data: vRow } = await supabase.from("vendors").select("id").eq("vendor_id", vendorCode).maybeSingle();
-      vendorUuid = vRow?.id ?? null;
-    }
-
-    if (vendorUuid) {
-      const source = data.discFromState === "godown_eod_item" ? "EOD reconciliation" : "spot check";
-      await supabase.from("vendor_issues").insert({
-        vendor_uuid: vendorUuid,
-        vendor_code: vendorCode,
-        sku_id: item.sku_id,
-        batch: null,
-        unit_ids: [],
-        issue_date: new Date().toISOString().slice(0, 10),
-        issue_type: data.discType ?? "other",
-        description: `${note.toLowerCase() === "skip" ? "(no note)" : note} — found during ${source} via Telegram bot`,
-        status: "open",
-        created_by: "telegram_bot",
-      });
-      await tgSend(chatId, `⚠️ Logged: ${item.name} — added to Vendor Issues for follow-up.`);
-    } else {
-      await tgSend(chatId, `⚠️ Couldn't resolve a vendor for ${item.name} — please log this one manually in admin.html's Vendor Issues.`);
-    }
-
-    await advanceGodown(supabase, chatId, data.discFromState, data);
+    await finalizeGodownDiscrepancy(supabase, chatId, data, text.trim());
+    return;
   }
 }
 
