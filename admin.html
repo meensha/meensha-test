@@ -325,7 +325,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi" style="margin-top:10px;"><label>Notes</label><textarea id="SI-NOT" placeholder="Remarks..."></textarea></div>
   </div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;">
-    <button class="btn bg" onclick="saveSIEntry()">💾 Save Purchase</button>
+    <button class="btn bg" id="SI-SAVE-BTN" onclick="saveSIEntry()">💾 Save Purchase</button>
     <button class="btn bgy" onclick="clearSI()">🗑️ Clear</button>
   </div>
   </div><!-- end st-purchase -->
@@ -3085,7 +3085,14 @@ function calcSITot(){
 function toggleGST(which){const cb=document.getElementById(which+'-GST');document.getElementById(which+'-GSTB').classList.toggle('on',cb.checked);which==='SI'?calcSITot():calcSATot();}
 function autoSplit(){const am=parseFloat(document.getElementById('SI-PAM').value)||0,h=Math.round(am/2*100)/100;document.getElementById('SI-SH').value=h;document.getElementById('SI-ME').value=h;chkSplit();}
 function chkSplit(){const t=parseFloat(document.getElementById('SI-PAM').value)||0,s=parseFloat(document.getElementById('SI-SH').value)||0,m=parseFloat(document.getElementById('SI-ME').value)||0;document.getElementById('SI-SPWARN').style.display=(s+m>t+0.01)?'block':'none';}
+let siSaving=false;
 async function saveSIEntry(){
+  if(siSaving)return;siSaving=true;
+  const btn=document.getElementById('SI-SAVE-BTN');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{await saveSIEntryInner();}finally{siSaving=false;if(btn){btn.disabled=false;btn.textContent='💾 Save Purchase';}}
+}
+async function saveSIEntryInner(){
   const vid=document.getElementById('SI-VID').value,dt=document.getElementById('SI-DT').value;
   if(!vid||!dt){toast('Vendor and Date required','var(--red)');return;}
   const vendor=vendorByUuid(vid);if(!vendor){toast('Vendor not found','var(--red)');return;}
