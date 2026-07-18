@@ -3308,17 +3308,28 @@ function printTags(){
     });
   });
   if(!tags.length){toast('No available units for the selected items','var(--red)');return;}
-  const tagHtml=tags.map(t=>`<div class="tag"><div class="tag-name">${sanitise(t.name)}</div><div class="tag-code">${sanitise(t.code)}</div><div class="tag-price">₹${fmt(t.price)}</div></div>`).join('');
+  const logoUrl=new URL('logo.svg',location.href).href;
+  const corner=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M100,0 C70,5 40,20 25,45 C15,62 12,80 20,100" fill="none" stroke="#C9A84C" stroke-width="3" stroke-linecap="round"/><path d="M100,15 C75,20 50,32 38,55 C30,70 28,85 35,100" fill="none" stroke="#C9A84C" stroke-width="2.4" stroke-linecap="round" opacity="0.75"/><path d="M100,30 C82,34 62,45 52,63 C46,74 45,87 50,100" fill="none" stroke="#C9A84C" stroke-width="1.8" stroke-linecap="round" opacity="0.55"/><circle cx="22" cy="48" r="2.6" fill="#C9A84C"/><circle cx="38" cy="58" r="1.8" fill="#C9A84C" opacity="0.7"/></svg>`;
+  const tagHtml=tags.map(t=>`<div class="tag"><div class="tframe"><div class="tcorner tl">${corner}</div><div class="tcorner br">${corner}</div><img class="tlogo" src="${logoUrl}"><div class="tdiv"></div><div class="tbody"><div class="tcode">${sanitise(t.code)}</div><div class="trule"></div><div class="tname">${sanitise(t.name)}</div><div class="tprice">₹${fmt(t.price)}</div></div></div></div>`).join('');
   const w=window.open('','_blank');
-  w.document.write(`<html><head><title>Price Tags</title><style>
-    @page{size:A4;margin:8mm 2.5mm;}
+  w.document.write(`<html><head><meta charset="utf-8"><title>Price Tags</title><style>
+    @page{size:A4;margin:9mm 3mm;}
     *{box-sizing:border-box;}
     body{margin:0;font-family:Georgia,serif;}
-    .sheet{display:grid;grid-template-columns:repeat(2,105mm);grid-template-rows:repeat(8,34mm);}
-    .tag{width:105mm;height:34mm;padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;page-break-inside:avoid;}
-    .tag-name{font-size:10px;color:#333;line-height:1.2;max-height:2.4em;overflow:hidden;}
-    .tag-code{font-family:monospace;font-size:9px;color:#666;margin-top:2px;}
-    .tag-price{font-size:15px;font-weight:700;color:#000;margin-top:2px;}
+    .sheet{display:grid;grid-template-columns:repeat(2,100mm);grid-template-rows:repeat(8,35mm);}
+    .tag{width:105mm;height:34mm;padding:1.5mm;overflow:hidden;page-break-inside:avoid;}
+    .tframe{position:relative;width:100%;height:100%;border:0.75pt solid #C9A84C;border-radius:2px;padding:1.5mm 3mm;display:flex;align-items:center;gap:3mm;background:#fffdf8;}
+    .tcorner{position:absolute;width:11mm;height:11mm;opacity:.22;pointer-events:none;z-index:0;}
+    .tcorner svg{width:100%;height:100%;display:block;}
+    .tcorner.tl{bottom:0;left:0;width:6mm;height:6mm;transform:rotate(180deg);}
+    .tcorner.br{bottom:0;right:0;transform:rotate(180deg);}
+    .tlogo{position:relative;z-index:1;width:24mm;height:24mm;object-fit:contain;flex-shrink:0;}
+    .tdiv{position:relative;z-index:1;width:0.75pt;align-self:stretch;background:#e0d5c0;flex-shrink:0;}
+    .tbody{position:relative;z-index:1;flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+    .tcode{font-family:monospace;font-size:11px;color:#8B6914;letter-spacing:0.3px;}
+    .trule{width:14mm;height:0.75pt;background:#C9A84C;margin:1.2mm 0;}
+    .tname{font-size:13px;font-weight:600;color:#222;line-height:1.25;overflow:hidden;}
+    .tprice{font-size:20px;font-weight:800;color:#000;margin-top:1.5mm;}
   </style></head><body><div class="sheet">${tagHtml}</div><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
   w.document.close();
 }
