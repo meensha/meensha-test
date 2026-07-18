@@ -24,6 +24,10 @@ const BACK_ROW = [{ text: "◀ Add more items", callback_data: "kiosk:backtoitem
 // point, no confirmation needed for this one since nothing's been saved to
 // the database yet at any step before the final "Confirm" tap.
 const CANCEL_ROW = [{ text: "✕ Cancel sale", callback_data: "kiosk:cancelall" }];
+// Godown check has nothing pending to lose (every reconciliation step is
+// read-only until a discrepancy note is actually submitted), so "cancel"
+// here just means "exit back to the top menu."
+const GODOWN_EXIT_ROW = [{ text: "✕ Exit", callback_data: "godown:exit" }];
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -83,7 +87,9 @@ Deno.serve(async (req: Request) => {
   } else if (callbackData?.startsWith("inv:")) {
     await tgSend(chatId, "Enter inventory mode isn't built yet — coming soon.");
   } else if (callbackData?.startsWith("godown:")) {
-    await tgSend(chatId, "Godown check isn't built yet — coming soon.");
+    await handleGodown(supabase, chatId, state, data, callbackData);
+  } else if (text && state.startsWith("godown_")) {
+    await handleGodownText(supabase, chatId, state, data, text);
   } else if (text) {
     await handleTextInput(supabase, chatId, state, data, text);
   }
@@ -620,4 +626,244 @@ async function finalizeSale(supabase: SB, chatId: number, data: SessionData) {
       (waLink ? `\n\nTap to send invoice: ${waLink}` : ""),
   );
   await showTopMenu(chatId);
+}
+
+// ═══════════════════════════════════════════════
+// GODOWN CHECK (stock audit) — EOD reconciliation + ad-hoc spot check.
+// Both paths converge on the same match/discrepancy step, then log any
+// discrepancy to vendor_issues (same table/fields admin.html's Vendor
+// Issues tab uses) so it shows up there for follow-up. Scope note: the
+// "offer to return a damaged piece to the seller" extension from the
+// original plan needs the not-yet-built purchase_returns/returned_to_vendor
+// schema (that's part of the still-unbuilt Enter Inventory stage) — this
+// just logs the issue for now, same as manually logging one in admin.html.
+// ═══════════════════════════════════════════════
+type GodownItem = { sku_id: string; name: string; au: boolean; avail: number; soldToday?: number };
+
+async function handleGodown(
+  supabase: SB,
+  chatId: number,
+  state: string,
+  data: SessionData,
+  callbackData: string,
+) {
+  if (callbackData === "godown:exit") {
+    await tgSend(chatId, "Exited godown check.");
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  if (callbackData === "godown:start") {
+    data = {};
+    await tgSend(chatId, "📦 Godown check — what do you want to do?", {
+      inline_keyboard: [
+        [{ text: "📊 End-of-day reconciliation", callback_data: "godown:eod" }],
+        [{ text: "🔍 Spot check an item", callback_data: "godown:spot" }],
+        GODOWN_EXIT_ROW,
+      ],
+    });
+    await saveSession(supabase, chatId, "godown_menu", data);
+    return;
+  }
+
+  if (callbackData === "godown:eod") {
+    await startGodownEod(supabase, chatId, data);
+    return;
+  }
+
+  if (callbackData === "godown:spot") {
+    await tgSend(chatId, "Type an item name to search:", { inline_keyboard: [GODOWN_EXIT_ROW] });
+    await saveSession(supabase, chatId, "godown_spot_search", data);
+    return;
+  }
+
+  if (callbackData.startsWith("godown:spotpick:")) {
+    const skuId = callbackData.split(":")[2];
+    const { data: sku } = await supabase
+      .from("inventory_skus")
+      .select("id, name, au_available")
+      .eq("id", skuId)
+      .single();
+    const { data: units } = await supabase
+      .from("inventory_units")
+      .select("id")
+      .eq("sku_id", skuId)
+      .eq("status", "available");
+    data.spotItem = { sku_id: sku.id, name: sku.name, au: sku.au_available, avail: (units ?? []).length };
+    await showGodownItem(supabase, chatId, data, data.spotItem);
+    await saveSession(supabase, chatId, "godown_spot_item", data);
+    return;
+  }
+
+  if ((state === "godown_eod_item" || state === "godown_spot_item") && callbackData === "godown:match") {
+    await advanceGodown(supabase, chatId, state, data);
+    return;
+  }
+
+  if ((state === "godown_eod_item" || state === "godown_spot_item") && callbackData === "godown:discrepancy") {
+    data.discFromState = state;
+    data.discItem = state === "godown_eod_item" ? data.eodList[data.eodIdx] : data.spotItem;
+    await tgSend(chatId, "What kind of discrepancy?", {
+      inline_keyboard: [
+        [{ text: "📉 Missing", callback_data: "godown:disc:missing" }],
+        [{ text: "🔨 Damaged", callback_data: "godown:disc:damage" }],
+        [{ text: "📈 Extra", callback_data: "godown:disc:extra" }],
+        GODOWN_EXIT_ROW,
+      ],
+    });
+    await saveSession(supabase, chatId, "godown_discrepancy_type", data);
+    return;
+  }
+
+  if (state === "godown_discrepancy_type" && callbackData.startsWith("godown:disc:")) {
+    const typeMap: Record<string, string> = { missing: "shortage", damage: "damage", extra: "other" };
+    data.discType = typeMap[callbackData.split(":")[2]] ?? "other";
+    await tgSend(chatId, 'Add a note about it, or type "skip":', { inline_keyboard: [GODOWN_EXIT_ROW] });
+    await saveSession(supabase, chatId, "godown_discrepancy_note", data);
+    return;
+  }
+}
+
+async function handleGodownText(supabase: SB, chatId: number, state: string, data: SessionData, text: string) {
+  if (state === "godown_spot_search") {
+    const q = text.trim();
+    const { data: skus } = await supabase
+      .from("inventory_skus")
+      .select("id, name, au_available")
+      .ilike("name", `%${q}%`);
+    if (!skus?.length) {
+      await tgSend(chatId, "No items matched that name — try again, or Exit.", { inline_keyboard: [GODOWN_EXIT_ROW] });
+      return;
+    }
+    const { data: units } = await supabase.from("inventory_units").select("sku_id").eq("status", "available");
+    const availCount: Record<string, number> = {};
+    (units ?? []).forEach((u: { sku_id: string }) => {
+      availCount[u.sku_id] = (availCount[u.sku_id] ?? 0) + 1;
+    });
+    const buttons = skus.map((s: { id: string; name: string; au_available: boolean }) => [{
+      text: `${s.au_available ? "🇦🇺 " : ""}${s.name} (${availCount[s.id] ?? 0} in stock)`,
+      callback_data: `godown:spotpick:${s.id}`,
+    }]);
+    buttons.push(GODOWN_EXIT_ROW);
+    await tgSend(chatId, "Matching items:", { inline_keyboard: buttons });
+    return;
+  }
+
+  if (state === "godown_discrepancy_note") {
+    const note = text.trim();
+    const item: GodownItem = data.discItem;
+
+    const { data: unitRow } = await supabase
+      .from("inventory_units")
+      .select("vendor_code")
+      .eq("sku_id", item.sku_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const vendorCode: string | null = unitRow?.vendor_code ?? null;
+    let vendorUuid: string | null = null;
+    if (vendorCode) {
+      const { data: vRow } = await supabase.from("vendors").select("id").eq("vendor_id", vendorCode).maybeSingle();
+      vendorUuid = vRow?.id ?? null;
+    }
+
+    if (vendorUuid) {
+      const source = data.discFromState === "godown_eod_item" ? "EOD reconciliation" : "spot check";
+      await supabase.from("vendor_issues").insert({
+        vendor_uuid: vendorUuid,
+        vendor_code: vendorCode,
+        sku_id: item.sku_id,
+        batch: null,
+        unit_ids: [],
+        issue_date: new Date().toISOString().slice(0, 10),
+        issue_type: data.discType ?? "other",
+        description: `${note.toLowerCase() === "skip" ? "(no note)" : note} — found during ${source} via Telegram bot`,
+        status: "open",
+        created_by: "telegram_bot",
+      });
+      await tgSend(chatId, `⚠️ Logged: ${item.name} — added to Vendor Issues for follow-up.`);
+    } else {
+      await tgSend(chatId, `⚠️ Couldn't resolve a vendor for ${item.name} — please log this one manually in admin.html's Vendor Issues.`);
+    }
+
+    await advanceGodown(supabase, chatId, data.discFromState, data);
+  }
+}
+
+async function startGodownEod(supabase: SB, chatId: number, data: SessionData) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: todaySales } = await supabase.from("sales").select("items").eq("date", today);
+
+  // sales.items[].sku_code is actually the physical unit_code (see
+  // finalizeSale above), not a stable SKU identifier — group by product
+  // name instead, which is what's actually stable per SKU.
+  const nameCounts: Record<string, number> = {};
+  (todaySales ?? []).forEach((s: { items: { name: string }[] }) => {
+    (s.items ?? []).forEach((it: { name: string }) => {
+      nameCounts[it.name] = (nameCounts[it.name] ?? 0) + 1;
+    });
+  });
+  const soldNames = Object.keys(nameCounts);
+  if (!soldNames.length) {
+    await tgSend(chatId, "No sales recorded today — nothing to reconcile yet.");
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  const { data: skus } = await supabase.from("inventory_skus").select("id, name, au_available").in("name", soldNames);
+  const { data: units } = await supabase.from("inventory_units").select("sku_id").eq("status", "available");
+  const availCount: Record<string, number> = {};
+  (units ?? []).forEach((u: { sku_id: string }) => {
+    availCount[u.sku_id] = (availCount[u.sku_id] ?? 0) + 1;
+  });
+
+  data.eodList = (skus ?? []).map((s: { id: string; name: string; au_available: boolean }) => ({
+    sku_id: s.id,
+    name: s.name,
+    au: s.au_available,
+    soldToday: nameCounts[s.name] ?? 0,
+    avail: availCount[s.id] ?? 0,
+  }));
+  data.eodIdx = 0;
+  await showGodownItem(supabase, chatId, data, data.eodList[0]);
+  await saveSession(supabase, chatId, "godown_eod_item", data);
+}
+
+async function showGodownItem(supabase: SB, chatId: number, data: SessionData, item: GodownItem) {
+  const auTag = item.au ? "🇦🇺 " : "";
+  const soldLine = item.soldToday !== undefined ? `Sold today: ${item.soldToday}\n` : "";
+  await tgSend(
+    chatId,
+    `${auTag}${item.name}\n${soldLine}Expected in stock: ${item.avail}\n\nDoes the physical count match?`,
+    {
+      inline_keyboard: [
+        [{ text: "✅ Matches", callback_data: "godown:match" }],
+        [{ text: "⚠️ Discrepancy", callback_data: "godown:discrepancy" }],
+        GODOWN_EXIT_ROW,
+      ],
+    },
+  );
+}
+
+// Shared "what happens after this item is resolved" step for both the EOD
+// list-walk and the spot-check single-item flow — matched or logged, either
+// way this decides whether to show the next EOD item or re-prompt spot search.
+async function advanceGodown(supabase: SB, chatId: number, fromState: string, data: SessionData) {
+  if (fromState === "godown_eod_item") {
+    data.eodIdx = (data.eodIdx ?? 0) + 1;
+    const list = data.eodList ?? [];
+    if (data.eodIdx >= list.length) {
+      await tgSend(chatId, "✅ End-of-day reconciliation complete.");
+      await showTopMenu(chatId);
+      await saveSession(supabase, chatId, "idle", {});
+      return;
+    }
+    await showGodownItem(supabase, chatId, data, list[data.eodIdx]);
+    await saveSession(supabase, chatId, "godown_eod_item", data);
+    return;
+  }
+  await tgSend(chatId, "Type another item name to search, or Exit.", { inline_keyboard: [GODOWN_EXIT_ROW] });
+  await saveSession(supabase, chatId, "godown_spot_search", data);
 }
