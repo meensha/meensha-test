@@ -233,6 +233,19 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
         Enable Razorpay checkout on meensha.in
       </label>
     </div>
+    <!-- Telegram bot access allowlist — super_admin only, same as Razorpay.
+         A row here grants real ability to execute sales/inventory actions
+         via the bot, so writes go through RPCs, never a direct table call. -->
+    <div class="hi" id="TG-LINK-SECTION" style="margin-top:20px;">
+      <strong style="font-size:13px;">🤖 Telegram Bot Access</strong>
+      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Chat IDs approved to use the Telegram bot. Anyone on this list can record sales and enter stock as if logged into this panel — only add people you trust with that.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <input id="TG-NEW-CHATID" placeholder="Chat ID" style="flex:1;min-width:120px;padding:6px 9px;border:1px solid var(--bd);border-radius:4px;font-size:12px;">
+        <input id="TG-NEW-LABEL" placeholder="Label (e.g. Shalini)" style="flex:1;min-width:120px;padding:6px 9px;border:1px solid var(--bd);border-radius:4px;font-size:12px;">
+        <button class="btn bgn sm" onclick="addTelegramUser()">+ Add</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>Label</th><th>Chat ID</th><th>Added</th><th>Active</th><th></th></tr></thead><tbody id="TG-USERS-BODY"></tbody></table></div>
+    </div>
   </div>
 </div>
 
@@ -412,7 +425,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi" id="SA-ADDR-W" style="display:none;margin-top:10px;max-width:500px;"><label>Shipping Address *</label><textarea id="SA-ADDR" placeholder="Full delivery address including PIN code..."></textarea></div>
   </div>
   <div class="card"><div class="ct">🧾 Items</div>
-    <div class="tw"><table><thead><tr><th>#</th><th>Select Item</th><th>Notes</th><th>MRP ₹</th><th>Sale Price ₹</th><th>Qty</th><th>Extra Disc ₹</th><th>Amount ₹</th><th>Photo</th><th></th></tr></thead><tbody id="SA-BODY"></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>#</th><th>Select Item</th><th>Notes</th><th>MRP ₹</th><th>Sale Price ₹</th><th>Qty</th><th>Extra Disc ₹</th><th>Amount ₹</th><th>Photo</th><th>Coupon</th><th></th></tr></thead><tbody id="SA-BODY"></tbody></table></div>
     <button class="btn bgy sm" style="margin-top:9px;" onclick="addSARow()">+ Add Item</button>
     <div class="gst-r"><input type="checkbox" id="SA-GST" onchange="toggleGST('SA')"><label for="SA-GST" style="font-weight:700;color:var(--gdk);font-size:12px;">Apply GST</label></div>
     <div class="gst-b" id="SA-GSTB"><label style="font-weight:700;color:var(--gdk);font-size:12px;">GST %</label><input type="number" id="SA-GSTP" value="5" min="0" max="28" style="width:65px;padding:5px 7px;border:1px solid var(--bd);border-radius:4px;font-size:12px;" oninput="calcSATot()"></div>
@@ -1228,6 +1241,8 @@ function applyRole(){
   // Razorpay kill-switch is super_admin only, even though the rest of Site Admin is owner+super_admin
   const rzpSec=document.getElementById('RZP-LINK-SECTION');
   if(rzpSec)rzpSec.classList.toggle('hi',r!=='super_admin');
+  const tgSec=document.getElementById('TG-LINK-SECTION');
+  if(tgSec)tgSec.classList.toggle('hi',r!=='super_admin');
 }
 async function loadRzpEnabled(){
   const el=document.getElementById('RZP-ENABLED');if(!el)return;
@@ -1238,6 +1253,43 @@ async function saveRzpEnabled(){
   const ex=await sbQ('settings','?key=eq.razorpay_enabled');
   if(ex&&ex.length)await sbUpd('settings','?key=eq.razorpay_enabled',{value:val});else await sbIns('settings',{key:'razorpay_enabled',value:val});
   toast('✅ Razorpay checkout '+(val==='true'?'enabled':'disabled'),'#27ae60');
+}
+
+// ═══════════════════════════════════════════════
+// TELEGRAM BOT ACCESS
+// ═══════════════════════════════════════════════
+async function renderTelegramUsers(){
+  const body=document.getElementById('TG-USERS-BODY');if(!body)return;
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_telegram_users`,{method:'POST',headers:HDR(),body:'{}'});
+  const rows=r.ok?(await r.json()):[];
+  body.innerHTML=rows.map(u=>`<tr>
+    <td>${sanitise(u.label||'—')}</td>
+    <td style="font-family:monospace;">${sanitise(u.chat_id)}</td>
+    <td style="font-size:11px;">${sanitise((u.created_at||'').slice(0,10))}</td>
+    <td><input type="checkbox" ${u.active?'checked':''} onchange="toggleTelegramUser('${u.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
+    <td><button class="btn br xs" onclick="deleteTelegramUser('${u.id}')">🗑️</button></td>
+  </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--gy);">No approved users yet</td></tr>';
+}
+async function addTelegramUser(){
+  const chatId=document.getElementById('TG-NEW-CHATID').value.trim();
+  const label=document.getElementById('TG-NEW-LABEL').value.trim();
+  if(!chatId){toast('Enter a chat ID','var(--red)');return;}
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_add_telegram_user`,{method:'POST',headers:HDR(),body:JSON.stringify({p_chat_id:chatId,p_label:label})});
+  if(!r.ok){toast('Could not add — chat ID may already be on the list','var(--red)');return;}
+  toast('✅ Bot access approved','#27ae60');
+  document.getElementById('TG-NEW-CHATID').value='';
+  document.getElementById('TG-NEW-LABEL').value='';
+  renderTelegramUsers();
+}
+async function toggleTelegramUser(id,active){
+  await fetch(`${SB}/rest/v1/rpc/admin_set_telegram_user_active`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id,p_active:active})});
+  toast(active?'Access enabled':'Access revoked','#27ae60');
+}
+async function deleteTelegramUser(id){
+  if(!confirm('Remove this chat ID from bot access?'))return;
+  await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
+  toast('Removed','#27ae60');
+  renderTelegramUsers();
 }
 
 // ═══════════════════════════════════════════════
@@ -1341,7 +1393,7 @@ async function initApp(){
   try{const rp=await sbQ('settings','?key=eq.role_permissions');if(rp&&rp.length)rolePerms={...DEFAULT_PERMS,...JSON.parse(rp[0].value||'{}')};}catch{}
   applyRole();
   await loadAll();
-  if(CU.role==='super_admin')loadRzpEnabled();
+  if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();}
   if(CU.role!=='sales')loadGeneralSettings();
   // The initial SA-BODY row (added on window.onload, before data existed) needs its
   // item options refreshed now that skus/inv are actually loaded.
@@ -3113,7 +3165,30 @@ function addSARow(){
   const skuOpts=skus.map(s=>`<option value="sku:${s.id}">${s.sku_code} – ${s.name} [${skuAvail(s.id)} avail]</option>`).join('');
   const legOpts=inv.map((it,i)=>`<option value="leg:${i}">${it.item_id} – ${it.name}${it.subtype?' ('+it.subtype+')':''} [${(it.qty||0)-(it.sold||0)} avail]</option>`).join('');
   const row=tb.insertRow();
-  row.innerHTML=`<td style="color:var(--gy);font-weight:700;">${idx+1}</td><td><select onchange="fillSARow(this)" style="min-width:210px;"><option value="">— Select —</option>${skuOpts}${legOpts}</select></td><td><input placeholder="Notes" style="min-width:90px;"></td><td class="ac">₹ 0</td><td><input type="number" placeholder="0" min="0" oninput="calcSATot()" style="width:80px;"></td><td><input type="number" placeholder="1" min="1" value="1" oninput="calcSATot()" style="width:50px;"></td><td><input type="number" placeholder="0" min="0" value="0" oninput="calcSATot()" style="width:70px;"></td><td class="ac">₹ 0</td><td><button class="btn bgy xs" onclick="showItPh(this)">📷</button></td><td><button class="btn br xs" onclick="this.closest('tr').remove();calcSATot();">✕</button></td>`;
+  row.innerHTML=`<td style="color:var(--gy);font-weight:700;">${idx+1}</td><td><select onchange="fillSARow(this)" style="min-width:210px;"><option value="">— Select —</option>${skuOpts}${legOpts}</select></td><td><input placeholder="Notes" style="min-width:90px;"></td><td class="ac">₹ 0</td><td><input type="number" placeholder="0" min="0" oninput="calcSATot()" style="width:80px;"></td><td><input type="number" placeholder="1" min="1" value="1" oninput="calcSATot()" style="width:50px;"></td><td><input type="number" placeholder="0" min="0" value="0" oninput="calcSATot()" style="width:70px;"></td><td class="ac">₹ 0</td><td><button class="btn bgy xs" onclick="showItPh(this)">📷</button></td><td><button class="btn bgy xs" onclick="applyCouponToRow(this)" title="Apply a coupon code to this item">🎟️</button></td><td><button class="btn br xs" onclick="this.closest('tr').remove();calcSATot();">✕</button></td>`;
+}
+// Coupon applies to exactly one item — matches the invoice display, not a
+// blanket order-wide reduction. Reuses the same validate_coupon RPC the
+// storefront and Telegram bot already use, so one coupon can't be
+// double-spent across surfaces.
+async function applyCouponToRow(btn){
+  const code=prompt('Coupon code?');
+  if(!code)return;
+  const row=btn.closest('tr');
+  const sel=row.querySelector('select');
+  const it=resolveSaleItem(sel?.value);
+  if(!it){toast('Select an item in this row first','var(--red)');return;}
+  const wa=document.getElementById('SA-WA').value.trim();
+  if(!wa){toast('Enter the customer\'s WhatsApp number first','var(--red)');return;}
+  const r=await fetch(`${SB}/rest/v1/rpc/validate_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_code:code,p_wa:wa,p_region:'india'})});
+  const res=r.ok?(await r.json()):null;
+  if(!res||!res.valid){toast(res?.message||'Invalid coupon','var(--red)');return;}
+  const price=it.sale_price;
+  const discount=res.discount_type==='percent'?Math.round(price*(res.discount_value/100)):Math.min(res.discount_value,price);
+  row.querySelectorAll('input[type="number"]')[2].value=discount;
+  row.dataset.couponCode=res.code;row.dataset.couponWa=wa;
+  calcSATot();
+  toast(`✅ ${res.code} applied — -₹${discount}`,'#27ae60');
 }
 function fillSARow(sel){const it=resolveSaleItem(sel.value);if(!it)return;const row=sel.closest('tr');row.querySelectorAll('td.ac')[0].textContent='₹ '+fmt(it.mrp);row.querySelectorAll('input[type="number"]')[0].value=it.sale_price;calcSATot();}
 function showItPh(btn){const sel=btn.closest('tr').querySelector('select');const it=resolveSaleItem(sel?.value);if(!it){alert('Select item first.');return;}const ph=it.photos||[];if(!ph.length){alert('No photos for this item.');return;}document.getElementById('PH-ZONE').style.display='none';document.getElementById('PH-LBL').textContent=it.name;document.getElementById('PH-PTS').innerHTML=ph.map(s=>`<div class="pt"><img src="${s}"></div>`).join('');phCtx=null;document.getElementById('MO-PH').classList.remove('hi');}
@@ -3175,6 +3250,11 @@ async function saveSale(){
     }
   }
   renderInvStats();renderInv();
+  for(const r of rows){
+    if(r.dataset.couponCode){
+      await fetch(`${SB}/rest/v1/rpc/consume_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_code:r.dataset.couponCode,p_wa:r.dataset.couponWa})});
+    }
+  }
   sales.unshift(saleData);toast('✅ Sale saved! Invoice: '+inv2,'#27ae60');
   previewInvData(saleData);
 }

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meensha · Register for Offers</title>
+<style>
+  :root {
+    --gold: #8B6914;
+    --gold-light: #C9A84C;
+    --cream: #F7F3EC;
+    --dark: #0E0A04;
+    --dark2: #1A1208;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    background: var(--dark);
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    max-width: 420px;
+    width: 100%;
+    background: var(--dark2);
+    border: 1px solid rgba(201,168,76,0.25);
+    border-radius: 12px;
+    padding: 32px 28px;
+    text-align: center;
+  }
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--gold-light);
+    margin-bottom: 4px;
+  }
+  .sub { font-size: 14px; color: rgba(247,243,236,0.6); margin-bottom: 24px; }
+  input {
+    width: 100%;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(201,168,76,0.3);
+    border-radius: 6px;
+    color: var(--cream);
+    font-family: inherit;
+    font-size: 16px;
+  }
+  input:focus { outline: none; border-color: var(--gold-light); }
+  button {
+    width: 100%;
+    padding: 13px;
+    background: var(--gold);
+    color: var(--cream);
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+  button:hover { background: var(--gold-light); color: var(--dark); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .error { color: #e08a8a; font-size: 13px; margin-top: 8px; display: none; }
+  .result { display: none; }
+  .result .code {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 1px;
+    margin: 16px 0 8px;
+    font-family: monospace;
+  }
+  .result .discount { font-size: 18px; margin-bottom: 8px; }
+  .result .expiry { font-size: 13px; color: rgba(247,243,236,0.6); margin-bottom: 16px; }
+  .result .note { font-size: 13px; color: rgba(247,243,236,0.7); border-top: 1px solid rgba(201,168,76,0.2); padding-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="form-view">
+    <h1>मीनशा · Meensha</h1>
+    <div class="sub">Register now and get an exclusive discount code</div>
+    <input id="reg-name" placeholder="Your name" autocomplete="name">
+    <input id="reg-wa" placeholder="WhatsApp number (with country code)" autocomplete="tel" inputmode="tel">
+    <button id="reg-submit" onclick="submitRegistration()">Get My Code</button>
+    <div class="error" id="reg-error"></div>
+  </div>
+  <div class="result" id="result-view">
+    <h1 id="result-heading">You're registered!</h1>
+    <div class="discount" id="result-discount"></div>
+    <div class="code" id="result-code"></div>
+    <div class="expiry" id="result-expiry"></div>
+    <div class="note">Show this code to our team at checkout to apply your discount.</div>
+  </div>
+</div>
+
+<script>
+const _SB = 'https://eglanmhhcccsuhbxywua.supabase.co';
+const _SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+
+async function submitRegistration() {
+  const name = document.getElementById('reg-name').value.trim();
+  const wa = document.getElementById('reg-wa').value.trim();
+  const errEl = document.getElementById('reg-error');
+  errEl.style.display = 'none';
+
+  if (!name || !wa) {
+    errEl.textContent = 'Please enter both your name and WhatsApp number.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('reg-submit');
+  btn.disabled = true;
+  btn.textContent = 'Registering...';
+
+  try {
+    const res = await fetch(`${_SB}/rest/v1/rpc/register_visitor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
+      body: JSON.stringify({ p_name: name, p_wa: wa })
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      errEl.textContent = data.error || 'Something went wrong — please try again.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Get My Code';
+      return;
+    }
+
+    document.getElementById('form-view').style.display = 'none';
+    document.getElementById('result-view').style.display = 'block';
+    document.getElementById('result-heading').textContent = data.already_registered ? 'Welcome back!' : "You're registered!";
+    document.getElementById('result-discount').textContent = data.discount_value + '% off your order';
+    document.getElementById('result-code').textContent = data.code;
+    document.getElementById('result-expiry').textContent = 'Valid until ' + new Date(data.valid_until).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch (e) {
+    errEl.textContent = 'Could not connect — please check your internet and try again.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Get My Code';
+  }
+}
+</script>
+</body>
+</html>
