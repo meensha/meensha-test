@@ -2853,12 +2853,13 @@ async function toggleMarket(skuId,field,val){
 }
 function openSkuPhGallery(skuId){
   const s=skus.find(x=>x.id===skuId);if(!s)return;
-  const photos=s.photos||[];
-  document.getElementById('PH-ZONE').style.display='none';
+  phCtx={kind:'sku',idx:skuId};
+  tmpPh=[...(s.photos||[])];
+  document.getElementById('PH-ZONE').style.display='';
   document.getElementById('PH-LBL').textContent=s.name;
-  document.getElementById('PH-HINT').textContent='Photos';
-  document.getElementById('PH-PTS').innerHTML=photos.length?photos.map(p=>`<div class="pt"><img src="${p}"></div>`).join(''):'<p style="font-size:12px;color:var(--gy);">No photos yet.</p>';
-  phCtx=null;document.getElementById('MO-PH').classList.remove('hi');
+  document.getElementById('PH-HINT').textContent='1–4 photos (shown on storefront)';
+  renderPhPts();
+  document.getElementById('MO-PH').classList.remove('hi');
 }
 function editItem(id){
   editIdx=id;const s=skus.find(x=>x.id===id);if(!s)return;
@@ -3509,7 +3510,7 @@ async function delIg(id){if(!confirm('Remove?'))return;await sbUpd('instagram_po
 // ═══════════════════════════════════════════════
 // PHOTOS
 // ═══════════════════════════════════════════════
-function phMax(kind){return kind==='si-row'?4:99;}
+function phMax(kind){return(kind==='si-row'||kind==='sku')?4:99;}
 function openPhMo(kind,idx){
   phCtx={kind,idx};let ex=[];
   if(kind==='inv'){const it=inv.find(i=>i.id===idx);ex=it?.photos||[];}
@@ -3533,6 +3534,12 @@ async function savePh(){
   if(!phCtx){closeMo('MO-PH');return;}
   const{kind,idx}=phCtx;
   if(kind==='inv'){const urls=await uploadTmpPhs('item-photos',tmpPh);await sbUpd('inventory',`?id=eq.${idx}`,{photos:urls,updated_at:new Date().toISOString()});const it=inv.find(i=>i.id===idx);if(it)it.photos=urls;renderInv();toast(`✅ ${urls.length} photos saved`,'#27ae60');}
+  else if(kind==='sku'){
+    const urls=await uploadTmpPhs('item-photos',tmpPh);
+    await sbUpd('inventory_skus',`?id=eq.${idx}`,{photos:urls,hero_photo:urls[0]||null,updated_at:new Date().toISOString()});
+    const s=skus.find(x=>x.id===idx);if(s){s.photos=urls;s.hero_photo=urls[0]||null;}
+    renderInv();toast(`✅ ${urls.length} photo(s) saved`,'#27ae60');
+  }
   else if(kind==='si-row'){
     if(!tmpPh.length){toast('Add at least 1 photo','var(--red)');return;}
     const row=document.getElementById('SIR-'+idx);if(row){row.dataset.photos=JSON.stringify(tmpPh);const c=document.getElementById('SI-PC-'+idx);if(c)c.textContent=tmpPh.length;const btn=document.getElementById('SI-PHBTN-'+idx);if(btn)btn.classList.remove('needs-photo');}
