@@ -245,9 +245,10 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <select id="I-ST" onchange="renderInv()"><option value="">All</option><option value="in">In Stock</option><option value="low">Low</option><option value="out">Sold Out</option></select>
     <button class="btn bg sm" onclick="exportInvXL()">📊 Excel</button>
     <button class="btn bb sm" onclick="exportInvPDF()">📄 PDF</button>
+    <button class="btn bwa sm" onclick="printTags()">🏷️ Print Tags</button>
     <button class="btn bgn sm" onclick="showTab('stock',document.getElementById('tb-stock'))">➕ Add Stock</button>
   </div>
-  <div class="tw"><table><thead><tr><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Market</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th><input type="checkbox" id="I-SELALL" onchange="toggleAllInvSel(this)" style="accent-color:var(--gdk);width:15px;height:15px;"></th><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Market</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
 </div>
 
 <!-- ═══ ADD STOCK ═══ -->
@@ -2787,10 +2788,11 @@ function renderInv(){
     const inOn=s.india_available!==false,auOn=!!s.au_available;
     const mkt=`<button class="btn xs ${inOn?'bg':'bgy'}" style="opacity:${inOn?1:.4};" onclick="toggleMarket('${s.id}','india_available',${!inOn})" title="India catalogue">🇮🇳</button> <button class="btn xs ${auOn?'bg':'bgy'}" style="opacity:${auOn?1:.4};" onclick="toggleMarket('${s.id}','au_available',${!auOn})" title="Australia catalogue">🇦🇺</button>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
+    tr.innerHTML=`<td><input type="checkbox" class="i-sel" value="${s.id}" style="accent-color:var(--gdk);width:15px;height:15px;"></td><td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
     tb.appendChild(tr);
   });
 }
+function toggleAllInvSel(cb){document.querySelectorAll('.i-sel').forEach(el=>el.checked=cb.checked);}
 async function toggleMarket(skuId,field,val){
   await sbUpd('inventory_skus','?id=eq.'+skuId,{[field]:val,updated_at:new Date().toISOString()});
   const s=skus.find(x=>x.id===skuId);if(s)s[field]=val;
@@ -3214,6 +3216,33 @@ function previewInvData(s){curInvSale=s;document.getElementById('INV-CONTENT').i
 function sendInvWA(){if(curInvSale)sendWAFor(curInvSale);}
 function sendSaleWA(){previewInv();setTimeout(()=>sendInvWA(),200);}
 function sendWAFor(s){const wa=(s.customer?.wa||'918709525218').replace(/\D/g,'');const msg=encodeURIComponent(`🙏 Dear ${s.customer?.name||''},\n\nThank you for shopping at Meensha!\n\nInvoice: ${s.inv}\nTotal: ₹${fmt(s.total)}\n${s.paid<s.total?'Balance due: ₹'+fmt(s.balance):''}\n\nWe hope you cherish your handloom treasure 🧵\n— Meensha · meensha.in`);window.open(`https://wa.me/${wa}?text=${msg}`,'_blank');}
+function printTags(){
+  const selIds=[...document.querySelectorAll('.i-sel:checked')].map(el=>el.value);
+  if(!selIds.length){toast('Select at least one item to print tags for','var(--red)');return;}
+  const tags=[];
+  selIds.forEach(skuId=>{
+    const s=skus.find(x=>x.id===skuId);if(!s)return;
+    const avUnits=units.filter(u=>u.sku_id===skuId&&u.status==='available');
+    avUnits.forEach(u=>{
+      const nm=s.name+(s.display_variant?' · '+s.display_variant:'');
+      tags.push({code:u.unit_code,name:nm,price:s.sale_price});
+    });
+  });
+  if(!tags.length){toast('No available units for the selected items','var(--red)');return;}
+  const tagHtml=tags.map(t=>`<div class="tag"><div class="tag-name">${sanitise(t.name)}</div><div class="tag-code">${sanitise(t.code)}</div><div class="tag-price">₹${fmt(t.price)}</div></div>`).join('');
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><title>Price Tags</title><style>
+    @page{size:A4;margin:8mm 2.5mm;}
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:Georgia,serif;}
+    .sheet{display:grid;grid-template-columns:repeat(2,105mm);grid-template-rows:repeat(8,34mm);}
+    .tag{width:105mm;height:34mm;padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;overflow:hidden;page-break-inside:avoid;}
+    .tag-name{font-size:10px;color:#333;line-height:1.2;max-height:2.4em;overflow:hidden;}
+    .tag-code{font-family:monospace;font-size:9px;color:#666;margin-top:2px;}
+    .tag-price{font-size:15px;font-weight:700;color:#000;margin-top:2px;}
+  </style></head><body><div class="sheet">${tagHtml}</div><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
+  w.document.close();
+}
 function printInv(){const c=document.getElementById('PRINT-INV')?.outerHTML||'';const w=window.open('','_blank');w.document.write(`<html><head><title>Invoice</title><style>body{margin:20px;font-family:Georgia,serif;}@media print{body{margin:0;}}</style></head><body>${c}<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);w.document.close();}
 
 // ═══════════════════════════════════════════════
