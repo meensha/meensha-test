@@ -85,6 +85,8 @@ Deno.serve(async (req: Request) => {
     await saveSession(supabase, chatId, "idle", {});
   } else if (callbackData?.startsWith("kiosk:")) {
     await handleKiosk(supabase, chatId, state, data, callbackData);
+  } else if (callbackData === "stock:check") {
+    await handleStockCheck(supabase, chatId);
   } else if (callbackData?.startsWith("inv:")) {
     await tgSend(chatId, "Enter inventory mode isn't built yet — coming soon.");
   } else if (callbackData?.startsWith("godown:")) {
@@ -132,10 +134,39 @@ async function showTopMenu(chatId: number) {
   await tgSend(chatId, "What would you like to do?", {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
+      [{ text: "📋 Check stock", callback_data: "stock:check" }],
       [{ text: "➕ Enter inventory", callback_data: "inv:start" }],
       [{ text: "📦 Godown check", callback_data: "godown:start" }],
     ],
   });
+}
+
+// Plain read-only stock list — no match/discrepancy questions, nothing
+// written to the DB. Just "what do I have left to sell right now," for
+// checking during Kiosk time without leaving the bot.
+async function handleStockCheck(supabase: SB, chatId: number) {
+  const { data: skus } = await supabase
+    .from("inventory_skus")
+    .select("id, name, sale_price, au_available")
+    .order("name");
+  const { data: units } = await supabase.from("inventory_units").select("sku_id").eq("status", "available");
+  const availCount: Record<string, number> = {};
+  (units ?? []).forEach((u: { sku_id: string }) => {
+    availCount[u.sku_id] = (availCount[u.sku_id] ?? 0) + 1;
+  });
+
+  const inStock = (skus ?? []).filter((s: { id: string }) => (availCount[s.id] ?? 0) > 0);
+  if (!inStock.length) {
+    await tgSend(chatId, "Nothing in stock right now.");
+    await showTopMenu(chatId);
+    return;
+  }
+
+  const lines = inStock.map((s: { id: string; name: string; sale_price: number; au_available: boolean }) =>
+    `${s.au_available ? "🇦🇺 " : ""}${s.name} — ${availCount[s.id]} left — ₹${s.sale_price}`
+  );
+  await tgSend(chatId, `📋 Current stock (${inStock.length} items):\n\n${lines.join("\n")}`);
+  await showTopMenu(chatId);
 }
 
 // ═══════════════════════════════════════════════
