@@ -2306,13 +2306,12 @@ async function exportVendorReportPDF(){
 }
 
 // ═══════════════════════════════════════════════
-// EXPORT ALL (supersedes the simple exportAllXL below; see note)
-// The simpler `exportAllXL()` further down is redefined by this one.
+// EXPORT ALL — one workbook, one sheet per table
 // ═══════════════════════════════════════════════
 function exportAllXL(){
   const wb=XLSX.utils.book_new();
   const add=(rows,name)=>{if(rows.length){XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),name);}};
-  add(inv.map(i=>({ID:i.item_id,Code:i.cat,Name:i.name,Fabric:i.fabric,Qty:i.qty,Cost:i.cost,Sale:i.sale_price})),'Inventory');
+  add(skus.map(s=>({Code:s.sku_code,Name:s.name,Material:s.display_material||'',Variant:s.display_variant||'',Total:skuTotal(s.id),Available:skuAvail(s.id),Cost:s.cost,Sale:s.sale_price})),'Inventory');
   add(sales.map(s=>({Inv:s.inv,Date:s.date,Customer:s.customer?.name||'',Total:s.total,Paid:s.paid})),'Sales');
   add(purch.map(p=>({Date:p.date,Seller:p.seller,Inv:p.supplier_inv||'',Total:p.total})),'Purchases');
   add(ohs.map(o=>({Date:o.date,Category:o.cat,Description:o.description,Total:o.total})),'Overheads');
@@ -3433,12 +3432,31 @@ function exportSalesXL(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_
 function exportSalesPDF(){const w=window.open('','_blank');const rows=sales.map(s=>`<tr><td>${s.inv}</td><td>${s.date}</td><td>${s.customer?.name||''}</td><td>₹${fmt(s.total)}</td><td style="color:${(s.balance||0)>0?'red':'green'}">₹${fmt(s.balance||0)}</td><td>${s.delivery_mode==='shipping'?'🚚':'🏪'}</td><td>${s.shipping_status||'—'}</td></tr>`).join('');w.document.write(`<html><head><title>Sales</title><style>body{font-family:Georgia,serif;margin:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#1A1208;color:#C9A84C;padding:8px;}td{padding:7px;border-bottom:1px solid #e0d5c0;}h2{color:#8B6914;}</style></head><body><h2>Meensha · Sales Report · ${new Date().toLocaleDateString('en-IN')}</h2><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Balance</th><th>Mode</th><th>Shipping</th></tr></thead><tbody>${rows}</tbody></table><script>window.print();<\/script></body></html>`);w.document.close();}
 function exportPnLXL(){const wb=XLSX.utils.book_new();const rev=sales.reduce((a,s)=>a+(s.total||0),0),stockCost=purch.reduce((a,p)=>a+(p.total||0),0);const ohByCat={};ohs.filter(o=>o.cat!=='Stock Purchase').forEach(o=>{ohByCat[o.cat]=(ohByCat[o.cat]||0)+(o.total||0);});const totOH=Object.values(ohByCat).reduce((a,v)=>a+v,0),netP=rev-stockCost-totOH;const rows=[['Meensha P&L','',''],['Date',new Date().toLocaleDateString('en-IN'),''],['','',''],['REVENUE','',''],['Gross Sales',rev,''],['','',''],['COST OF GOODS','',''],['Stock Purchased',stockCost,''],['Gross Profit',rev-stockCost,''],['','',''],['OVERHEADS','',''],...Object.entries(ohByCat).map(([k,v])=>[k,v,'']),[`Total Overheads`,totOH,''],['','',''],['NET PROFIT / LOSS',netP,'']];const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:30},{wch:15},{wch:15}];XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Meensha_PnL_'+new Date().toISOString().split('T')[0]+'.xlsx');}
 function exportPnLPDF(){const el=document.getElementById('PNL-DISP');const w=window.open('','_blank');w.document.write(`<html><head><title>P&L</title><style>body{font-family:Georgia,serif;margin:20px;max-width:600px;}h2{color:#8B6914;}*{box-sizing:border-box;}</style></head><body><h2>Meensha · P&L · ${new Date().toLocaleDateString('en-IN')}</h2>${el?.innerHTML||''}<script>window.print();<\/script></body></html>`);w.document.close();}
-function exportAllXL(){exportInvXL();setTimeout(exportSalesXL,300);setTimeout(exportPnLXL,600);}
 
 // ═══════════════════════════════════════════════
 // BACKUP + IMPORT
 // ═══════════════════════════════════════════════
-function backupNow(){const data={inventory:inv,sales,purchases:purch,overheads:ohs,invCtr,exported:new Date().toISOString()};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Meensha_Backup_'+new Date().toISOString().split('T')[0]+'.json';a.click();toast('✅ Backup downloaded','#27ae60');}
+async function backupNow(){
+  toast('Preparing backup...','#C9A84C');
+  try{
+    const [invSkus,invUnits,vend,purchD,salesD,ohsD,coup,sett]=await Promise.all([
+      sbQ('inventory_skus','?order=sku_code'),
+      sbQ('inventory_units','?order=unit_code'),
+      sbQ('vendors','?order=vendor_id'),
+      sbQ('purchases','?order=date'),
+      sbQ('sales','?order=date'),
+      sbQ('overheads','?order=date'),
+      sbQ('coupons','').catch(()=>[]),
+      sbQ('settings','?order=key')
+    ]);
+    // Note: users/user_credentials are deliberately excluded — password hashes
+    // don't belong in a downloadable file sitting in someone's Downloads folder.
+    const data={format:'meensha-v2',exported:new Date().toISOString(),inventory_skus:invSkus,inventory_units:invUnits,vendors:vend,purchases:purchD,sales:salesD,overheads:ohsD,coupons:coup,settings:sett};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Meensha_Backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+    toast(`✅ Backup downloaded — ${invSkus.length} SKUs, ${invUnits.length} units, ${salesD.length} sales`,'#27ae60');
+  }catch(err){toast('Backup failed: '+err.message,'var(--red)');console.error(err);}
+}
 function importBackup(){document.getElementById('BKF').click();}
 
 async function doImport(e){
@@ -3447,36 +3465,48 @@ async function doImport(e){
   reader.onload=async ev=>{
     try{
       const d=JSON.parse(ev.target.result);
-      toast('Importing backup...','#C9A84C');
-      // Import inventory (old format: id, cat, name, fabric, qty, cost, mrp, disc, salePrice, sold)
-      // New format: item_id, cat, name, subtype, fabric, qty, sold, cost, mrp, disc, sale_price, photos
-      if(d.inventory&&d.inventory.length){
-        toast(`Importing ${d.inventory.length} inventory items...`,'#C9A84C');
-        for(const it of d.inventory){
-          const newIt={item_id:it.id||it.item_id,cat:it.cat||'',name:it.name||'',subtype:it.subtype||'',fabric:it.fabric||'',qty:it.qty||0,sold:it.sold||0,cost:it.cost||0,mrp:it.mrp||0,disc:it.disc||10,sale_price:it.salePrice||it.sale_price||0,photos:it.photos||[]};
-          try{await sbIns('inventory',newIt);}catch(err){console.warn('Inv insert err:',err.message);}
-        }
+      if(d.format!=='meensha-v2'){
+        toast('This backup file is from an old format (pre-M1) and can\'t be restored into the current system. Ask Claude for a one-off migration if you really need it.','var(--red)');
+        return;
       }
-      // Import sales
-      if(d.sales&&d.sales.length){
-        toast(`Importing ${d.sales.length} sales...`,'#C9A84C');
-        for(const s of d.sales){
-          const newS={inv:s.inv,date:s.date,customer:s.customer||{},items:s.items||[],total:s.total||0,paid:s.paid||0,balance:s.balance||0,pay_mode:s.payMode||s.pay_mode||'UPI',notes:s.notes||'',gst_pct:s.gstPct||s.gst_pct||0,delivery_mode:s.delivery_mode||'offline',shipping_status:s.shipping_status||'na',shipping_address:s.shipping_address||'',courier:s.courier||null,tracking:s.tracking||null,tracking_url:s.tracking_url||null,created_by:s.created_by||'import',source:'import'};
-          try{await sbIns('sales',newS);}catch(err){console.warn('Sale insert err (may be duplicate):',err.message);}
+      toast('Restoring backup...','#C9A84C');
+      // Order matters: vendors/skus before purchases/units before sales, so
+      // every foreign key (vendor_uuid, sku_id, purchase_id) has something
+      // to point at. IDs are preserved from the backup so all the existing
+      // links (which unit came from which purchase, which sale) stay intact.
+      const restore=async(table,rows)=>{
+        let ok=0;
+        for(const row of rows||[]){
+          // sbIns() already swallows its own errors and returns null on
+          // failure rather than throwing, so check the return value —
+          // not try/catch — to count only genuinely-inserted rows (a row
+          // that already exists, e.g. on a partial re-restore, comes back
+          // null here and correctly doesn't get counted).
+          const r=await sbIns(table,row);
+          if(r&&r.length)ok++;
         }
+        return ok;
+      };
+      const nVend=await restore('vendors',d.vendors);
+      const nSkus=await restore('inventory_skus',d.inventory_skus);
+      const nPurch=await restore('purchases',d.purchases);
+      const nUnits=await restore('inventory_units',d.inventory_units);
+      const nSales=await restore('sales',d.sales);
+      const nOhs=await restore('overheads',d.overheads);
+      const nCoup=await restore('coupons',d.coupons);
+      // Settings: upsert by key rather than insert, since the key is unique
+      // and restoring should update existing values, not skip them.
+      let nSett=0;
+      for(const s of d.settings||[]){
+        try{
+          const ex=await sbQ('settings','?key=eq.'+encodeURIComponent(s.key));
+          if(ex&&ex.length)await sbUpd('settings','?key=eq.'+encodeURIComponent(s.key),{value:s.value});
+          else await sbIns('settings',{key:s.key,value:s.value});
+          nSett++;
+        }catch(err){console.warn('settings restore skipped:',err.message);}
       }
-      // Import purchases
-      if(d.purchases&&d.purchases.length){
-        toast(`Importing ${d.purchases.length} purchases...`,'#C9A84C');
-        for(const p of d.purchases){
-          try{await sbIns('purchases',{date:p.date,seller:p.seller||'',wa:p.wa||'',place:p.place||'',items:p.items||[],sub:p.sub||0,gst_pct:p.gstPct||p.gst_pct||0,gst_amt:p.gstAmt||p.gst_amt||0,total:p.total||0,payment:p.payment||{}});}catch(err){console.warn('Purch insert err:',err.message);}
-        }
-      }
-      // Update inv counter
-      if(d.invCtr){invCtr=d.invCtr;await sbUpd('settings','?key=eq.inv_counter',{value:String(invCtr)});}
-      // Reload all
       await loadAll();
-      toast(`✅ Import complete! ${d.inventory?.length||0} items, ${d.sales?.length||0} sales, ${d.purchases?.length||0} purchases`,'#27ae60');
+      toast(`✅ Restore complete — ${nVend} vendors, ${nSkus} SKUs, ${nUnits} units, ${nPurch} purchases, ${nSales} sales, ${nOhs} overheads, ${nCoup} coupons, ${nSett} settings`,'#27ae60');
       renderHome();
     }catch(err){toast('Import error: '+err.message,'var(--red)');console.error(err);}
   };
