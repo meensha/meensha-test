@@ -1644,12 +1644,20 @@ async function saveVendor(){
     updated_at:new Date().toISOString()
   };
   try{
+    let newId=null;
     if(editVendorId){await sbUpd('vendors','?id=eq.'+editVendorId,data);}
-    else{await sbIns('vendors',data);}
+    else{const ins=await sbIns('vendors',data);newId=ins&&ins.length?ins[0].id:null;}
     vendors=await sbQ('vendors','?order=vendor_id');
     renderVendors();renderVendorStats();populateSIVendors();
+    // A brand-new vendor didn't exist to be "the previous selection" before
+    // this save, so populateSIVendors() (which only restores whatever was
+    // already selected) can't pick it — select it explicitly, since the
+    // whole reason to use "+ New Vendor" from Add Stock is to use it right
+    // away. Without this, Save Purchase fails validation silently every
+    // time (no vendor selected) and just looks stuck.
+    if(newId){const sel=document.getElementById('SI-VID');if(sel){sel.value=newId;onSIVendorChange();}}
     closeMo('MO-VEND');
-    toast('✅ Vendor saved','#27ae60');
+    toast('✅ Vendor saved'+(newId?' and selected':''),'#27ae60');
   }catch(e){toast('Error: '+(e.message||e),'var(--red)');}
 }
 
