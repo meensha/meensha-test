@@ -580,6 +580,48 @@ footer {
 @media(max-width:700px){#shop-page>div>div:last-child{grid-template-columns:1fr!important;} #sp-grid{grid-template-columns:1fr 1fr!important;}}
 
 /* ── CART DRAWER ── */
+/* ── Cart expiry notice: heritage-luxury reservation reminder, not a discount banner ── */
+#cart-expiry-notice {
+  position:fixed;top:-160px;left:50%;transform:translateX(-50%);
+  width:560px;max-width:92vw;
+  background:#4A1F28;border:2px double #C9A24E;border-radius:18px;
+  padding:16px 20px;display:flex;align-items:center;gap:14px;
+  box-shadow:0 12px 34px rgba(20,8,10,.4);
+  z-index:950;opacity:0;
+  transition:top .6s ease, opacity .6s ease, background .6s ease, border-color .6s ease;
+  background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 2px, transparent 2px 7px);
+}
+#cart-expiry-notice.cen-show { top:18px;opacity:1; }
+.cen-icon { font-size:24px;flex-shrink:0;transition:transform .4s ease; }
+.cen-text { flex:1;min-width:0; }
+.cen-heading { font-family:'Cinzel',serif;font-size:14px;color:#E4C878;margin-bottom:4px;letter-spacing:.02em;transition:color .6s ease; }
+.cen-body { font-family:'Cormorant Garamond',Georgia,serif;font-size:13px;color:#F8F3EB;opacity:.88;line-height:1.45; }
+.cen-btn { font-family:'Cinzel',serif;font-size:10.5px;letter-spacing:.08em;background:#C89B3C;color:#4A1F28;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;white-space:nowrap;transition:background .25s,transform .3s;flex-shrink:0; }
+.cen-btn:hover { background:#D8AE53; }
+@media (max-width:640px) { #cart-expiry-notice { flex-wrap:wrap; } .cen-btn { width:100%; } }
+
+/* Phase 1 (calm) — a slow gold shimmer across the border every 20s */
+@keyframes cenShimmer { 0%,90% { box-shadow:0 12px 34px rgba(20,8,10,.4); } 95% { box-shadow:0 12px 34px rgba(20,8,10,.4), 0 0 20px rgba(201,162,78,.45); } 100% { box-shadow:0 12px 34px rgba(20,8,10,.4); } }
+#cart-expiry-notice.cen-phase1 { animation: cenShimmer 20s linear infinite; }
+
+/* Phase 2 (last 20s) — gentle copper pulse + breathing button + rotating hourglass */
+#cart-expiry-notice.cen-phase2 { background:#5B1D26;border-color:#B86A32;animation: cenPulse2 2s ease-in-out infinite; }
+#cart-expiry-notice.cen-phase2 .cen-heading { color:#F2CF73; }
+#cart-expiry-notice.cen-phase2 .cen-btn { background:#D98A00;animation: cenBreathe 2s ease-in-out infinite; }
+#cart-expiry-notice.cen-phase2 .cen-btn:hover { background:#E7A526; }
+#cart-expiry-notice.cen-phase2 .cen-icon { animation: cenRotate 2s ease-in-out infinite; }
+@keyframes cenPulse2 { 0%,100% { border-color:#B86A32; } 50% { border-color:#E0B67A; } }
+@keyframes cenBreathe { 0%,100% { transform:scale(1); } 50% { transform:scale(1.02); } }
+@keyframes cenRotate { 0%,100% { transform:rotate(0deg); } 50% { transform:rotate(8deg); } }
+
+/* Final 10s — warm amber urgency, still no red, no flashing */
+#cart-expiry-notice.cen-final { background:#6B1F22;border-color:#E0A84F;animation: cenPulseFinal 1s ease-in-out infinite; }
+#cart-expiry-notice.cen-final .cen-heading { color:#FFF8F0; }
+#cart-expiry-notice.cen-final .cen-btn { background:#E0A526;animation: cenHeartbeat 1s ease-in-out infinite; }
+#cart-expiry-notice.cen-final .cen-btn:hover { background:#F2B84A; }
+@keyframes cenPulseFinal { 0%,100% { border-color:#E0A84F; } 50% { border-color:#F5C878; } }
+@keyframes cenHeartbeat { 0%,100% { transform:scale(1); } 50% { transform:scale(1.03); } }
+
 #cart-overlay { position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:900;display:none; }
 #cart-overlay.on { display:block; }
 #cart-drawer { position:fixed;top:0;right:-380px;width:360px;max-width:88vw;height:100%;background:var(--dark2);z-index:901;transition:right .35s ease;display:flex;flex-direction:column;box-shadow:-8px 0 30px rgba(0,0,0,.4); }
@@ -602,9 +644,7 @@ footer {
 #cart-foot { padding:16px 22px 22px;border-top:1px solid var(--gold-dim); }
 .cart-total-row { display:flex;justify-content:space-between;font-size:16px;color:var(--cream);margin-bottom:6px; }
 .cart-total-row span:last-child { color:var(--gold-light);font-weight:600; }
-.cart-hold-note { font-size:10px;color:rgba(247,243,236,.4);margin-bottom:12px;transition:color .2s; }
-.cart-timer-flash { color:#ff5c5c!important;font-weight:700;animation:cartTimerFlash .5s step-start infinite; }
-@keyframes cartTimerFlash { 50% { opacity:.35; } }
+.cart-hold-note { font-size:10px;color:rgba(247,243,236,.4);margin-bottom:12px; }
 .cart-checkout-btn { display:flex;align-items:center;justify-content:center;gap:7px;background:#25D366;color:#fff;border:none;padding:11px 14px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;width:100%;text-decoration:none;transition:background .3s; }
 .cart-checkout-btn:hover { background:#1da851; }
 .cart-checkout-btn.disabled { pointer-events:none;opacity:.4; }
@@ -1002,6 +1042,16 @@ footer {
   </div>
 </footer>
 
+<!-- ════ CART EXPIRY NOTICE (heritage-luxury reservation reminder) ════ -->
+<div id="cart-expiry-notice">
+  <div class="cen-icon" id="cen-icon">🧵</div>
+  <div class="cen-text">
+    <div class="cen-heading" id="cen-heading">Handpicked. Not Held Forever.</div>
+    <div class="cen-body" id="cen-body">Your selected sarees are waiting for you.<br>Complete your purchase before they return to the collection.</div>
+  </div>
+  <button class="cen-btn" id="cen-btn" onclick="openCart()">Checkout Now →</button>
+</div>
+
 <!-- ════ CART DRAWER ════ -->
 <div id="cart-overlay" onclick="closeCart()"></div>
 <div id="cart-drawer">
@@ -1025,7 +1075,7 @@ footer {
     </div>
     <div class="cart-total-row" id="cart-subtotal-row" style="display:none;font-size:12px;opacity:.7;"><span>Subtotal</span><span id="cart-subtotal"></span></div>
     <div class="cart-total-row"><span>Total</span><span id="cart-total">₹0</span></div>
-    <p class="cart-hold-note" id="cart-hold-timer">Items are held for you for 15 minutes.</p>
+    <p class="cart-hold-note">Items are held for you for 15 minutes.</p>
     <div id="cart-contact-form" style="display:none;margin-bottom:8px;">
       <input id="cart-cust-name" placeholder="Your name" style="width:100%;margin-bottom:6px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
       <input id="cart-cust-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:6px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
@@ -1210,33 +1260,49 @@ function updateCartBadge(){
   if (cart.length) { el.style.display = 'flex'; el.textContent = cart.length; }
   else { el.style.display = 'none'; }
 }
-// reserve_unit holds a piece for 15 minutes server-side. Rather than a
-// timer per item, the cart shows ONE countdown for the whole selection,
-// tied to whichever item was reserved first (soonest to expire) — that's
-// the real constraint on the shopper, since it's the first hold to lapse.
-// Last 10 seconds flashes red with an urgent nudge to check out. On
-// expiry, drops just that one item and releases its hold, then the timer
-// re-targets whichever item is now soonest (if any remain).
+// reserve_unit holds a piece for 15 minutes server-side. The cart-expiry
+// notice tracks ONE countdown for the whole selection, tied to whichever
+// item was reserved first (soonest to expire) — that's the real
+// constraint, since it's the first hold to lapse. Three calm phases (no
+// numbers, no red, no flashing) escalate the tone as it gets close: a
+// slow shimmer for most of the hold, a gentle copper pulse in the last
+// 20s, then a warm amber heartbeat in the final 10s. On expiry, drops
+// just that one item and releases its hold, then re-targets whichever
+// item is now soonest (if any remain).
 const CART_HOLD_MS = 15*60*1000;
 function updateCartTimers(){
-  const el = document.getElementById('cart-hold-timer');
-  if (!el) return;
-  if (!cart.length) { el.textContent = 'Items are held for you for 15 minutes.'; el.classList.remove('cart-timer-flash'); el.style.color = ''; return; }
+  const notice = document.getElementById('cart-expiry-notice');
+  if (!notice) return;
+  if (!cart.length) { notice.classList.remove('cen-show'); return; }
   const soonest = cart.reduce((a,b) => (a.reservedAt||0) < (b.reservedAt||0) ? a : b);
   const remain = CART_HOLD_MS - (Date.now() - (soonest.reservedAt||Date.now()));
   if (remain <= 0) {
     removeFromCart(soonest.unitId);
-    alert(`Reservation expired for "${soonest.name}" — it's back in stock for others. Add it again if you still want it.`);
+    notice.classList.remove('cen-show');
+    alert(`Your hold on "${soonest.name}" has been released — it's back in the collection for others. Add it again if you'd still like it.`);
     return;
   }
-  const m = Math.floor(remain/60000), s = Math.floor((remain%60000)/1000);
+  notice.classList.add('cen-show');
+  notice.classList.remove('cen-phase1','cen-phase2','cen-final');
+  const icon = document.getElementById('cen-icon'), heading = document.getElementById('cen-heading'), body = document.getElementById('cen-body'), btn = document.getElementById('cen-btn');
   if (remain <= 10000) {
-    el.textContent = `⚠️ Hurry, check out now — before it refreshes! (${s}s)`;
-    el.classList.add('cart-timer-flash');
+    notice.classList.add('cen-final');
+    icon.textContent = '⏳';
+    heading.textContent = 'Your Selection Is About to Be Released';
+    body.innerHTML = 'Once your cart resets, these handcrafted pieces may no longer be available.<br>Complete your purchase now.';
+    btn.textContent = 'Secure My Sarees →';
+  } else if (remain <= 20000) {
+    notice.classList.add('cen-phase2');
+    icon.textContent = '⏳';
+    heading.textContent = 'Last Chance to Keep These Pieces';
+    body.innerHTML = 'Your cart is about to reset.<br>Complete your purchase before these handcrafted sarees return to the collection.';
+    btn.textContent = 'Complete Purchase →';
   } else {
-    el.textContent = `Reserved for you · ${m}:${String(s).padStart(2,'0')} remaining`;
-    el.classList.remove('cart-timer-flash');
-    el.style.color = remain < 120000 ? '#e07a5f' : '';
+    notice.classList.add('cen-phase1');
+    icon.textContent = '🧵';
+    heading.textContent = 'Handpicked. Not Held Forever.';
+    body.innerHTML = 'Your selected sarees are waiting for you.<br>Complete your purchase before they return to the collection.';
+    btn.textContent = 'Checkout Now →';
   }
 }
 setInterval(updateCartTimers, 1000);
