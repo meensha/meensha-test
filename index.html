@@ -551,6 +551,7 @@ footer {
 /* ── SHOP PAGE ── */
 .sp-cb { display:block;width:100%;text-align:left;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(232,213,163,.5);background:none;border:none;border-left:2px solid transparent;padding:7px 11px;cursor:pointer;transition:all .25s;margin-bottom:2px; }
 .sp-cb:hover, .sp-cb.on { color:var(--gold-light);border-left-color:var(--gold-light); }
+.sp-cb:disabled, .sp-cb.sp-cb-empty { opacity:.3;cursor:not-allowed;pointer-events:none; }
 .sp-card { background:rgba(255,255,255,.03);border:1px solid var(--gold-dim);transition:border-color .3s; }
 .sp-card:hover { border-color:rgba(201,168,76,.45); }
 .sp-img { aspect-ratio:3/4;background:var(--dark);overflow:hidden;position:relative; }
@@ -880,16 +881,16 @@ footer {
       <div style="position:sticky;top:155px;height:fit-content;">
         <p style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-light);opacity:.7;margin-bottom:13px;">Browse By</p>
         <ul style="list-style:none;" id="sp-cats">
-          <li><button class="sp-cb on" onclick="filterShop('all',this)">All Collections</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Ikkat',this)">Ikkat / Ikat</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Patola',this)">Patola</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Tussar',this)">Tussar Silk</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Ajrak',this)">Ajrak</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Gharchola',this)">Gharchola</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Cotton',this)">Cotton Weaves</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Modal',this)">Modal</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Kota',this)">Kota Doria</button></li>
-          <li><button class="sp-cb" onclick="filterShop('Silk',this)">Silk Sarees</button></li>
+          <li><button class="sp-cb on" data-cat="all" onclick="filterShop('all',this)">All Collections</button></li>
+          <li><button class="sp-cb" data-cat="Ikkat" onclick="filterShop('Ikkat',this)">Ikkat / Ikat</button></li>
+          <li><button class="sp-cb" data-cat="Patola" onclick="filterShop('Patola',this)">Patola</button></li>
+          <li><button class="sp-cb" data-cat="Tussar" onclick="filterShop('Tussar',this)">Tussar Silk</button></li>
+          <li><button class="sp-cb" data-cat="Ajrak" onclick="filterShop('Ajrak',this)">Ajrak</button></li>
+          <li><button class="sp-cb" data-cat="Gharchola" onclick="filterShop('Gharchola',this)">Gharchola</button></li>
+          <li><button class="sp-cb" data-cat="Cotton" onclick="filterShop('Cotton',this)">Cotton Weaves</button></li>
+          <li><button class="sp-cb" data-cat="Modal" onclick="filterShop('Modal',this)">Modal</button></li>
+          <li><button class="sp-cb" data-cat="Kota" onclick="filterShop('Kota',this)">Kota Doria</button></li>
+          <li><button class="sp-cb" data-cat="Silk" onclick="filterShop('Silk',this)">Silk Sarees</button></li>
         </ul>
         <div style="margin-top:16px;display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="sp-show-sold" onchange="renderShopGrid()" style="accent-color:var(--gold);width:14px;height:14px;">
@@ -1100,6 +1101,7 @@ function toggleCurrency() {
   updateCurrencyBtn();
   renderShopGrid();
   renderCart();
+  updateCategoryAvailability();
 }
 
 function updateCurrencyBtn() {
@@ -1129,6 +1131,7 @@ async function loadShop() {
   updateCurrencyBtn();
   updateCartBadge();
   renderShopGrid();
+  updateCategoryAvailability();
 }
 
 // Drop any cart items whose unit is no longer reserved by us (expired / sold / released elsewhere)
@@ -1205,6 +1208,46 @@ function updateCartBadge(){
   if (cart.length) { el.style.display = 'flex'; el.textContent = cart.length; }
   else { el.style.display = 'none'; }
 }
+// reserve_unit holds a piece for 15 minutes server-side; this is a purely
+// client-side countdown against that same window so the shopper can see
+// it ticking down. On expiry, drops the item locally and releases the
+// hold — matches what the server will have already done on its side via
+// reserved_until, this just makes it visible instead of a silent expiry.
+const CART_HOLD_MS = 15*60*1000;
+function updateCartTimers(){
+  if (!cart.length) return;
+  let changed = false;
+  cart.slice().forEach(c => {
+    const remain = CART_HOLD_MS - (Date.now() - (c.reservedAt||Date.now()));
+    const el = document.getElementById('cart-timer-'+c.unitId);
+    if (remain <= 0) {
+      changed = true;
+      removeFromCart(c.unitId);
+      alert(`Reservation expired for "${c.name}" — it's back in stock for others. Add it again if you still want it.`);
+      return;
+    }
+    if (el) {
+      const m = Math.floor(remain/60000), s = Math.floor((remain%60000)/1000);
+      el.textContent = `Reserved · ${m}:${String(s).padStart(2,'0')}`;
+      if (remain < 120000) el.style.color = '#e07a5f';
+    }
+  });
+}
+setInterval(updateCartTimers, 1000);
+
+// Fades + disables any category with zero currently-available items in the
+// active market, so shoppers can't click into an empty collection.
+function updateCategoryAvailability(){
+  const marketField = currency === 'AU' ? 'au_available' : 'india_available';
+  document.querySelectorAll('.sp-cb').forEach(btn => {
+    const cat = btn.dataset.cat;
+    if (!cat || cat === 'all') return;
+    const has = spSkus.some(it => it[marketField] && it.avail > 0 && matchF(it, cat));
+    btn.disabled = !has;
+    btn.classList.toggle('sp-cb-empty', !has);
+    if (!has && spF === cat) filterShop('all', document.querySelector('.sp-cb[data-cat="all"]'));
+  });
+}
 async function addToCart(skuId, btn) {
   btn = btn || event?.target;
   const sku = spSkus.find(s => s.id === skuId);
@@ -1217,10 +1260,12 @@ async function addToCart(skuId, btn) {
   if (!ok) { if (btn) { btn.disabled = false; btn.textContent = origText; } renderShopGrid(); return; }
   avUnit.status = 'reserved';
   sku.avail -= 1;
-  cart.push({ unitId: avUnit.id, skuId: sku.id, sku_code: sku.sku_code, name: sku.name, variant: sku.display_variant||'', photo: (sku.photos||[])[0]||'', price_inr: sku.sale_price||sku.mrp, price_aud: sku.sale_price_aud||0 });
+  cart.push({ unitId: avUnit.id, skuId: sku.id, sku_code: sku.sku_code, name: sku.name, variant: sku.display_variant||'', photo: (sku.photos||[])[0]||'', price_inr: sku.sale_price||sku.mrp, price_aud: sku.sale_price_aud||0, reservedAt: Date.now() });
   saveCart();
   renderShopGrid();
   renderCart();
+  updateCategoryAvailability();
+  openCart();
 }
 async function removeFromCart(unitId) {
   const idx = cart.findIndex(c => c.unitId === unitId);
@@ -1235,6 +1280,7 @@ async function removeFromCart(unitId) {
   if (unit) unit.status = 'available';
   renderShopGrid();
   renderCart();
+  updateCategoryAvailability();
 }
 function renderCart() {
   const el = document.getElementById('cart-items');
@@ -1253,6 +1299,7 @@ function renderCart() {
           <div class="cart-item-nm">${c.name}</div>
           ${c.variant ? `<div class="cart-item-sub">${c.variant}</div>` : ''}
           <div class="cart-item-pr">${sym}${fmtP(price)}</div>
+          <div class="cart-item-timer" id="cart-timer-${c.unitId}" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold-light);opacity:.7;margin-top:3px;">Reserved · 15:00</div>
         </div>
         <button class="cart-item-rm" onclick="removeFromCart('${c.unitId}')">✕</button>
       </div>`;
