@@ -1061,9 +1061,27 @@ async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${
 async function sbIns(table,data){try{const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:HDR(),body:JSON.stringify(data)});return r.ok?(await r.json()):null;}catch{return null;}}
 async function sbUpd(table,q,data){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'PATCH',headers:HDR(),body:JSON.stringify(data)});return r.ok;}catch{return false;}}
 async function sbDel(table,q){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'DELETE',headers:HDR()});return r.ok;}catch{return false;}}
+// Raw phone-camera photos were uploading at 4-10MB each, uncompressed —
+// slow/timing-out on venue wifi, looking like "images not rendering" on
+// the storefront. Resize to a sane max dimension and re-encode as JPEG
+// before every upload; falls back to the original file if anything about
+// compression fails (unsupported format, decode error, etc.) rather than
+// blocking the upload entirely.
+async function compressImage(file,maxDim=1600,quality=0.82){
+  try{
+    const bitmap=await createImageBitmap(file);
+    let{width,height}=bitmap;
+    if(width>maxDim||height>maxDim){const s=maxDim/Math.max(width,height);width=Math.round(width*s);height=Math.round(height*s);}
+    const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+    canvas.getContext('2d').drawImage(bitmap,0,0,width,height);
+    const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
+    return blob?new File([blob],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'}):file;
+  }catch{return file;}
+}
 async function uploadFile(bucket,file){
-  const nm=Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9.]/g,'_');
-  const r=await fetch(`${SB}/storage/v1/object/${bucket}/${nm}`,{method:'POST',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':file.type,'x-upsert':'true'},body:file});
+  const compressed=await compressImage(file);
+  const nm=Date.now()+'-'+compressed.name.replace(/[^a-zA-Z0-9.]/g,'_');
+  const r=await fetch(`${SB}/storage/v1/object/${bucket}/${nm}`,{method:'POST',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':compressed.type,'x-upsert':'true'},body:compressed});
   if(!r.ok)throw new Error('Upload failed');
   return `${SB}/storage/v1/object/public/${bucket}/${nm}`;
 }
