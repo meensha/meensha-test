@@ -602,7 +602,9 @@ footer {
 #cart-foot { padding:16px 22px 22px;border-top:1px solid var(--gold-dim); }
 .cart-total-row { display:flex;justify-content:space-between;font-size:16px;color:var(--cream);margin-bottom:6px; }
 .cart-total-row span:last-child { color:var(--gold-light);font-weight:600; }
-.cart-hold-note { font-size:10px;color:rgba(247,243,236,.4);margin-bottom:12px; }
+.cart-hold-note { font-size:10px;color:rgba(247,243,236,.4);margin-bottom:12px;transition:color .2s; }
+.cart-timer-flash { color:#ff5c5c!important;font-weight:700;animation:cartTimerFlash .5s step-start infinite; }
+@keyframes cartTimerFlash { 50% { opacity:.35; } }
 .cart-checkout-btn { display:flex;align-items:center;justify-content:center;gap:7px;background:#25D366;color:#fff;border:none;padding:11px 14px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;width:100%;text-decoration:none;transition:background .3s; }
 .cart-checkout-btn:hover { background:#1da851; }
 .cart-checkout-btn.disabled { pointer-events:none;opacity:.4; }
@@ -1023,7 +1025,7 @@ footer {
     </div>
     <div class="cart-total-row" id="cart-subtotal-row" style="display:none;font-size:12px;opacity:.7;"><span>Subtotal</span><span id="cart-subtotal"></span></div>
     <div class="cart-total-row"><span>Total</span><span id="cart-total">₹0</span></div>
-    <p class="cart-hold-note">Items are held for you for 15 minutes.</p>
+    <p class="cart-hold-note" id="cart-hold-timer">Items are held for you for 15 minutes.</p>
     <div id="cart-contact-form" style="display:none;margin-bottom:8px;">
       <input id="cart-cust-name" placeholder="Your name" style="width:100%;margin-bottom:6px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
       <input id="cart-cust-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:6px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
@@ -1208,30 +1210,34 @@ function updateCartBadge(){
   if (cart.length) { el.style.display = 'flex'; el.textContent = cart.length; }
   else { el.style.display = 'none'; }
 }
-// reserve_unit holds a piece for 15 minutes server-side; this is a purely
-// client-side countdown against that same window so the shopper can see
-// it ticking down. On expiry, drops the item locally and releases the
-// hold — matches what the server will have already done on its side via
-// reserved_until, this just makes it visible instead of a silent expiry.
+// reserve_unit holds a piece for 15 minutes server-side. Rather than a
+// timer per item, the cart shows ONE countdown for the whole selection,
+// tied to whichever item was reserved first (soonest to expire) — that's
+// the real constraint on the shopper, since it's the first hold to lapse.
+// Last 10 seconds flashes red with an urgent nudge to check out. On
+// expiry, drops just that one item and releases its hold, then the timer
+// re-targets whichever item is now soonest (if any remain).
 const CART_HOLD_MS = 15*60*1000;
 function updateCartTimers(){
-  if (!cart.length) return;
-  let changed = false;
-  cart.slice().forEach(c => {
-    const remain = CART_HOLD_MS - (Date.now() - (c.reservedAt||Date.now()));
-    const el = document.getElementById('cart-timer-'+c.unitId);
-    if (remain <= 0) {
-      changed = true;
-      removeFromCart(c.unitId);
-      alert(`Reservation expired for "${c.name}" — it's back in stock for others. Add it again if you still want it.`);
-      return;
-    }
-    if (el) {
-      const m = Math.floor(remain/60000), s = Math.floor((remain%60000)/1000);
-      el.textContent = `Reserved · ${m}:${String(s).padStart(2,'0')}`;
-      if (remain < 120000) el.style.color = '#e07a5f';
-    }
-  });
+  const el = document.getElementById('cart-hold-timer');
+  if (!el) return;
+  if (!cart.length) { el.textContent = 'Items are held for you for 15 minutes.'; el.classList.remove('cart-timer-flash'); el.style.color = ''; return; }
+  const soonest = cart.reduce((a,b) => (a.reservedAt||0) < (b.reservedAt||0) ? a : b);
+  const remain = CART_HOLD_MS - (Date.now() - (soonest.reservedAt||Date.now()));
+  if (remain <= 0) {
+    removeFromCart(soonest.unitId);
+    alert(`Reservation expired for "${soonest.name}" — it's back in stock for others. Add it again if you still want it.`);
+    return;
+  }
+  const m = Math.floor(remain/60000), s = Math.floor((remain%60000)/1000);
+  if (remain <= 10000) {
+    el.textContent = `⚠️ Hurry, check out now — before it refreshes! (${s}s)`;
+    el.classList.add('cart-timer-flash');
+  } else {
+    el.textContent = `Reserved for you · ${m}:${String(s).padStart(2,'0')} remaining`;
+    el.classList.remove('cart-timer-flash');
+    el.style.color = remain < 120000 ? '#e07a5f' : '';
+  }
 }
 setInterval(updateCartTimers, 1000);
 
@@ -1299,7 +1305,6 @@ function renderCart() {
           <div class="cart-item-nm">${c.name}</div>
           ${c.variant ? `<div class="cart-item-sub">${c.variant}</div>` : ''}
           <div class="cart-item-pr">${sym}${fmtP(price)}</div>
-          <div class="cart-item-timer" id="cart-timer-${c.unitId}" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold-light);opacity:.7;margin-top:3px;">Reserved · 15:00</div>
         </div>
         <button class="cart-item-rm" onclick="removeFromCart('${c.unitId}')">✕</button>
       </div>`;
