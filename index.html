@@ -1075,7 +1075,7 @@ footer {
     </div>
     <div class="cart-total-row" id="cart-subtotal-row" style="display:none;font-size:12px;opacity:.7;"><span>Subtotal</span><span id="cart-subtotal"></span></div>
     <div class="cart-total-row"><span>Total</span><span id="cart-total">₹0</span></div>
-    <p class="cart-hold-note">Items are held for you for 15 minutes.</p>
+    <p class="cart-hold-note" id="cart-hold-note">Items are held for you for 15 minutes.</p>
     <div id="cart-contact-form" style="display:none;margin-bottom:8px;">
       <input id="cart-cust-name" placeholder="Your name" style="width:100%;margin-bottom:6px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
       <input id="cart-cust-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:6px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
@@ -1272,8 +1272,13 @@ function updateCartBadge(){
 const CART_HOLD_MS = 15*60*1000;
 function updateCartTimers(){
   const notice = document.getElementById('cart-expiry-notice');
+  const drawerNote = document.getElementById('cart-hold-note');
   if (!notice) return;
-  if (!cart.length) { notice.classList.remove('cen-show'); return; }
+  if (!cart.length) {
+    notice.classList.remove('cen-show');
+    if (drawerNote) drawerNote.textContent = 'Items are held for you for 15 minutes.';
+    return;
+  }
   const soonest = cart.reduce((a,b) => (a.reservedAt||0) < (b.reservedAt||0) ? a : b);
   const remain = CART_HOLD_MS - (Date.now() - (soonest.reservedAt||Date.now()));
   if (remain <= 0) {
@@ -1281,6 +1286,12 @@ function updateCartTimers(){
     notice.classList.remove('cen-show');
     alert(`Your hold on "${soonest.name}" has been released — it's back in the collection for others. Add it again if you'd still like it.`);
     return;
+  }
+  // Same understated tone as the drawer's usual copy — no flashing here,
+  // the floating notice above already carries the visual urgency.
+  if (drawerNote) {
+    const m = Math.floor(remain/60000), s = Math.floor((remain%60000)/1000);
+    drawerNote.textContent = `Reserved for you · ${m}:${String(s).padStart(2,'0')} remaining`;
   }
   notice.classList.add('cen-show');
   notice.classList.remove('cen-phase1','cen-phase2','cen-final');
