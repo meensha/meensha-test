@@ -1293,6 +1293,22 @@ function updateCartTimers(){
     const m = Math.floor(remain/60000), s = Math.floor((remain%60000)/1000);
     drawerNote.textContent = `Reserved for you · ${m}:${String(s).padStart(2,'0')} remaining`;
   }
+
+  // The notice isn't meant to sit on screen the whole 15 minutes: it
+  // slides in once at the start, stays 10s, then slides away — a
+  // one-time nudge, not a nag. It reappears and stays put (persistent)
+  // once the hold has 30s or less left, since that's when it actually
+  // matters again.
+  const PERSIST_MS = 30000, INITIAL_SHOW_MS = 10000;
+  let shouldShow;
+  if (remain <= PERSIST_MS) {
+    shouldShow = true;
+  } else {
+    if (!soonest.noticeShownAt) soonest.noticeShownAt = Date.now();
+    shouldShow = (Date.now() - soonest.noticeShownAt) < INITIAL_SHOW_MS;
+  }
+  if (!shouldShow) { notice.classList.remove('cen-show'); return; }
+
   notice.classList.add('cen-show');
   notice.classList.remove('cen-phase1','cen-phase2','cen-final');
   const icon = document.getElementById('cen-icon'), heading = document.getElementById('cen-heading'), body = document.getElementById('cen-body'), btn = document.getElementById('cen-btn');
