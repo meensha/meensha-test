@@ -28,16 +28,23 @@
     overflow-x: hidden;
   }
 
-  /* TICKER */
+  /* TICKER — fixed at the very top, matching index.html's #promo-bar */
   .ticker-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 500;
+    height: 34px;
+    display: flex;
+    align-items: center;
     background: var(--gold);
     color: #080705;
+    font-family: 'Cinzel', serif;
     font-size: 0.68rem;
-    letter-spacing: 0.15em;
-    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
     overflow: hidden;
     white-space: nowrap;
-    padding: 7px 0;
   }
   .ticker-inner { display: inline-block; animation: ticker 32s linear infinite; }
   .ticker-inner span { margin: 0 3rem; }
@@ -46,16 +53,16 @@
     100% { transform: translateX(-50%); }
   }
 
-  /* NAV */
+  /* NAV — fixed below the ticker, matching index.html's nav */
   nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1.4rem 5vw;
     border-bottom: 1px solid var(--divider);
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    position: fixed;
+    top: 34px; left: 0; right: 0;
+    z-index: 499;
     background: rgba(8,7,5,0.97);
     backdrop-filter: blur(12px);
   }
@@ -70,10 +77,11 @@
   }
   .nav-links { display: flex; gap: 2.5rem; list-style: none; }
   .nav-links a {
+    font-family: 'Cinzel', serif;
     color: var(--text-dim);
     text-decoration: none;
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
+    font-size: 0.875rem;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     transition: color 0.3s;
   }
@@ -107,7 +115,7 @@
     justify-content: center;
     align-items: center;
     text-align: center;
-    padding: 9rem 5vw 7rem;
+    padding: 11rem 5vw 7rem;
     position: relative;
     overflow: hidden;
   }
@@ -119,7 +127,7 @@
     pointer-events: none;
   }
   /* Faded South Asia ↔ Australia connection map — the two founders' worlds,
-     joined by a thread. Shown on the hero and closing sections only. */
+     joined by a thread. Shown on the closing section only. */
   .connection-map-bg {
     position: absolute;
     top: 50%; left: 50%;
@@ -131,6 +139,20 @@
     z-index: 0;
     pointer-events: none;
   }
+  /* Hero shows just the two locations, flanking the heading — no thread yet. */
+  .hero-map {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 190px;
+    height: auto;
+    color: var(--gold-dim);
+    opacity: 0.13;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .hero-map-left { left: 3vw; }
+  .hero-map-right { right: 3vw; }
   .hero-eyebrow {
     font-size: 0.68rem;
     letter-spacing: 0.4em;
@@ -259,17 +281,19 @@
   }
   /* Faded background map — South Asia for Shalini, Australia for Meenakshi.
      Purely decorative watermark, sits behind all text via z-index. */
+  /* Sits beside the name heading, in the blank space on the far side from
+     the photo — not a full-panel watermark, just a mark next to the name. */
   .curator-map-bg {
     position: absolute;
-    top: -10px; right: -10px;
-    width: 280px; height: auto;
+    top: 5.5rem; right: 0;
+    width: 210px; height: auto;
     color: var(--gold-dim);
-    opacity: 0.1;
+    opacity: 0.14;
     z-index: -1;
     pointer-events: none;
   }
   .curator.reverse .curator-content { padding: 6rem 4vw 6rem 5vw; }
-  .curator.reverse .curator-map-bg { right: auto; left: -10px; }
+  .curator.reverse .curator-map-bg { right: auto; left: 0; }
 
   .curator-number {
     font-family: 'Cormorant Garamond', serif;
@@ -463,6 +487,10 @@
     .curator-content, .curator.reverse .curator-content { padding: 3rem 5vw 4rem; }
     .nav-links { display: none; }
     .footer-grid { grid-template-columns: 1fr; gap: 28px; }
+    .hero-map { width: 90px; opacity: 0.1; }
+    .hero-map-left { left: 1vw; }
+    .hero-map-right { right: 1vw; }
+    .curator-map-bg { width: 130px; top: 2.5rem; }
   }
 </style>
 </head>
@@ -500,19 +528,13 @@
 
 <!-- HERO -->
 <section class="hero">
-  <svg class="connection-map-bg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <g transform="translate(20,10) scale(0.85)">
-      <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
-      <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
-    </g>
-    <g transform="translate(600,90) scale(0.85)">
-      <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
-      <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
-    </g>
-    <path d="M108,185 Q363,250 619,184" fill="none" stroke="currentColor" stroke-width="2" opacity="0.6"/>
-    <path d="M108,195 Q363,265 619,194" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/>
-    <circle cx="108" cy="185" r="4" fill="currentColor"/>
-    <circle cx="619" cy="184" r="4" fill="currentColor"/>
+  <svg class="hero-map hero-map-left" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
+    <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
+  </svg>
+  <svg class="hero-map hero-map-right" viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
+    <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
   </svg>
   <p class="hero-eyebrow fade-in">The Story Behind the Thread</p>
   <h1 class="fade-in delay-1">Meet the<br><em>Curators</em></h1>
