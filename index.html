@@ -266,72 +266,26 @@ nav.scrolled {
   text-transform:uppercase; color:var(--gold-light); opacity:.65;
 }
 
-.crafts-grid {
+/* Live current-inventory preview grid — matrix of 5 columns on desktop,
+   narrowing at each breakpoint (see RESPONSIVE section below). */
+.home-collection-grid {
   display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:2px;
+  grid-template-columns:repeat(5,1fr);
+  gap:14px;
 }
-.crafts-row2 {
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:2px;
-  margin-top:2px;
-  max-width:calc(66.666% + 1px);
-  margin-left:auto; margin-right:auto;
-  width:66.8%;
+.hcg-card {
+  position:relative;aspect-ratio:3/4;overflow:hidden;cursor:pointer;
+  border:1px solid var(--gold-dim);background:rgba(255,255,255,.02);
 }
-
-.craft-card {
-  position:relative; aspect-ratio:3/4; overflow:hidden; cursor:pointer;
+.hcg-card img { width:100%;height:100%;object-fit:cover;transition:transform .5s ease; }
+.hcg-card:hover img { transform:scale(1.06); }
+.hcg-noimg { width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(232,213,163,.3);font-size:22px;gap:6px; }
+.hcg-overlay {
+  position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.05) 55%,transparent 100%);
+  display:flex;flex-direction:column;justify-content:flex-end;padding:12px;
 }
-.craft-bg {
-  position:absolute; inset:0;
-  background-size:cover; background-position:center;
-  transition:transform .75s ease;
-  filter:brightness(.78) saturate(.75);
-}
-.craft-card:hover .craft-bg { transform:scale(1.07); filter:brightness(.65) saturate(.85); }
-.cb-ikat    { background-image:url('saree_ikat.png'); }
-.cb-patola  { background-image:url('saree_patola.png'); }
-.cb-tussar  { background-image:url('saree_tussar.png'); }
-.cb-ajrak   { background-image:url('saree_ajrak.png'); }
-.cb-gharch  { background-image:url('saree_gharchola.png'); }
-
-.craft-pattern {
-  position:absolute; inset:0; opacity:.06;
-  background-image:repeating-linear-gradient(45deg,var(--gold-light) 0,var(--gold-light) 1px,transparent 0,transparent 50%);
-  background-size:20px 20px; pointer-events:none; transition:opacity .5s;
-}
-.craft-card:hover .craft-pattern { opacity:.14; }
-.craft-overlay {
-  position:absolute; inset:0;
-  background:linear-gradient(to top,rgba(0,0,0,.92) 0%,rgba(0,0,0,.12) 52%,transparent 100%);
-  display:flex; flex-direction:column; justify-content:flex-end;
-  padding:26px 22px;
-}
-.craft-accent {
-  position:absolute; top:14px; right:14px;
-  width:32px; height:32px; border:1px solid rgba(201,168,76,.28);
-  display:flex; align-items:center; justify-content:center; font-size:12px;
-}
-.craft-name { font-size:clamp(20px,2.2vw,28px); color:var(--cream); font-weight:400; }
-.craft-origin {
-  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.28em;
-  color:var(--gold-light); text-transform:uppercase; margin-top:5px; opacity:.7;
-}
-.craft-teaser {
-  font-size:13px; font-style:italic; color:rgba(247,243,236,.5);
-  margin-top:8px; line-height:1.65; max-height:0; overflow:hidden;
-  transition:max-height .5s ease;
-}
-.craft-card:hover .craft-teaser { max-height:100px; }
-.craft-cta {
-  margin-top:12px; opacity:0;
-  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.24em; text-transform:uppercase;
-  color:var(--gold-light); border-bottom:1px solid var(--gold-dim);
-  padding-bottom:2px; width:fit-content; transition:opacity .4s .1s;
-}
-.craft-card:hover .craft-cta { opacity:1; }
+.hcg-name { font-size:13px;color:var(--cream);font-weight:400; }
+.hcg-price { font-family:'Cinzel',serif;font-size:11px;color:var(--gold-light);margin-top:3px; }
 
 /* ════════════════════════════════
    POP-UP STORE / EVENTS
@@ -525,21 +479,35 @@ footer {
 /* ════════════════════════════════
    RESPONSIVE
 ════════════════════════════════ */
+#nav-hamburger { display:none; background:none;border:1px solid var(--gold-dim);border-radius:8px;color:var(--gold-light);font-size:16px;padding:5px 10px;cursor:pointer;margin-left:2px; }
 @media(max-width:960px) {
   nav { padding:12px 20px; }
   nav.scrolled { padding:8px 20px; }
-  .nav-links { display:none; }
+  /* Collapsed into a dropdown below the nav bar, toggled by the hamburger
+     button, instead of just vanishing with no way to reach it. */
+  .nav-links { display:none; position:absolute;top:100%;left:0;right:0;background:rgba(14,10,4,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--gold-dim);flex-direction:column;padding:8px 20px 16px;margin:0;z-index:498; }
+  .nav-links.mobile-open { display:flex; }
+  .nav-links li { width:100%; }
+  .nav-links a { display:block;padding:12px 4px;border-bottom:1px solid rgba(201,168,76,.15); }
+  #nav-hamburger { display:block;padding:5px 8px;font-size:14px; }
+  .nav-btn-c-label { display:none; }
+  .nav-logo { width:64px;height:64px; }
+  .nav-logo img { width:52px;height:52px; }
+  .nav-right { gap:4px;flex-wrap:wrap;justify-content:flex-end;row-gap:6px; }
+  #currency-toggle { padding:4px 7px;font-size:9px;margin-right:0; }
+  #cart-toggle { padding:5px 9px;font-size:12px;margin-right:0; }
+  .nav-btn-c, .nav-btn-s { padding:6px 9px;font-size:9px; }
   .mission-grid { grid-template-columns:1fr; }
-  .crafts-grid { grid-template-columns:1fr 1fr; }
-  .crafts-row2 { width:100%; grid-template-columns:1fr 1fr; }
+  .home-collection-grid { grid-template-columns:repeat(3,1fr); }
   .weavers-inner { grid-template-columns:1fr; gap:36px; }
   .footer-grid { grid-template-columns:1fr; gap:28px; }
   .event-row { grid-template-columns:90px 1fr; }
   .event-tag { display:none; }
 }
 @media(max-width:580px) {
-  .crafts-grid { grid-template-columns:1fr; }
-  .crafts-row2 { width:100%; grid-template-columns:1fr; }
+  nav { padding:10px 14px; }
+  nav.scrolled { padding:6px 14px; }
+  .home-collection-grid { grid-template-columns:1fr 1fr; }
 }
 
 .nav-right { display:flex; align-items:center; gap:10px; }
@@ -692,19 +660,20 @@ footer {
   <div class="nav-logo">
     <img src="navbar_80.webp" alt="Meensha · मीनशा">
   </div>
-  <ul class="nav-links">
-    <li><a href="#heritage">Heritage</a></li>
-    <li><a href="#mission">Mission</a></li>
-    <li><a href="#catalogue">Collection</a></li>
+  <ul class="nav-links" id="nav-links">
+    <li><a href="#heritage" onclick="closeMobileNav()">Heritage</a></li>
+    <li><a href="#mission" onclick="closeMobileNav()">Mission</a></li>
+    <li><a href="#catalogue" onclick="closeMobileNav()">Collection</a></li>
     <li><a href="about.html">Our Story</a></li>
-    <li><a href="#events">Pop-Up Store</a></li>
-    <li><a href="#weavers">Artisans</a></li>
+    <li><a href="#events" onclick="closeMobileNav()">Pop-Up Store</a></li>
+    <li><a href="#weavers" onclick="closeMobileNav()">Artisans</a></li>
   </ul>
   <div class="nav-right">
     <button id="currency-toggle" onclick="toggleCurrency()" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:5px 12px;cursor:pointer;margin-right:4px;">🇮🇳 INR</button>
     <button id="cart-toggle" onclick="openCart()" style="position:relative;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:6px 12px;cursor:pointer;margin-right:4px;font-size:14px;">🛍️<span id="cart-count" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--gold);color:var(--dark);font-family:'Cinzel',serif;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;">0</span></button>
-    <a class="nav-btn-c" id="contact-link" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contact</a>
+    <a class="nav-btn-c" id="contact-link" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><span class="nav-btn-c-label">Contact</span></a>
     <a class="nav-btn-s" href="#shop-page" onclick="openShop('all');return false;">Shop Now</a>
+    <button id="nav-hamburger" onclick="toggleMobileNav()" aria-label="Menu">☰</button>
   </div>
 </nav>
 
@@ -817,67 +786,13 @@ footer {
       <div class="gold-orn"><span>discover</span></div>
     </div>
 
-    <!-- Row 1: Ikat, Patola, Tussar -->
-    <div class="crafts-grid reveal">
-      <div class="craft-card" onclick="openShop('ikat')" style="cursor:pointer;">
-        <div class="craft-bg cb-ikat"></div>
-        <div class="craft-pattern"></div>
-        <div class="craft-overlay">
-          <div class="craft-accent">🌀</div>
-          <h3 class="craft-name">Ikat</h3>
-          <p class="craft-origin">Odisha · Telangana · Gujarat</p>
-          <p class="craft-teaser">Threads dyed before weaving — the pattern exists only in the weaver's mind until the cloth finally reveals it. A philosophy as much as a technique.</p>
-          <p class="craft-cta">Enquire →</p>
-        </div>
-      </div>
-      <div class="craft-card" onclick="openShop('patola')" style="cursor:pointer;">
-        <div class="craft-bg cb-patola"></div>
-        <div class="craft-pattern"></div>
-        <div class="craft-overlay">
-          <div class="craft-accent">💎</div>
-          <h3 class="craft-name">Patola</h3>
-          <p class="craft-origin">Patan, Gujarat</p>
-          <p class="craft-teaser">Double ikat. Six months per saree. Fewer than a dozen master families remain. Marco Polo called Patan's silks the world's finest — nothing has changed.</p>
-          <p class="craft-cta">Enquire →</p>
-        </div>
-      </div>
-      <div class="craft-card" onclick="openShop('tussar')" style="cursor:pointer;">
-        <div class="craft-bg cb-tussar"></div>
-        <div class="craft-pattern"></div>
-        <div class="craft-overlay">
-          <div class="craft-accent">🌙</div>
-          <h3 class="craft-name">Tussar Silk</h3>
-          <p class="craft-origin">Jharkhand · Bhagalpur, Bihar</p>
-          <p class="craft-teaser">Wild silk — spun not in captivity but in the forests. Its raw gold texture carries the breath of ancient trees and the unhurried rhythms of tribal life.</p>
-          <p class="craft-cta">Enquire →</p>
-        </div>
-      </div>
+    <!-- Live preview of current stock, real photos — replaces the old static
+         5-category cards which didn't reflect what's actually in inventory. -->
+    <div class="home-collection-grid reveal" id="home-collection-grid">
+      <p style="grid-column:1/-1;text-align:center;color:rgba(247,243,236,.3);font-style:italic;">Loading the collection…</p>
     </div>
-
-    <!-- Row 2: Ajrak, Gharchola — centred -->
-    <div class="crafts-row2 reveal">
-      <div class="craft-card" onclick="openShop('ajrak')" style="cursor:pointer;">
-        <div class="craft-bg cb-ajrak"></div>
-        <div class="craft-pattern"></div>
-        <div class="craft-overlay">
-          <div class="craft-accent">🌊</div>
-          <h3 class="craft-name">Ajrak</h3>
-          <p class="craft-origin">Kutch, Gujarat · Sindh</p>
-          <p class="craft-teaser">Block-printed in indigo and madder, washed in river water, dried in desert sun. A 4,000-year-old ritual that produces the most mesmerising geometry in textile.</p>
-          <p class="craft-cta">Enquire →</p>
-        </div>
-      </div>
-      <div class="craft-card" onclick="openShop('gharch')" style="cursor:pointer;">
-        <div class="craft-bg cb-gharch"></div>
-        <div class="craft-pattern"></div>
-        <div class="craft-overlay">
-          <div class="craft-accent">🌹</div>
-          <h3 class="craft-name">Gharchola</h3>
-          <p class="craft-origin">Jamnagar, Gujarat</p>
-          <p class="craft-teaser">The bridal silk of Rajasthan and Gujarat — woven in red and gold, tie-dyed in a grid of auspicious squares. Worn at weddings for over five centuries.</p>
-          <p class="craft-cta">Enquire →</p>
-        </div>
-      </div>
+    <div style="text-align:center;margin-top:36px;">
+      <a href="#shop-page" onclick="openShop('all');return false;" class="nav-btn-s" style="display:inline-flex;">View Full Collection →</a>
     </div>
 
   </div>
@@ -1147,6 +1062,9 @@ async function detectCurrency() {
   updateCurrencyBtn();
 }
 
+function toggleMobileNav(){ document.getElementById('nav-links').classList.toggle('mobile-open'); }
+function closeMobileNav(){ document.getElementById('nav-links').classList.remove('mobile-open'); }
+
 function toggleCurrency() {
   currency = currency === 'AU' ? 'IN' : 'AU';
   localStorage.setItem('msh_currency', currency);
@@ -1154,6 +1072,7 @@ function toggleCurrency() {
   renderShopGrid();
   renderCart();
   updateCategoryAvailability();
+  renderHomeCollectionGrid();
 }
 
 function updateCurrencyBtn() {
@@ -1184,6 +1103,7 @@ async function loadShop() {
   updateCartBadge();
   renderShopGrid();
   updateCategoryAvailability();
+  renderHomeCollectionGrid();
 }
 
 // Drop any cart items whose unit is no longer reserved by us (expired / sold / released elsewhere)
@@ -1206,6 +1126,31 @@ function matchF(it, f) {
   if (f === 'Kota') return s.includes('kota');
   if (f === 'Silk') return ['Silk','Tussar Silk','Cotton Silk','Modal Silk'].includes(it.display_material) && !s.includes('tussar') && !s.includes('modal') && !s.includes('patola');
   return false;
+}
+
+// Homepage preview grid — real current stock with real photos, not the
+// old static 5-category cards. Shows up to 10 in-stock items (2 rows of
+// 5 on desktop), clicking any one jumps straight into the full shop.
+function renderHomeCollectionGrid() {
+  const g = document.getElementById('home-collection-grid');
+  if (!g) return;
+  const marketField = currency === 'AU' ? 'au_available' : 'india_available';
+  const items = spSkus.filter(it => it[marketField] && it.avail > 0).slice(0, 10);
+  if (!items.length) { g.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(247,243,236,.3);font-style:italic;">New pieces coming soon — message us on WhatsApp!</p>'; return; }
+  const isAud = currency === 'AU';
+  const sym = isAud ? 'A$' : '₹';
+  const fmtP = isAud ? (n => Number(n||0).toLocaleString('en-AU')) : fmtR;
+  g.innerHTML = items.map(it => {
+    const ph = it.photos||[];
+    const sp2 = isAud ? (it.sale_price_aud||0) : (it.sale_price||it.mrp);
+    return `<div class="hcg-card" onclick="openShop('all')">
+      ${ph.length ? `<img src="${ph[0]}" alt="${it.name}" loading="lazy">` : `<div class="hcg-noimg"><span>🧵</span></div>`}
+      <div class="hcg-overlay">
+        <div class="hcg-name">${it.name}</div>
+        <div class="hcg-price">${sym}${fmtP(sp2)}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderShopGrid() {
@@ -1580,8 +1525,10 @@ function closeShop() {
   document.getElementById('catalogue').scrollIntoView({behavior:'smooth'});
 }
 
-detectCurrency().then(updateCurrencyBtn);
-updateCartBadge();
+// loadShop() covers currency detection + cart badge + the homepage
+// preview grid in one go, and pre-populates spSkus/spUnits so opening
+// the full shop later feels instant (openShop only re-fetches if empty).
+loadShop();
 </script>
 </body>
 </html>
