@@ -284,8 +284,7 @@ nav.scrolled {
   position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.88) 0%,rgba(0,0,0,.05) 55%,transparent 100%);
   display:flex;flex-direction:column;justify-content:flex-end;padding:12px;
 }
-.hcg-name { font-size:13px;color:var(--cream);font-weight:400; }
-.hcg-price { font-family:'Cinzel',serif;font-size:11px;color:var(--gold-light);margin-top:3px; }
+.hcg-name { font-family:'Cinzel',serif;font-size:14px;letter-spacing:.04em;color:var(--cream);font-weight:400; }
 
 /* ════════════════════════════════
    POP-UP STORE / EVENTS
@@ -1128,29 +1127,49 @@ function matchF(it, f) {
   return false;
 }
 
-// Homepage preview grid — real current stock with real photos, not the
-// old static 5-category cards. Shows up to 10 in-stock items (2 rows of
-// 5 on desktop), clicking any one jumps straight into the full shop.
+// Homepage preview grid — main categories (same set the shop's own sidebar
+// filters by), each shown with a real photo pulled from current stock in
+// that category, no prices. Clicking a category jumps into the full shop
+// pre-filtered to it. Categories with zero current stock are skipped
+// entirely (same "don't lead into an empty aisle" logic as the sidebar's
+// fade-and-disable behavior).
+const HOME_CATEGORIES = [
+  {key:'Ikkat', label:'Ikkat / Ikat'},
+  {key:'Patola', label:'Patola'},
+  {key:'Tussar', label:'Tussar Silk'},
+  {key:'Ajrak', label:'Ajrak'},
+  {key:'Gharchola', label:'Gharchola'},
+  {key:'Cotton', label:'Cotton Weaves'},
+  {key:'Modal', label:'Modal'},
+  {key:'Kota', label:'Kota Doria'},
+  {key:'Silk', label:'Silk Sarees'}
+];
 function renderHomeCollectionGrid() {
   const g = document.getElementById('home-collection-grid');
   if (!g) return;
   const marketField = currency === 'AU' ? 'au_available' : 'india_available';
-  const items = spSkus.filter(it => it[marketField] && it.avail > 0).slice(0, 10);
-  if (!items.length) { g.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(247,243,236,.3);font-style:italic;">New pieces coming soon — message us on WhatsApp!</p>'; return; }
-  const isAud = currency === 'AU';
-  const sym = isAud ? 'A$' : '₹';
-  const fmtP = isAud ? (n => Number(n||0).toLocaleString('en-AU')) : fmtR;
-  g.innerHTML = items.map(it => {
-    const ph = it.photos||[];
-    const sp2 = isAud ? (it.sale_price_aud||0) : (it.sale_price||it.mrp);
-    return `<div class="hcg-card" onclick="openShop('all')">
-      ${ph.length ? `<img src="${ph[0]}" alt="${it.name}" loading="lazy">` : `<div class="hcg-noimg"><span>🧵</span></div>`}
+  const cards = HOME_CATEGORIES.map(cat => {
+    const matches = spSkus.filter(it => it[marketField] && it.avail > 0 && matchF(it, cat.key));
+    if (!matches.length) return null;
+    const withPhoto = matches.find(it => (it.photos||[]).length) || matches[0];
+    return { ...cat, photo: (withPhoto.photos||[])[0] || '' };
+  }).filter(Boolean);
+  if (!cards.length) { g.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(247,243,236,.3);font-style:italic;">New pieces coming soon — message us on WhatsApp!</p>'; return; }
+  g.innerHTML = cards.map(c => `<div class="hcg-card" onclick="openShopWithFilter('${c.key}')">
+      ${c.photo ? `<img src="${c.photo}" alt="${c.label}" loading="lazy">` : `<div class="hcg-noimg"><span>🧵</span></div>`}
       <div class="hcg-overlay">
-        <div class="hcg-name">${it.name}</div>
-        <div class="hcg-price">${sym}${fmtP(sp2)}</div>
+        <div class="hcg-name">${c.label}</div>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
+}
+function openShopWithFilter(catKey) {
+  document.getElementById('shop-page').style.display = 'block';
+  document.getElementById('shop-cta').style.display = 'none';
+  const go = () => {
+    filterShop(catKey, document.querySelector(`.sp-cb[data-cat="${catKey}"]`));
+    setTimeout(() => document.getElementById('shop').scrollIntoView({behavior:'smooth'}), 80);
+  };
+  if (!spSkus.length) loadShop().then(go); else go();
 }
 
 function renderShopGrid() {
