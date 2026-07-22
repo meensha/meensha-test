@@ -118,6 +118,19 @@
     background: radial-gradient(ellipse 70% 55% at 50% 50%, rgba(201,168,76,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
+  /* Faded South Asia ↔ Australia connection map — the two founders' worlds,
+     joined by a thread. Shown on the hero and closing sections only. */
+  .connection-map-bg {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(900px, 92vw);
+    height: auto;
+    color: var(--gold-dim);
+    opacity: 0.1;
+    z-index: 0;
+    pointer-events: none;
+  }
   .hero-eyebrow {
     font-size: 0.68rem;
     letter-spacing: 0.4em;
@@ -248,7 +261,7 @@
      Purely decorative watermark, sits behind all text via z-index. */
   .curator-map-bg {
     position: absolute;
-    top: -10px; left: -10px;
+    top: -10px; right: -10px;
     width: 280px; height: auto;
     color: var(--gold-dim);
     opacity: 0.1;
@@ -256,6 +269,7 @@
     pointer-events: none;
   }
   .curator.reverse .curator-content { padding: 6rem 4vw 6rem 5vw; }
+  .curator.reverse .curator-map-bg { right: auto; left: -10px; }
 
   .curator-number {
     font-family: 'Cormorant Garamond', serif;
@@ -289,8 +303,8 @@
     border-bottom: 1px solid var(--divider);
   }
   .curator-bio {
-    font-size: 1.05rem;
-    line-height: 1.85;
+    font-size: 1.2rem;
+    line-height: 1.8;
     color: var(--text);
     margin-bottom: 1.1rem;
   }
@@ -301,9 +315,9 @@
     background: rgba(201,168,76,0.04);
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: 1.05rem;
+    font-size: 1.15rem;
     color: var(--text-dim);
-    line-height: 1.75;
+    line-height: 1.7;
   }
 
   /* OCEAN CONNECTOR */
@@ -344,6 +358,7 @@
     border-top: 1px solid var(--divider);
     background: linear-gradient(to bottom, rgba(201,168,76,0.03), transparent);
     position: relative;
+    overflow: hidden;
   }
   .closing-rule {
     width: 40px;
@@ -476,6 +491,20 @@
 
 <!-- HERO -->
 <section class="hero">
+  <svg class="connection-map-bg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g transform="translate(20,10) scale(0.85)">
+      <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
+      <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
+    </g>
+    <g transform="translate(600,90) scale(0.85)">
+      <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
+      <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
+    </g>
+    <path d="M108,185 Q363,250 619,184" fill="none" stroke="currentColor" stroke-width="2" opacity="0.6"/>
+    <path d="M108,195 Q363,265 619,194" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+    <circle cx="108" cy="185" r="4" fill="currentColor"/>
+    <circle cx="619" cy="184" r="4" fill="currentColor"/>
+  </svg>
   <p class="hero-eyebrow fade-in">The Story Behind the Thread</p>
   <h1 class="fade-in delay-1">Meet the<br><em>Curators</em></h1>
   <p class="hero-tagline fade-in delay-2">
@@ -579,6 +608,20 @@
 
 <!-- CLOSING -->
 <section class="closing fade-in">
+  <svg class="connection-map-bg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g transform="translate(20,10) scale(0.85)">
+      <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
+      <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
+    </g>
+    <g transform="translate(600,90) scale(0.85)">
+      <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
+      <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
+    </g>
+    <path d="M108,185 Q363,250 619,184" fill="none" stroke="currentColor" stroke-width="2" opacity="0.6"/>
+    <path d="M108,195 Q363,265 619,194" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+    <circle cx="108" cy="185" r="4" fill="currentColor"/>
+    <circle cx="619" cy="184" r="4" fill="currentColor"/>
+  </svg>
   <div class="closing-rule"></div>
   <h2>
     This is not just a business.<br>
