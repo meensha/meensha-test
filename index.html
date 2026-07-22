@@ -656,9 +656,9 @@ footer {
 <!-- ════ FIXED NAV ════ -->
 <nav id="main-nav">
   <!-- CHANGE 1: Logo — pre-rendered animated coin-rotation -->
-  <div class="nav-logo">
+  <a class="nav-logo" href="#heritage" onclick="goHome();return false;" aria-label="Meensha home" style="cursor:pointer;">
     <img src="navbar_80.webp" alt="Meensha · मीनशा">
-  </div>
+  </a>
   <ul class="nav-links" id="nav-links">
     <li><a href="#heritage" onclick="closeMobileNav()">Heritage</a></li>
     <li><a href="#mission" onclick="closeMobileNav()">Mission</a></li>
@@ -1542,6 +1542,16 @@ function closeShop() {
   document.getElementById('shop-page').style.display = 'none';
   document.getElementById('shop-cta').style.display = 'block';
   document.getElementById('catalogue').scrollIntoView({behavior:'smooth'});
+}
+
+// Logo, top-left — always returns to the very top of the homepage, from
+// anywhere: closes the shop page if it's open (instead of just scrolling
+// past it) and closes the mobile nav dropdown if that's open too.
+function goHome() {
+  document.getElementById('shop-page').style.display = 'none';
+  document.getElementById('shop-cta').style.display = 'block';
+  closeMobileNav();
+  window.scrollTo({top:0, behavior:'smooth'});
 }
 
 // loadShop() covers currency detection + cart badge + the homepage
