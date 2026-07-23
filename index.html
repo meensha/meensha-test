@@ -321,6 +321,9 @@ nav.scrolled {
   font-family:'Cinzel',serif; font-size:9px; letter-spacing:.2em; text-transform:uppercase;
   color:var(--gold-light); padding:8px 16px;
 }
+.events-list-past .event-row { opacity:.55; padding:22px 0; }
+.events-list-past .event-day { font-size:clamp(24px,3vw,36px); }
+.events-list-past .event-info h3 { font-size:clamp(15px,1.8vw,19px); }
 .event-row.featured .event-tag { background:var(--gold); color:var(--dark); border-color:var(--gold); }
 
 /* ════════════════════════════════
@@ -620,37 +623,9 @@ footer {
 <body>
 
 <!-- ════ PROMO TICKER ════ -->
+<!-- Content filled by renderTicker() from settings.ticker_messages (admin-managed) -->
 <div id="promo-bar">
-  <div class="ticker-track" id="ticker">
-    <!-- repeated twice for seamless loop -->
-    <span class="ticker-item">🎉 Inaugural Offers On! Limited time — exclusive pricing at our Pop-Up Store</span>
-    <span class="ticker-sep">◆</span>
-    <span class="ticker-item">📍 Upcoming Event: AFWWA Exhibition · AFS Jalahalli · 26–27 March 2025</span>
-    <span class="ticker-sep">◆</span>
-    <span class="ticker-item">
-      <svg class="insta-icon" viewBox="0 0 24 24" fill="none" stroke="#1A1208" stroke-width="2">
-        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-        <circle cx="12" cy="12" r="4"/>
-        <circle cx="17.5" cy="6.5" r="1" fill="#1A1208" stroke="none"/>
-      </svg>
-      Follow <a href="https://instagram.com/meensha_fabrics" target="_blank">@meensha_fabrics</a> on Instagram
-    </span>
-    <span class="ticker-sep">◆</span>
-    <!-- duplicate for loop -->
-    <span class="ticker-item">🎉 Inaugural Offers On! Limited time — exclusive pricing at our Pop-Up Store</span>
-    <span class="ticker-sep">◆</span>
-    <span class="ticker-item">📍 Upcoming Event: AFWWA Exhibition · AFS Jalahalli · 26–27 March 2025</span>
-    <span class="ticker-sep">◆</span>
-    <span class="ticker-item">
-      <svg class="insta-icon" viewBox="0 0 24 24" fill="none" stroke="#1A1208" stroke-width="2">
-        <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-        <circle cx="12" cy="12" r="4"/>
-        <circle cx="17.5" cy="6.5" r="1" fill="#1A1208" stroke="none"/>
-      </svg>
-      Follow <a href="https://instagram.com/meensha_fabrics" target="_blank">@meensha_fabrics</a> on Instagram
-    </span>
-    <span class="ticker-sep">◆</span>
-  </div>
+  <div class="ticker-track" id="ticker"></div>
 </div>
 
 <!-- ════ FIXED NAV ════ -->
@@ -806,22 +781,31 @@ footer {
       <p>Touch the fabric. Meet the stories. Take one home.</p>
       <div class="gold-orn"><span>upcoming</span></div>
     </div>
-    <div class="events-list reveal">
-      <div class="event-row featured">
-        <div class="event-date-block">
-          <div class="event-day">26–27</div>
-          <div class="event-mon">March 2025</div>
-        </div>
-        <div class="event-info">
-          <h3>AFWWA Exhibition, Jalahalli East <span class="new-badge">New Announcement</span></h3>
-          <p>AFWWA Complex · AFS Jalahalli East, Bengaluru<br>
-          Live stall · Full handloom collection on display · 10 AM – 7 PM both days<br>
-          Inaugural offers · Personal styling · Direct from the weaver</p>
-        </div>
-        <span class="event-tag">Live Stall</span>
-      </div>
+    <div class="events-list reveal" id="events-upcoming"></div>
+    <div id="events-past-wrap" style="display:none;margin-top:48px;">
+      <div class="gold-orn" style="margin-bottom:20px;"><span>past events</span></div>
+      <div class="events-list events-list-past" id="events-past"></div>
     </div>
   </div>
+</section>
+
+<!-- ════ INSTAGRAM ════ -->
+<section id="insta-tiles-section" style="display:none;padding:80px 24px;background:var(--dark);">
+  <div class="section-head reveal" style="text-align:center;margin-bottom:40px;">
+    <span class="section-label">Follow Along</span>
+    <h2>From Instagram</h2>
+    <p><a href="https://instagram.com/meensha_fabrics" target="_blank" style="color:var(--gold-light);">@meensha_fabrics</a></p>
+  </div>
+  <div id="insta-tiles-grid" style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;"></div>
+</section>
+
+<!-- ════ REVIEWS ════ -->
+<section id="reviews-section" style="display:none;padding:80px 24px;background:var(--dark2);">
+  <div class="section-head reveal" style="text-align:center;margin-bottom:40px;">
+    <span class="section-label">Verified Customers</span>
+    <h2>What They're Saying</h2>
+  </div>
+  <div id="reviews-grid" style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;"></div>
 </section>
 
 <!-- ════ SHOP ════ -->
@@ -942,6 +926,7 @@ footer {
         <li><a class="footer-connect-link" href="https://instagram.com/meensha_fabrics" target="_blank"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(247,243,236,.4)" stroke-width="2" width="16" height="16"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="rgba(247,243,236,.4)" stroke="none"/></svg>@meensha_fabrics</a></li>
         <li><a class="footer-connect-link" href="mailto:meensha.fabrics@gmail.com"><svg viewBox="0 0 24 24" fill="none" stroke="rgba(247,243,236,.4)" stroke-width="2" width="16" height="16"><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><polyline points="22,6 12,13 2,6"/></svg>meensha.fabrics@gmail.com</a></li>
         <li><a class="footer-connect-link" href="#events">📍 Pop-Up Events</a></li>
+        <li><a class="footer-connect-link" id="track-order-cta" href="#" target="_blank" style="display:none;">🚚 Track Your Order</a></li>
       </ul>
     </div>
   </div>
@@ -1091,9 +1076,14 @@ async function loadShop() {
     const [sk, un, st] = await Promise.all([
       spFetch('inventory_skus', '?order=sku_code'),
       spFetch('inventory_units', '?select=id,sku_id,status'),
-      spFetch('settings', '?key=in.(wa_num_in,wa_num_au,razorpay_enabled)')
+      spFetch('settings', '?key=in.(wa_num_in,wa_num_au,razorpay_enabled,ticker_messages,shipping_tracking_enabled,shipping_tracking_url)')
     ]);
-    st.forEach(s => { if (s.key === 'wa_num_in' && s.value) waIn = s.value; if (s.key === 'wa_num_au' && s.value) waAu = s.value; if (s.key === 'razorpay_enabled') razorpayEnabled = s.value === 'true'; });
+    const byKey = {}; st.forEach(s => byKey[s.key] = s.value);
+    if (byKey.wa_num_in) waIn = byKey.wa_num_in;
+    if (byKey.wa_num_au) waAu = byKey.wa_num_au;
+    razorpayEnabled = byKey.razorpay_enabled === 'true';
+    renderTicker(byKey.ticker_messages);
+    renderTrackOrderCta(byKey.shipping_tracking_enabled === 'true', byKey.shipping_tracking_url);
     spUnits = un;
     spSkus = sk.map(s => ({ ...s, avail: un.filter(u => u.sku_id === s.id && u.status === 'available').length }));
   } catch(e) { spSkus = []; spUnits = []; }
@@ -1103,6 +1093,100 @@ async function loadShop() {
   renderShopGrid();
   updateCategoryAvailability();
   renderHomeCollectionGrid();
+  renderEvents();
+  renderInstagramTiles();
+  renderReviews();
+}
+
+// Ticker messages come from settings.ticker_messages (admin-managed, see
+// admin.html's Connections tab), same [{text,link}] shape admin saves.
+// Falls back to the original hardcoded copy if the setting is empty/missing
+// so the bar is never blank.
+const TICKER_FALLBACK = [
+  { text: '🎉 Inaugural Offers On! Limited time — exclusive pricing at our Pop-Up Store', link: '' },
+  { text: '📍 Upcoming Event: AFWWA Exhibition · AFS Jalahalli · 26–27 March 2025', link: '' },
+  { text: 'Follow @meensha_fabrics on Instagram', link: 'https://instagram.com/meensha_fabrics' }
+];
+function renderTicker(raw) {
+  const track = document.getElementById('ticker');
+  if (!track) return;
+  let msgs;
+  try { msgs = JSON.parse(raw || '[]'); } catch(e) { msgs = []; }
+  if (!msgs.length) msgs = TICKER_FALLBACK;
+  const items = msgs.map(m => {
+    const text = m.link ? `<a href="${m.link}" target="_blank" style="color:inherit;text-decoration:underline;">${m.text}</a>` : m.text;
+    return `<span class="ticker-item">${text}</span><span class="ticker-sep">◆</span>`;
+  }).join('');
+  track.innerHTML = items + items; // duplicated for the seamless scroll loop
+}
+
+function renderTrackOrderCta(enabled, url) {
+  const el = document.getElementById('track-order-cta');
+  if (!el) return;
+  if (enabled && url) { el.href = url; el.style.display = 'flex'; }
+  else { el.style.display = 'none'; }
+}
+
+// Pop-up events — admin-managed (admin.html Connections tab), split into
+// upcoming vs. past by status so past ones read as a muted "we've been here" trail.
+function eventRowHtml(ev) {
+  const dateBits = (ev.dates || '').split(/[–-]/).map(s => s.trim()).filter(Boolean);
+  return `<div class="event-row${ev.status === 'upcoming' ? ' featured' : ''}">
+    <div class="event-date-block">
+      <div class="event-day">${dateBits[0] || ''}</div>
+      <div class="event-mon">${dateBits.length > 1 ? dateBits[1] : ''}</div>
+    </div>
+    <div class="event-info">
+      <h3>${ev.title || ''}</h3>
+      <p>${ev.location || ''}${ev.timings ? '<br>' + ev.timings : ''}${ev.writeup ? '<br>' + ev.writeup : ''}</p>
+    </div>
+    <span class="event-tag">${ev.status === 'upcoming' ? 'Live Stall' : 'Past'}</span>
+  </div>`;
+}
+async function renderEvents() {
+  let popups = [];
+  try { popups = await spFetch('popups', '?order=display_order,created_at.desc'); } catch(e) { return; }
+  const upcoming = popups.filter(e => e.status === 'upcoming');
+  const past = popups.filter(e => e.status !== 'upcoming');
+  const upEl = document.getElementById('events-upcoming');
+  if (upEl) upEl.innerHTML = upcoming.length ? upcoming.map(eventRowHtml).join('') : '<p style="color:rgba(232,213,163,.4);font-style:italic;">No upcoming events right now — check back soon.</p>';
+  const pastWrap = document.getElementById('events-past-wrap');
+  const pastEl = document.getElementById('events-past');
+  if (past.length && pastWrap && pastEl) {
+    pastEl.innerHTML = past.map(eventRowHtml).join('');
+    pastWrap.style.display = 'block';
+  }
+}
+
+// Instagram tiles — renders admin-curated instagram_posts rows (no live API).
+async function renderInstagramTiles() {
+  let posts = [];
+  try { posts = await spFetch('instagram_posts', '?active=eq.true&order=display_order'); } catch(e) { return; }
+  if (!posts.length) return;
+  const grid = document.getElementById('insta-tiles-grid');
+  const section = document.getElementById('insta-tiles-section');
+  if (!grid || !section) return;
+  grid.innerHTML = posts.map(p => `<a href="${p.post_url}" target="_blank" style="display:block;position:relative;aspect-ratio:1;background:#1a1208;border-radius:6px;overflow:hidden;">
+    ${p.image_url ? `<img src="${p.image_url}" alt="${p.caption || ''}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(232,213,163,.3);font-size:28px;">📷</div>'}
+  </a>`).join('');
+  section.style.display = 'block';
+}
+
+// Approved reviews — only ones an owner has moderated to 'approved'.
+async function renderReviews() {
+  let revs = [];
+  try { revs = await spFetch('reviews', '?status=eq.approved&order=created_at.desc&limit=12'); } catch(e) { return; }
+  if (!revs.length) return;
+  const grid = document.getElementById('reviews-grid');
+  const section = document.getElementById('reviews-section');
+  if (!grid || !section) return;
+  grid.innerHTML = revs.map(r => `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
+    <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
+    <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${r.review_text || ''}</p>
+    ${r.photo_url || r.photo_url_2 ? `<div style="display:flex;gap:8px;margin-bottom:10px;">${[r.photo_url, r.photo_url_2].filter(Boolean).map(u => `<img src="${u}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">`).join('')}</div>` : ''}
+    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${r.display_name || 'Verified Customer'}</p>
+  </div>`).join('');
+  section.style.display = 'block';
 }
 
 // Drop any cart items whose unit is no longer reserved by us (expired / sold / released elsewhere)

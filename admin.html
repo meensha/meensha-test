@@ -173,6 +173,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <button class="tab" onclick="showTab('coup',this)" id="tb-coup">🎟️ Coupons</button>
   <button class="tab" onclick="showTab('rev',this)" id="tb-rev">⭐ Reviews</button>
   <button class="tab" onclick="showTab('usr',this)" id="tb-usr">👥 Users</button>
+  <button class="tab" onclick="showTab('conn',this)" id="tb-conn">🔗 Connections</button>
 </div>
 
 <!-- ═══ HOME ═══ -->
@@ -184,34 +185,25 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="card"><div class="ct">📦 Low Stock</div><div id="H-LOW"></div></div>
     <div class="card"><div class="ct">💬 Customer Requests</div><div id="H-REQ"></div></div>
   </div>
+</div>
+
+<!-- ═══ CONNECTIONS ═══ -->
+<div id="tp-conn" class="tp">
   <div class="sa" id="SA-SECTION">
-    <div class="sa-title">⚙️ Site Admin</div>
-    <!-- Ticker -->
-    <div style="margin-bottom:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <strong style="font-size:13px;">📢 Ticker Messages</strong>
-        <button class="btn bg sm" onclick="addTickerRow()">+ Add</button>
-      </div>
-      <div style="font-size:11px;color:var(--gy);margin-bottom:8px;">These scroll in the top bar on meensha.in — use 📍🎉 emojis for impact</div>
-      <div id="TICK-ROWS"></div>
-      <button class="btn bgn sm" style="margin-top:7px;" onclick="saveTicker()">💾 Save Ticker to DB</button>
+    <!-- Tech Stack — read-only, informational. Not settings-table backed;
+         these are facts about how the site is built/hosted, not something
+         to toggle from here. Fill in the real "Configured from" account
+         details once known. -->
+    <div class="sa-title">🧱 Tech Stack</div>
+    <div style="margin-bottom:20px;font-size:12px;line-height:1.9;">
+      <div><strong>Code &amp; Hosting:</strong> GitHub + GitHub Pages <span style="color:var(--gy);">— Configured from: <em>[placeholder — fill in]</em></span></div>
+      <div><strong>Domain:</strong> GoDaddy (meensha.in) <span style="color:var(--gy);">— Configured from: <em>[placeholder — fill in]</em></span></div>
+      <div><strong>Database &amp; Backend:</strong> Supabase <span style="color:var(--gy);">— Configured from: <em>[placeholder — fill in]</em></span></div>
+      <div><strong>Payments &amp; Automation:</strong> Razorpay, Telegram bot <span style="color:var(--gy);">— Configured from: <em>[placeholder — fill in]</em></span></div>
+      <div><strong>Shipping:</strong> Shiprocket <span class="bx bgy2">KYC pending</span> <span style="color:var(--gy);">— Configured from: <em>[placeholder — fill in]</em></span></div>
     </div>
-    <!-- Events -->
-    <div style="margin-bottom:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <strong style="font-size:13px;">📅 Pop-Up Events</strong>
-        <button class="btn bg sm" onclick="openEvModal()">+ Add Event</button>
-      </div>
-      <div id="EV-LIST"></div>
-    </div>
-    <!-- Instagram -->
-    <div style="margin-bottom:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <strong style="font-size:13px;">📸 Instagram Posts</strong>
-        <button class="btn bg sm" onclick="openIgModal()">+ Add Post</button>
-      </div>
-      <div id="IG-LIST" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
-    </div>
+
+    <div class="sa-title">📱 Functional Links</div>
     <!-- General settings: WA numbers + AUD multiplier -->
     <div style="margin-bottom:20px;">
       <strong style="font-size:13px;">⚙️ General Settings</strong>
@@ -228,18 +220,63 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
          Supabase Edge Function secrets, never here (this panel only talks to
          the DB with the public anon key). -->
     <div class="hi" id="RZP-LINK-SECTION">
-      <strong style="font-size:13px;">💳 Razorpay Checkout (Storefront)</strong>
-      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Turns the "Pay via Razorpay" button on/off in the storefront cart (India only). The actual API keys are configured in Supabase, not here.</div>
+      <strong style="font-size:13px;">💳 Payment Method</strong>
+      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">India: WhatsApp is always the default checkout path; Razorpay is an additional option shown at checkout only when enabled below. Australia: WhatsApp enquiry only — no payment gateway there.</div>
       <label style="font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="RZP-ENABLED" onchange="saveRzpEnabled()" style="accent-color:var(--gdk);width:16px;height:16px;">
-        Enable Razorpay checkout on meensha.in
+        Enable Razorpay checkout on meensha.in (India only)
       </label>
     </div>
+    <!-- Shipping tracking — site-wide toggle + one shared tracking URL, not
+         a real Shiprocket API integration (KYC still pending). -->
+    <div style="margin-top:20px;margin-bottom:20px;">
+      <strong style="font-size:13px;">🚚 Shipping Tracking</strong>
+      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">When enabled, a "Track Your Order" link shows on the storefront pointing at the URL below. Not per-order — one shared link (e.g. a Shiprocket tracking portal) until real order-level tracking exists.</div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="SHIP-TRACK-ENABLED" style="accent-color:var(--gdk);width:16px;height:16px;">
+        Show "Track Your Order" on the storefront
+      </label>
+      <div class="fi"><label>Tracking URL</label><input id="SHIP-TRACK-URL" placeholder="https://shiprocket.co/tracking"></div>
+      <button class="btn bgn sm" style="margin-top:7px;" onclick="saveShipTracking()">💾 Save</button>
+    </div>
+
+    <div class="sa-title">📢 Ticker Messages</div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:11px;color:var(--gy);">These scroll in the top bar on meensha.in — use 📍🎉 emojis for impact</span>
+        <button class="btn bg sm" onclick="addTickerRow()">+ Add</button>
+      </div>
+      <div id="TICK-ROWS"></div>
+      <button class="btn bgn sm" style="margin-top:7px;" onclick="saveTicker()">💾 Save Ticker to DB</button>
+    </div>
+
+    <div class="sa-title">📅 Pop-Up Events</div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn bg sm" onclick="openEvModal()">+ Add Event</button>
+      </div>
+      <div id="EV-LIST"></div>
+    </div>
+
+    <div class="sa-title">📸 Instagram Posts</div>
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn bg sm" onclick="openIgModal()">+ Add Post</button>
+      </div>
+      <div id="IG-LIST" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;"></div>
+    </div>
+
+    <div class="sa-title">⭐ Reviews</div>
+    <div style="margin-bottom:20px;">
+      <p style="font-size:12px;color:var(--gy);margin-bottom:8px;">Customer reviews (verified purchases only) are moderated in their own tab.</p>
+      <button class="btn bo sm" onclick="showTab('rev',document.getElementById('tb-rev'))">Go to Reviews tab →</button>
+    </div>
+
     <!-- Telegram bot access allowlist — super_admin only, same as Razorpay.
          A row here grants real ability to execute sales/inventory actions
          via the bot, so writes go through RPCs, never a direct table call. -->
     <div class="hi" id="TG-LINK-SECTION" style="margin-top:20px;">
-      <strong style="font-size:13px;">🤖 Telegram Bot Access</strong>
+      <div class="sa-title">🤖 Telegram Bot Access</div>
       <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Chat IDs approved to use the Telegram bot. Anyone on this list can record sales and enter stock as if logged into this panel — only add people you trust with that.</div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <input id="TG-NEW-CHATID" placeholder="Chat ID" style="flex:1;min-width:120px;padding:6px 9px;border:1px solid var(--bd);border-radius:4px;font-size:12px;">
@@ -1049,7 +1086,7 @@ const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,'Cotton Silk':2.2,'Tussar Silk':2.0,'Kota Doria':1.8,'default':2.0};
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
 // Default role permissions (super_admin can override via UI)
-const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','coup','rev','usr'],owner:['home','inv','stock','sale','sum','pnl','vend','coup','rev'],sales:['sale','inv']};
+const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','coup','rev','usr','conn'],owner:['home','inv','stock','sale','sum','pnl','vend','coup','rev','conn'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
 const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',fabric:'Cotton',qty:6,sold:0,cost:3000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#2',cat:'AJRK/MODL/SLK',name:'Ajrak Modal Silk',subtype:'',fabric:'Modal Silk',qty:5,sold:0,cost:1399,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#5',cat:'PCHMPL/COT/SLK',name:'Pochampally Cotton Silk',subtype:'',fabric:'Cotton Silk',qty:1,sold:0,cost:720,mrp:1800,disc:10,sale_price:1620,photos:[]},{item_id:'#6',cat:'DOLA/SLK2',name:'Dola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:720,mrp:1500,disc:10,sale_price:1350,photos:[]},{item_id:'#7',cat:'DOLA/SLK1',name:'Dola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:899,mrp:2000,disc:10,sale_price:1800,photos:[]},{item_id:'#8',cat:'TUSS/SLK/MDHB',name:'Tussar Silk',subtype:'Madhubani',fabric:'Tussar Silk',qty:3,sold:0,cost:3200,mrp:6400,disc:10,sale_price:5760,photos:[]},{item_id:'#9',cat:'TUSS/DUPIN',name:'Tussar Dupin',subtype:'',fabric:'Tussar',qty:1,sold:0,cost:3100,mrp:6000,disc:10,sale_price:5400,photos:[]},{item_id:'#10',cat:'TUSS/HAND',name:'Tussar',subtype:'Handpainted',fabric:'Tussar',qty:2,sold:0,cost:4800,mrp:9000,disc:10,sale_price:8100,photos:[]},{item_id:'#11',cat:'TUSS/SUIT/MDHB',name:'Tussar Suit',subtype:'Madhubani',fabric:'Tussar',qty:4,sold:0,cost:3000,mrp:5600,disc:10,sale_price:5040,photos:[]},{item_id:'#12',cat:'TUSS/GHCHA',name:'Tussar',subtype:'Ghicha',fabric:'Tussar',qty:4,sold:0,cost:4200,mrp:8500,disc:10,sale_price:7650,photos:[]},{item_id:'#13',cat:'IKKT/COT',name:'Ikkat',subtype:'Cotton',fabric:'Cotton',qty:13,sold:0,cost:2000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#14',cat:'KLMK/COT',name:'Kalamkari',subtype:'Cotton',fabric:'Cotton',qty:6,sold:0,cost:1000,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#15',cat:'MUL/COT',name:'Mul Cotton',subtype:'',fabric:'Cotton',qty:1,sold:0,cost:2200,mrp:4500,disc:10,sale_price:4050,photos:[]},{item_id:'#16',cat:'GHRCHL/AJRKSEMI',name:'Gharchola',subtype:'Semi Ajrak',fabric:'Silk',qty:4,sold:0,cost:3700,mrp:7500,disc:10,sale_price:6750,photos:[]},{item_id:'#17',cat:'GHRCHL/BANDH',name:'Gharchola',subtype:'Bandhej',fabric:'Silk',qty:1,sold:0,cost:3100,mrp:6300,disc:10,sale_price:5670,photos:[]},{item_id:'#18',cat:'AJRK/PL',name:'Ajrak Plain',subtype:'',fabric:'Cotton',qty:5,sold:0,cost:2600,mrp:5500,disc:10,sale_price:4950,photos:[]},{item_id:'#19',cat:'MODAL/PL',name:'Modal Plain',subtype:'',fabric:'Modal',qty:5,sold:0,cost:1650,mrp:3300,disc:10,sale_price:2970,photos:[]},{item_id:'#20',cat:'MODAL/AJRK',name:'Modal Ajrak',subtype:'',fabric:'Modal',qty:5,sold:0,cost:2500,mrp:4800,disc:10,sale_price:4320,photos:[]},{item_id:'#21',cat:'KOTA/BLOCK',name:'Kota Doria',subtype:'Block Print',fabric:'Kota Doria',qty:2,sold:0,cost:1700,mrp:2900,disc:10,sale_price:2610,photos:[]},{item_id:'#22',cat:'KOTA/SCRN',name:'Kota Doria',subtype:'Screen Print',fabric:'Kota Doria',qty:2,sold:0,cost:1300,mrp:2500,disc:10,sale_price:2250,photos:[]},{item_id:'#23',cat:'DOLA/MODAL/SLK',name:'Dola Modal Silk',subtype:'',fabric:'Modal Silk',qty:1,sold:0,cost:2700,mrp:5800,disc:10,sale_price:5220,photos:[]},{item_id:'#24',cat:'PATOLA/SLK1',name:'Patola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:10000,mrp:17900,disc:10,sale_price:16110,photos:[]},{item_id:'#25',cat:'PATOLA/SLK2',name:'Patola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:11000,mrp:18500,disc:10,sale_price:16650,photos:[]}];
 
@@ -1251,7 +1288,7 @@ function applyRole(){
   if(r==='super_admin'){const el=document.getElementById('TBU');if(el)el.style.color='#C9A84C';}
   // Apply permissions: hide tabs not in the role's allowed list
   const allowed=rolePerms[r]||rolePerms.sales;
-  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr'};
+  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn'};
   Object.entries(tabMap).forEach(([mod,tabId])=>{
     const el=document.getElementById(tabId);
     if(!el)return;
@@ -1259,9 +1296,7 @@ function applyRole(){
   });
   // Only super_admin can see Users tab (unless explicitly granted)
   if(r!=='super_admin'&&!allowed.includes('usr'))document.getElementById('tb-usr')?.classList.add('hi');
-  // Hide Site Admin section for non-owners
-  if(r==='sales')document.getElementById('SA-SECTION')?.classList.add('hi');
-  // Razorpay kill-switch is super_admin only, even though the rest of Site Admin is owner+super_admin
+  // Razorpay kill-switch is super_admin only, even though the rest of Connections is owner+super_admin
   const rzpSec=document.getElementById('RZP-LINK-SECTION');
   if(rzpSec)rzpSec.classList.toggle('hi',r!=='super_admin');
   const tgSec=document.getElementById('TG-LINK-SECTION');
@@ -1348,6 +1383,28 @@ async function saveGeneralSettings(){
     saveSetting('aud_multiplier',String(mult))
   ]);
   toast('✅ Settings saved','#27ae60');
+}
+async function loadShipTracking(){
+  const rows=await sbQ('settings','?key=in.(shipping_tracking_enabled,shipping_tracking_url)');
+  const byKey={};(rows||[]).forEach(r=>byKey[r.key]=r.value);
+  const en=document.getElementById('SHIP-TRACK-ENABLED'),url=document.getElementById('SHIP-TRACK-URL');
+  if(en)en.checked=byKey.shipping_tracking_enabled==='true';
+  if(url)url.value=byKey.shipping_tracking_url||'';
+}
+async function saveShipTracking(){
+  const en=document.getElementById('SHIP-TRACK-ENABLED').checked;
+  const url=document.getElementById('SHIP-TRACK-URL').value.trim();
+  if(en&&!url){toast('Add a tracking URL before enabling','var(--red)');return;}
+  await Promise.all([
+    saveSetting('shipping_tracking_enabled',String(en)),
+    saveSetting('shipping_tracking_url',url)
+  ]);
+  toast('✅ Shipping tracking saved','#27ae60');
+}
+function renderConnections(){
+  loadShipTracking();
+  loadGeneralSettings();
+  if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();}
 }
 
 // ═══════════════════════════════════════════════
@@ -1476,7 +1533,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();}};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections};
   renders[id]?.();
 }
 
@@ -3438,7 +3495,8 @@ function renderSales(){
     return true;
   }).forEach(s=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><strong>${s.inv}</strong></td><td>${s.date}</td><td>${s.customer?.name||''}<br><small style="color:var(--gy)">${s.customer?.wa||''}</small></td><td style="font-size:11px;">${(s.items||[]).map(i=>i.name+(i.subtype?' ('+i.subtype+')':'')).join(', ')}</td><td style="font-weight:700;">₹${fmt(s.total)}</td><td style="color:var(--grn);">₹${fmt(s.paid)}</td><td style="color:${(s.balance||0)>0?'var(--red)':'var(--grn)'};">${(s.balance||0)>0?'₹'+fmt(s.balance):'✅'}</td><td>${s.delivery_mode==='shipping'?'🚚':'🏪'}</td><td>${shipBadge(s)}</td><td style="font-size:11px;">${s.courier||'—'}${s.tracking?'<br><small>'+s.tracking+'</small>':''}</td><td style="display:flex;gap:3px;flex-wrap:wrap;"><button class="btn bb xs" onclick="viewSaleInv('${s.id}')">🧾</button><button class="btn bwa xs" onclick="reWA('${s.id}')">💬</button>${s.delivery_mode==='shipping'&&s.shipping_status!=='delivered'?`<button class="btn bo xs" onclick="openShipMo('${s.id}')">🚚</button>`:''} ${isOwn?`<button class="btn bgy xs" onclick="openEditSale('${s.id}')">✏️</button><button class="btn br xs" onclick="delSale('${s.id}')">🗑️</button>`:''}</td>`;
+    const delivered=s.shipping_status==='delivered'||s.delivery_mode!=='shipping';
+    tr.innerHTML=`<td><strong>${s.inv}</strong></td><td>${s.date}</td><td>${s.customer?.name||''}<br><small style="color:var(--gy)">${s.customer?.wa||''}</small></td><td style="font-size:11px;">${(s.items||[]).map(i=>i.name+(i.subtype?' ('+i.subtype+')':'')).join(', ')}</td><td style="font-weight:700;">₹${fmt(s.total)}</td><td style="color:var(--grn);">₹${fmt(s.paid)}</td><td style="color:${(s.balance||0)>0?'var(--red)':'var(--grn)'};">${(s.balance||0)>0?'₹'+fmt(s.balance):'✅'}</td><td>${s.delivery_mode==='shipping'?'🚚':'🏪'}</td><td>${shipBadge(s)}${s.return_status==='activated'?' <span class="bx br2">Return</span>':''}</td><td style="font-size:11px;">${s.courier||'—'}${s.tracking?'<br><small>'+s.tracking+'</small>':''}</td><td style="display:flex;gap:3px;flex-wrap:wrap;"><button class="btn bb xs" onclick="viewSaleInv('${s.id}')">🧾</button><button class="btn bwa xs" onclick="reWA('${s.id}')">💬</button>${s.delivery_mode==='shipping'&&s.shipping_status!=='delivered'?`<button class="btn bo xs" onclick="openShipMo('${s.id}')">🚚</button>`:''} ${isOwn?`<button class="btn bgy xs" onclick="openEditSale('${s.id}')">✏️</button><button class="btn br xs" onclick="delSale('${s.id}')">🗑️</button>`:''}${isOwn&&delivered&&s.return_status!=='activated'?`<button class="btn bo xs" onclick="activateReturn('${s.id}')">↩️</button>`:''}</td>`;
     tb.appendChild(tr);
   });
 }
@@ -3446,6 +3504,17 @@ function renderPurch(){const tb=document.getElementById('PU-BODY');tb.innerHTML=
 function viewSaleInv(id){const s=sales.find(x=>x.id===id);if(s)previewInvData(s);}
 function reWA(id){const s=sales.find(x=>x.id===id);if(s)sendWAFor(s);}
 async function delSale(id){if(!confirm('Delete this sale?'))return;await sbDel('sales',`?id=eq.${id}`);sales=sales.filter(s=>s.id!==id);renderSumStats();renderSales();toast('Deleted','var(--red)');}
+async function activateReturn(id){
+  const s=sales.find(x=>x.id===id);if(!s)return;
+  if(!confirm(`Activate a return for ${s.inv}?`))return;
+  const notes=prompt('Notes (optional):','')||'';
+  const upd={return_status:'activated',return_activated_at:new Date().toISOString(),return_activated_by:CU.username||CU.display_name,return_notes:notes};
+  await sbUpd('sales',`?id=eq.${id}`,upd);
+  await sbIns('sales_return_log',{sale_id:id,action:'activated',by:CU.username||CU.display_name,notes});
+  Object.assign(s,upd);
+  renderSales();
+  toast('✅ Return activated','#27ae60');
+}
 let editSId=null;
 function openEditSale(id){const s=sales.find(x=>x.id===id);if(!s)return;editSId=id;document.getElementById('ES-NM').value=s.customer?.name||'';document.getElementById('ES-WA').value=s.customer?.wa||'';document.getElementById('ES-DT').value=s.date||'';document.getElementById('ES-PAID').value=s.paid||0;document.getElementById('ES-BAL').value=fmt(s.balance||0);document.getElementById('ES-NOT').value=s.notes||'';document.getElementById('MO-EDSA').classList.remove('hi');}
 function calcESBal(){const s=sales.find(x=>x.id===editSId);if(!s)return;const pd=parseFloat(document.getElementById('ES-PAID').value)||0,bal=Math.max(0,(s.total||0)-pd);document.getElementById('ES-BAL').value=fmt(bal);}
