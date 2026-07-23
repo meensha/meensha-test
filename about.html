@@ -47,6 +47,7 @@
     white-space: nowrap;
   }
   .ticker-inner { display: inline-block; animation: ticker 32s linear infinite; }
+  .ticker-inner a { color: inherit; text-decoration: none; font-weight: 600; border-bottom: 1px solid rgba(8,7,5,.35); }
   .ticker-inner span { margin: 0 3rem; }
   @keyframes ticker {
     0% { transform: translateX(0); }
@@ -130,6 +131,12 @@
     transition: background 0.3s;
   }
   .nav-btn-s:hover { background: var(--gold); }
+  .nav-hamburger {
+    display: none;
+    background: none; border: 1px solid var(--divider); border-radius: 8px;
+    color: var(--gold); font-size: 16px;
+    padding: 5px 10px; cursor: pointer;
+  }
 
   /* SCROLL FADE */
   .fade-in {
@@ -170,33 +177,19 @@
     background: radial-gradient(ellipse 70% 55% at 50% 50%, rgba(201,168,76,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
-  /* Faded South Asia ↔ Australia connection map — the two founders' worlds,
-     joined by a thread. Shown on the closing section only. */
+  /* South Asia ↔ Australia connection map — the two founders' worlds,
+     joined by a thread. Shown on the hero and closing sections. */
   .connection-map-bg {
     position: absolute;
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     width: min(900px, 92vw);
     height: auto;
-    color: var(--gold-dim);
-    opacity: 0.1;
+    color: var(--gold);
+    opacity: 0.24;
     z-index: 0;
     pointer-events: none;
   }
-  /* Hero shows just the two locations, flanking the heading — no thread yet. */
-  .hero-map {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 190px;
-    height: auto;
-    color: var(--gold-dim);
-    opacity: 0.13;
-    z-index: 0;
-    pointer-events: none;
-  }
-  .hero-map-left { left: 3vw; }
-  .hero-map-right { right: 3vw; }
   .hero-eyebrow {
     font-size: 0.68rem;
     letter-spacing: 0.4em;
@@ -331,8 +324,8 @@
     position: absolute;
     top: 5.5rem; right: 0;
     width: 210px; height: auto;
-    color: var(--gold-dim);
-    opacity: 0.14;
+    color: var(--gold);
+    opacity: 0.3;
     z-index: -1;
     pointer-events: none;
   }
@@ -383,9 +376,9 @@
     background: rgba(201,168,76,0.04);
     font-family: 'Cormorant Garamond', serif;
     font-style: italic;
-    font-size: 1.15rem;
+    font-size: 1.35rem;
     color: var(--text-dim);
-    line-height: 1.7;
+    line-height: 1.65;
   }
 
   /* OCEAN CONNECTOR */
@@ -529,13 +522,29 @@
       background: linear-gradient(to top, rgba(8,7,5,1) 8%, rgba(8,7,5,0.3) 55%, transparent 80%) !important;
     }
     .curator-content, .curator.reverse .curator-content { padding: 3rem 5vw 4rem; }
-    .nav-links, .nav-right { display: none; }
+    .nav-right { display: none; }
     nav { background: rgba(8,7,5,0.97); backdrop-filter: blur(12px); }
     .footer-grid { grid-template-columns: 1fr; gap: 28px; }
-    .hero-map { width: 90px; opacity: 0.1; }
-    .hero-map-left { left: 1vw; }
-    .hero-map-right { right: 1vw; }
+    .connection-map-bg { opacity: 0.18; }
     .curator-map-bg { width: 130px; top: 2.5rem; }
+    /* Mobile nav: collapsed into a dropdown toggled by the hamburger,
+       matching index.html — not just hidden with no way to reach it. */
+    .nav-hamburger { display: block; }
+    .nav-links {
+      display: none;
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: rgba(8,7,5,0.97);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--divider);
+      flex-direction: column;
+      padding: 8px 5vw 16px;
+      margin: 0;
+      gap: 0;
+      z-index: 498;
+    }
+    .nav-links.mobile-open { display: flex; }
+    .nav-links li { width: 100%; }
+    .nav-links a { display: block; padding: 12px 4px; border-bottom: 1px solid var(--divider); }
   }
 </style>
 </head>
@@ -543,7 +552,7 @@
 
 <!-- TICKER -->
 <div class="ticker-wrap">
-  <div class="ticker-inner">
+  <div class="ticker-inner" id="ticker">
     <span>◆ MEENSHA · करघों की विरासत</span>
     <span>◆ HERITAGE WEAVES OF INDIA</span>
     <span>◆ PUTTING THE ARTIST FIRST · ALWAYS</span>
@@ -562,29 +571,36 @@
   <a href="index.html" class="nav-logo">
     <img src="navbar_80.webp" alt="Meensha · मीनशा">
   </a>
-  <ul class="nav-links">
-    <li><a href="index.html#heritage">Heritage</a></li>
-    <li><a href="index.html#mission">Mission</a></li>
-    <li><a href="index.html#catalogue">Collection</a></li>
-    <li><a href="about.html" class="active">Our Story</a></li>
-    <li><a href="index.html#events">Pop-Up Store</a></li>
-    <li><a href="index.html#weavers">Artisans</a></li>
+  <ul class="nav-links" id="about-nav-links">
+    <li><a href="index.html#heritage" onclick="closeMobileNav()">Heritage</a></li>
+    <li><a href="index.html#mission" onclick="closeMobileNav()">Mission</a></li>
+    <li><a href="index.html#catalogue" onclick="closeMobileNav()">Collection</a></li>
+    <li><a href="about.html" class="active" onclick="closeMobileNav()">Our Story</a></li>
+    <li><a href="index.html#events" onclick="closeMobileNav()">Pop-Up Store</a></li>
+    <li><a href="index.html#weavers" onclick="closeMobileNav()">Artisans</a></li>
   </ul>
   <div class="nav-right">
     <a class="nav-btn-c" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Contact</a>
     <a class="nav-btn-s" href="index.html#catalogue">Shop Now</a>
   </div>
+  <button class="nav-hamburger" onclick="toggleMobileNav()" aria-label="Menu">☰</button>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
-  <svg class="hero-map hero-map-left" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
-    <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
-  </svg>
-  <svg class="hero-map hero-map-right" viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-    <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
-    <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
+  <svg class="connection-map-bg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g transform="translate(20,10) scale(0.85)">
+      <path fill="currentColor" d="M100,15 Q160,22 175,72 Q186,112 165,152 Q144,192 113,212 Q100,219 92,206 Q68,186 53,150 Q30,110 36,70 Q46,26 100,15 Z"/>
+      <ellipse fill="currentColor" cx="97" cy="212" rx="6" ry="11"/>
+    </g>
+    <g transform="translate(600,90) scale(0.85)">
+      <path fill="currentColor" d="M110,15 Q172,15 197,56 Q212,92 196,127 Q170,166 110,166 Q50,166 24,127 Q8,92 23,56 Q48,15 110,15 Z"/>
+      <ellipse fill="currentColor" cx="132" cy="174" rx="6" ry="5"/>
+    </g>
+    <path d="M108,185 Q363,250 619,184" fill="none" stroke="currentColor" stroke-width="2" opacity="0.7"/>
+    <path d="M108,195 Q363,265 619,194" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+    <circle cx="108" cy="185" r="4" fill="currentColor"/>
+    <circle cx="619" cy="184" r="4" fill="currentColor"/>
   </svg>
   <p class="hero-eyebrow fade-in">The Story Behind the Thread</p>
   <h1 class="fade-in delay-1">Meet the<br><em>Curators</em></h1>
@@ -615,8 +631,8 @@
   </div>
   <div class="curator-content">
     <svg class="curator-map-bg" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
-      <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
+      <path fill="currentColor" d="M100,15 Q160,22 175,72 Q186,112 165,152 Q144,192 113,212 Q100,219 92,206 Q68,186 53,150 Q30,110 36,70 Q46,26 100,15 Z"/>
+      <ellipse fill="currentColor" cx="97" cy="212" rx="6" ry="11"/>
     </svg>
     <div class="curator-number">01</div>
     <p class="curator-role">Co-Founder &amp; Curator</p>
@@ -647,8 +663,8 @@
   </div>
   <div class="curator-content">
     <svg class="curator-map-bg" viewBox="0 0 220 180" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
-      <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
+      <path fill="currentColor" d="M110,15 Q172,15 197,56 Q212,92 196,127 Q170,166 110,166 Q50,166 24,127 Q8,92 23,56 Q48,15 110,15 Z"/>
+      <ellipse fill="currentColor" cx="132" cy="174" rx="6" ry="5"/>
     </svg>
     <div class="curator-number">02</div>
     <p class="curator-role">Co-Founder &amp; Curator</p>
@@ -691,12 +707,12 @@
 <section class="closing fade-in">
   <svg class="connection-map-bg" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <g transform="translate(20,10) scale(0.85)">
-      <path fill="currentColor" d="M42,18 L158,14 L172,58 L162,108 L136,158 L108,198 L92,214 L76,190 L58,148 L42,100 L28,58 Z"/>
-      <ellipse fill="currentColor" cx="103" cy="206" rx="7" ry="13"/>
+      <path fill="currentColor" d="M100,15 Q160,22 175,72 Q186,112 165,152 Q144,192 113,212 Q100,219 92,206 Q68,186 53,150 Q30,110 36,70 Q46,26 100,15 Z"/>
+      <ellipse fill="currentColor" cx="97" cy="212" rx="6" ry="11"/>
     </g>
     <g transform="translate(600,90) scale(0.85)">
-      <path fill="currentColor" d="M20,55 Q8,92 28,128 Q58,158 108,163 Q158,158 188,120 Q208,90 194,56 Q178,26 138,16 Q120,34 98,20 Q68,10 48,24 Q28,30 20,55 Z"/>
-      <ellipse fill="currentColor" cx="144" cy="170" rx="7" ry="5"/>
+      <path fill="currentColor" d="M110,15 Q172,15 197,56 Q212,92 196,127 Q170,166 110,166 Q50,166 24,127 Q8,92 23,56 Q48,15 110,15 Z"/>
+      <ellipse fill="currentColor" cx="132" cy="174" rx="6" ry="5"/>
     </g>
     <path d="M108,185 Q363,250 619,184" fill="none" stroke="currentColor" stroke-width="2" opacity="0.6"/>
     <path d="M108,195 Q363,265 619,194" fill="none" stroke="currentColor" stroke-width="1" opacity="0.4"/>
@@ -768,6 +784,35 @@
   window.addEventListener('scroll', () => {
     aboutNav.classList.toggle('scrolled', window.scrollY > 50);
   });
+
+  function toggleMobileNav() { document.getElementById('about-nav-links').classList.toggle('mobile-open'); }
+  function closeMobileNav() { document.getElementById('about-nav-links').classList.remove('mobile-open'); }
+
+  // Ticker content is admin-managed (index.html's Connections tab,
+  // settings.ticker_messages) — read the same way index.html does, so the
+  // two pages never drift out of sync.
+  const _SB = 'https://eglanmhhcccsuhbxywua.supabase.co', _SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+  async function spFetch(t, q = '') {
+    const r = await fetch(`${_SB}/rest/v1/${t}${q}`, { headers: { 'apikey': _SK, 'Authorization': 'Bearer ' + _SK } });
+    if (!r.ok) return [];
+    try { return await r.json(); } catch { return []; }
+  }
+  async function renderTicker() {
+    const track = document.getElementById('ticker');
+    if (!track) return;
+    let msgs = [];
+    try {
+      const rows = await spFetch('settings', '?key=eq.ticker_messages');
+      if (rows.length) msgs = JSON.parse(rows[0].value || '[]');
+    } catch (e) {}
+    if (!msgs.length) return; // keep the existing static fallback markup
+    const items = msgs.map(m => {
+      const text = m.link ? `<a href="${m.link}" target="_blank">${m.text}</a>` : m.text;
+      return `<span>◆ ${text}</span>`;
+    }).join('');
+    track.innerHTML = items + items;
+  }
+  renderTicker();
 </script>
 
 </body>

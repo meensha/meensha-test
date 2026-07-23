@@ -1114,7 +1114,7 @@ function renderTicker(raw) {
   try { msgs = JSON.parse(raw || '[]'); } catch(e) { msgs = []; }
   if (!msgs.length) msgs = TICKER_FALLBACK;
   const items = msgs.map(m => {
-    const text = m.link ? `<a href="${m.link}" target="_blank" style="color:inherit;text-decoration:underline;">${m.text}</a>` : m.text;
+    const text = m.link ? `<a href="${m.link}" target="_blank">${m.text}</a>` : m.text;
     return `<span class="ticker-item">${text}</span><span class="ticker-sep">◆</span>`;
   }).join('');
   track.innerHTML = items + items; // duplicated for the seamless scroll loop
