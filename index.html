@@ -1641,7 +1641,11 @@ function goHome() {
 // loadShop() covers currency detection + cart badge + the homepage
 // preview grid in one go, and pre-populates spSkus/spUnits so opening
 // the full shop later feels instant (openShop only re-fetches if empty).
-loadShop();
+loadShop().then(() => {
+  // Lets the cart icon on other pages (about.html) deep-link straight into
+  // an open cart here, since the drawer itself only exists on this page.
+  if (location.hash === '#open-cart') openCart();
+});
 </script>
 </body>
 </html>
