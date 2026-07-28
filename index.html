@@ -326,6 +326,34 @@ nav.scrolled {
 .events-list-past .event-info h3 { font-size:clamp(15px,1.8vw,19px); }
 .event-row.featured .event-tag { background:var(--gold); color:var(--dark); border-color:var(--gold); }
 
+/* Instagram tiles — Instagram-shaped card in Meensha's own gold-frame
+   styling, not a bare photo grid. Whole card is one link. */
+.insta-card {
+  display:block; text-decoration:none;
+  background:var(--dark2); border:1px solid var(--gold-dim); border-radius:10px;
+  overflow:hidden; transition:border-color .3s, transform .3s;
+}
+.insta-card:hover { border-color:var(--gold-light); transform:translateY(-3px); }
+.insta-card-head {
+  display:flex; align-items:center; gap:8px; padding:10px 12px;
+  border-bottom:1px solid rgba(201,168,76,.15);
+}
+.insta-card-avatar { width:22px; height:22px; border-radius:50%; object-fit:contain; flex-shrink:0; }
+.insta-card-head span {
+  font-family:'Cinzel',serif; font-size:11px; letter-spacing:.06em; color:var(--gold-light);
+}
+.insta-card-photo { aspect-ratio:1; background:#1a1208; }
+.insta-card-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+.insta-card-noimg {
+  display:flex; align-items:center; justify-content:center; height:100%;
+  color:rgba(232,213,163,.3); font-size:28px;
+}
+.insta-card-caption {
+  padding:10px 12px 14px; min-height:56px;
+  font-size:13px; line-height:1.55; color:rgba(232,213,163,.72);
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+}
+
 /* ════════════════════════════════
    SHOP
 ════════════════════════════════ */
@@ -796,7 +824,7 @@ footer {
     <h2>From Instagram</h2>
     <p><a href="https://instagram.com/meensha_fabrics" target="_blank" style="color:var(--gold-light);">@meensha_fabrics</a></p>
   </div>
-  <div id="insta-tiles-grid" style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;"></div>
+  <div id="insta-tiles-grid" style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px;"></div>
 </section>
 
 <!-- ════ REVIEWS ════ -->
@@ -1158,7 +1186,9 @@ async function renderEvents() {
   }
 }
 
-// Instagram tiles — renders admin-curated instagram_posts rows (no live API).
+// Instagram tiles — renders admin-curated instagram_posts rows (no live API)
+// as Instagram-shaped cards in Meensha's own gold-frame styling: handle
+// header, centered square photo, caption below. The whole card is one link.
 async function renderInstagramTiles() {
   let posts = [];
   try { posts = await spFetch('instagram_posts', '?active=eq.true&order=display_order'); } catch(e) { return; }
@@ -1166,8 +1196,15 @@ async function renderInstagramTiles() {
   const grid = document.getElementById('insta-tiles-grid');
   const section = document.getElementById('insta-tiles-section');
   if (!grid || !section) return;
-  grid.innerHTML = posts.map(p => `<a href="${p.post_url}" target="_blank" style="display:block;position:relative;aspect-ratio:1;background:#1a1208;border-radius:6px;overflow:hidden;">
-    ${p.image_url ? `<img src="${p.image_url}" alt="${p.caption || ''}" loading="lazy" style="width:100%;height:100%;object-fit:cover;">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(232,213,163,.3);font-size:28px;">📷</div>'}
+  grid.innerHTML = posts.map(p => `<a href="${p.post_url}" target="_blank" class="insta-card">
+    <div class="insta-card-head">
+      <img src="navbar_80.webp" alt="" class="insta-card-avatar">
+      <span>@meensha_fabrics</span>
+    </div>
+    <div class="insta-card-photo">
+      ${p.image_url ? `<img src="${p.image_url}" alt="${p.caption || ''}" loading="lazy">` : '<div class="insta-card-noimg">📷</div>'}
+    </div>
+    <div class="insta-card-caption">${p.caption || ''}</div>
   </a>`).join('');
   section.style.display = 'block';
 }
