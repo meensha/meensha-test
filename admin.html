@@ -285,6 +285,19 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       </div>
       <div class="tw"><table><thead><tr><th>Label</th><th>Chat ID</th><th>Added</th><th>Active</th><th></th></tr></thead><tbody id="TG-USERS-BODY"></tbody></table></div>
     </div>
+    <!-- Same idea, separate allowlist — the Australia bot (@meenshaozbot) has
+         its own chat_id table (telegram_allowed_users_au), deliberately not
+         shared with the India bot's list above. -->
+    <div class="hi" id="TGAU-LINK-SECTION" style="margin-top:20px;">
+      <div class="sa-title">🇦🇺 Australia Bot Access</div>
+      <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Chat IDs approved to use the Australia Telegram bot (@meenshaozbot) — separate from the India bot list above. Add one row per person/device that should have access; anyone can add as many as needed.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <input id="TGAU-NEW-CHATID" placeholder="Chat ID" style="flex:1;min-width:120px;padding:6px 9px;border:1px solid var(--bd);border-radius:4px;font-size:12px;">
+        <input id="TGAU-NEW-LABEL" placeholder="Label (e.g. Meenakshi)" style="flex:1;min-width:120px;padding:6px 9px;border:1px solid var(--bd);border-radius:4px;font-size:12px;">
+        <button class="btn bgn sm" onclick="addTelegramUserAu()">+ Add</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>Label</th><th>Chat ID</th><th>Added</th><th>Active</th><th></th></tr></thead><tbody id="TGAU-USERS-BODY"></tbody></table></div>
+    </div>
   </div>
 </div>
 
@@ -1301,6 +1314,8 @@ function applyRole(){
   if(rzpSec)rzpSec.classList.toggle('hi',r!=='super_admin');
   const tgSec=document.getElementById('TG-LINK-SECTION');
   if(tgSec)tgSec.classList.toggle('hi',r!=='super_admin');
+  const tgAuSec=document.getElementById('TGAU-LINK-SECTION');
+  if(tgAuSec)tgAuSec.classList.toggle('hi',r!=='super_admin');
 }
 async function loadRzpEnabled(){
   const el=document.getElementById('RZP-ENABLED');if(!el)return;
@@ -1348,6 +1363,39 @@ async function deleteTelegramUser(id){
   await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
   toast('Removed','#27ae60');
   renderTelegramUsers();
+}
+async function renderTelegramUsersAu(){
+  const body=document.getElementById('TGAU-USERS-BODY');if(!body)return;
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_telegram_users_au`,{method:'POST',headers:HDR(),body:'{}'});
+  const rows=r.ok?(await r.json()):[];
+  body.innerHTML=rows.map(u=>`<tr>
+    <td>${sanitise(u.label||'—')}</td>
+    <td style="font-family:monospace;">${sanitise(u.chat_id)}</td>
+    <td style="font-size:11px;">${sanitise((u.created_at||'').slice(0,10))}</td>
+    <td><input type="checkbox" ${u.active?'checked':''} onchange="toggleTelegramUserAu('${u.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
+    <td><button class="btn br xs" onclick="deleteTelegramUserAu('${u.id}')">🗑️</button></td>
+  </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;color:var(--gy);">No approved users yet</td></tr>';
+}
+async function addTelegramUserAu(){
+  const chatId=document.getElementById('TGAU-NEW-CHATID').value.trim();
+  const label=document.getElementById('TGAU-NEW-LABEL').value.trim();
+  if(!chatId){toast('Enter a chat ID','var(--red)');return;}
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_add_telegram_user_au`,{method:'POST',headers:HDR(),body:JSON.stringify({p_chat_id:chatId,p_label:label})});
+  if(!r.ok){toast('Could not add — chat ID may already be on the list','var(--red)');return;}
+  toast('✅ Bot access approved','#27ae60');
+  document.getElementById('TGAU-NEW-CHATID').value='';
+  document.getElementById('TGAU-NEW-LABEL').value='';
+  renderTelegramUsersAu();
+}
+async function toggleTelegramUserAu(id,active){
+  await fetch(`${SB}/rest/v1/rpc/admin_set_telegram_user_au_active`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id,p_active:active})});
+  toast(active?'Access enabled':'Access revoked','#27ae60');
+}
+async function deleteTelegramUserAu(id){
+  if(!confirm('Remove this chat ID from bot access?'))return;
+  await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user_au`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
+  toast('Removed','#27ae60');
+  renderTelegramUsersAu();
 }
 
 // ═══════════════════════════════════════════════
@@ -1404,7 +1452,7 @@ async function saveShipTracking(){
 function renderConnections(){
   loadShipTracking();
   loadGeneralSettings();
-  if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();}
+  if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();renderTelegramUsersAu();}
 }
 
 // ═══════════════════════════════════════════════
@@ -1473,7 +1521,7 @@ async function initApp(){
   try{const rp=await sbQ('settings','?key=eq.role_permissions');if(rp&&rp.length)rolePerms={...DEFAULT_PERMS,...JSON.parse(rp[0].value||'{}')};}catch{}
   applyRole();
   await loadAll();
-  if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();}
+  if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();renderTelegramUsersAu();}
   if(CU.role!=='sales')loadGeneralSettings();
   // The initial SA-BODY row (added on window.onload, before data existed) needs its
   // item options refreshed now that skus/inv are actually loaded.
