@@ -218,6 +218,13 @@ async function handleKiosk(
       await saveSession(supabase, chatId, "kiosk_pick_unit", data);
       return;
     }
+    if (callbackData === "kiosk:clearsearch") {
+      delete data.search_query;
+      data.page = 0;
+      await showItemPicker(supabase, chatId, data);
+      await saveSession(supabase, chatId, "kiosk_pick_item", data);
+      return;
+    }
   }
 
   if (state === "kiosk_pick_unit" && callbackData.startsWith("kiosk:unit:")) {
@@ -343,9 +350,18 @@ async function handleKiosk(
 }
 
 async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
-  const { data: skus } = await supabase
+  const query = supabase
     .from("inventory_skus")
-    .select("id, name, mrp, sale_price, display_variant, au_available");
+    .select("id, name, mrp, sale_price, display_variant, display_material, au_available");
+  // A search query (typed by staff, see handleTextInput's kiosk_pick_item
+  // case) filters by name/material/variant — same fields the storefront and
+  // the AU bot's kioskSearch already search across, kept consistent.
+  const searchQ: string | undefined = data.search_query;
+  const { data: skus } = searchQ
+    ? await query.or(
+      `name.ilike.%${searchQ}%,display_material.ilike.%${searchQ}%,display_variant.ilike.%${searchQ}%`,
+    )
+    : await query;
   const { data: units } = await supabase
     .from("inventory_units")
     .select("id, sku_id")
@@ -383,9 +399,12 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
     navRow.push({ text: "Next ▶", callback_data: `kiosk:page:${page + 1}` });
   }
   if (navRow.length) buttons.push(navRow);
+  if (searchQ) buttons.push([{ text: "✖ Clear search", callback_data: "kiosk:clearsearch" }]);
   buttons.push(CANCEL_ROW);
 
-  let header = inStock.length ? "Pick an item:" : "Nothing in stock right now.";
+  let header = searchQ
+    ? (inStock.length ? `Results for "${searchQ}":` : `No items matched "${searchQ}".`)
+    : (inStock.length ? "Pick an item, or type a name to search:" : "Nothing in stock right now.");
   if (data.cart?.length) {
     const cartLines = data.cart
       .map((c: { name: string; price: number }) => `• ${c.name} — ₹${c.price}`)
@@ -420,6 +439,14 @@ async function handleTextInput(
   data: SessionData,
   text: string,
 ) {
+  if (state === "kiosk_pick_item") {
+    data.search_query = text.trim();
+    data.page = 0;
+    await showItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "kiosk_pick_item", data);
+    return;
+  }
+
   if (state === "kiosk_customer_name") {
     data.customer_name = text.trim();
     await tgSend(chatId, "WhatsApp number?", { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
