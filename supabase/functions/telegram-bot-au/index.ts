@@ -381,8 +381,22 @@ Deno.serve(async (req: Request) => {
   const { data: allowed } = await supabase
     .from("telegram_allowed_users_au").select("*").eq("chat_id", String(chatId)).eq("active", true).maybeSingle();
   if (!allowed) {
-    await tgSend(chatId, `Not authorized yet. Ask admin to approve chat_id: ${chatId}`);
-    return new Response("ok", { status: 200 });
+    // Self-service allowlist: the first 2 distinct chats to message this bot
+    // get auto-approved, no admin step needed — every sale they make is
+    // already mirrored to MeenshaMonitor regardless (see notifyMonitor
+    // below), so there's a visible backup trail even without manual vetting.
+    // Past 2 active users, new chats still need admin approval as before.
+    const { count } = await supabase
+      .from("telegram_allowed_users_au").select("chat_id", { count: "exact", head: true }).eq("active", true);
+    if ((count ?? 0) < 2) {
+      const from = update.message?.from ?? update.callback_query?.from;
+      const label = [from?.first_name, from?.last_name].filter(Boolean).join(" ") || from?.username || `Chat ${chatId}`;
+      await supabase.from("telegram_allowed_users_au").insert({ chat_id: String(chatId), label, active: true });
+      await tgSend(chatId, `✅ You're approved to use this bot (${label}).`);
+    } else {
+      await tgSend(chatId, `Not authorized yet. Ask admin to approve chat_id: ${chatId}`);
+      return new Response("ok", { status: 200 });
+    }
   }
 
   const { data: session } = await supabase.from("telegram_sessions_au").select("*").eq("chat_id", chatId).maybeSingle();
