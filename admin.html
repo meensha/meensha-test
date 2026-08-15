@@ -697,11 +697,11 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- ═══ COUPONS ═══ -->
 <div id="tp-coup" class="tp">
   <div class="card">
-    <div class="ct">🎟️ New Coupon <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Locked to one customer — code + their WhatsApp number must both match at checkout</span></div>
+    <div class="ct">🎟️ New Coupon <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Leave Customer Name/WhatsApp blank for a public code anyone can use — fill them in to lock the code to one customer</span></div>
     <div class="fg">
-      <div class="fi"><label>Code *</label><input id="CP-CODE" placeholder="e.g. VIP-001" style="text-transform:uppercase;"></div>
-      <div class="fi"><label>Customer Name *</label><input id="CP-NM" placeholder="Full name"></div>
-      <div class="fi"><label>Customer WhatsApp *</label><input id="CP-WA" placeholder="+91..."></div>
+      <div class="fi"><label>Code *</label><input id="CP-CODE" placeholder="e.g. VIP-001 or FREEDOM200" style="text-transform:uppercase;"></div>
+      <div class="fi"><label>Customer Name <span style="font-weight:400;color:var(--gy);">(blank = public)</span></label><input id="CP-NM" placeholder="Full name"></div>
+      <div class="fi"><label>Customer WhatsApp <span style="font-weight:400;color:var(--gy);">(blank = public)</span></label><input id="CP-WA" placeholder="+91..."></div>
       <div class="fi"><label>Discount Type *</label><select id="CP-TYPE" onchange="onCpTypeChange()"><option value="percent">% Off</option><option value="flat">₹/A$ Off (flat)</option></select></div>
       <div class="fi"><label>Discount Value *</label><input type="number" id="CP-VAL" placeholder="10"></div>
       <div class="fi"><label>Region *</label>
@@ -711,6 +711,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
           <option value="australia">🇦🇺 Australia only</option>
         </select>
       </div>
+      <div class="fi"><label>Category Filter <span style="font-weight:400;color:var(--gy);">(optional — e.g. "dupatta")</span></label><input id="CP-CATFILTER" placeholder="Applies to whole cart if blank"></div>
       <div class="fi"><label>Valid From <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input type="date" id="CP-FROM"></div>
       <div class="fi"><label>Valid Until <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input type="date" id="CP-UNTIL"></div>
     </div>
@@ -1470,15 +1471,19 @@ async function createCoupon(){
   const type=document.getElementById('CP-TYPE').value;
   const val=parseFloat(document.getElementById('CP-VAL').value);
   const region=document.getElementById('CP-REGION').value;
+  const catFilter=document.getElementById('CP-CATFILTER').value.trim();
   const from=document.getElementById('CP-FROM').value||null;
   const until=document.getElementById('CP-UNTIL').value||null;
-  if(!code||!name||wa.length<10||!val||val<=0){toast('Fill in code, customer name, WhatsApp and a discount value','var(--red)');return;}
+  // Name/WA are a pair: either both blank (public code) or both filled (locked to one customer) — not one or the other.
+  if(!code||!val||val<=0){toast('Fill in code and a discount value','var(--red)');return;}
+  if((name && !wa) || (!name && wa)){toast('Fill in both customer name and WhatsApp, or leave both blank for a public code','var(--red)');return;}
+  if(wa && wa.length<10){toast('Enter a valid WhatsApp number, or leave it blank','var(--red)');return;}
   if(type==='flat'&&region==='all'){toast('Flat discounts need a single region (India or Australia)','var(--red)');return;}
   if(type==='percent'&&val>100){toast('Percent discount can\'t exceed 100','var(--red)');return;}
-  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until})});
+  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until,p_category_filter:catFilter})});
   if(!rr.ok){toast('Could not create coupon — code may already exist','var(--red)');return;}
   toast('✅ Coupon created','#27ae60');
-  document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';
+  document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-CATFILTER').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';
   renderCoupons();
 }
 async function renderCoupons(){
@@ -1491,12 +1496,12 @@ async function renderCoupons(){
     const valid=[c.valid_from,c.valid_until].filter(Boolean).join(' → ')||'No limit';
     return `<tr>
       <td style="font-family:monospace;font-weight:700;">${sanitise(c.code)}</td>
-      <td>${sanitise(c.customer_name)}</td>
-      <td>${sanitise(c.customer_wa)}</td>
+      <td>${c.customer_name?sanitise(c.customer_name):'🌐 Public'}</td>
+      <td>${c.customer_wa?sanitise(c.customer_wa):(c.category_filter?sanitise(c.category_filter)+' only':'any item')}</td>
       <td>${disc}</td>
       <td>${regionLbl[c.region]||c.region}</td>
       <td style="font-size:11px;">${valid}</td>
-      <td>${c.used?'✅ '+new Date(c.used_at).toLocaleDateString():'—'}</td>
+      <td>${c.customer_wa?(c.used?'✅ '+new Date(c.used_at).toLocaleDateString():'—'):'reusable'}</td>
       <td><input type="checkbox" ${c.active?'checked':''} onchange="toggleCouponActive('${c.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
       <td><button class="btn br xs" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
     </tr>`;

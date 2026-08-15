@@ -995,7 +995,7 @@ footer {
     <div id="cart-coupon-box" style="margin-bottom:8px;">
       <div id="cart-coupon-form" style="display:flex;gap:6px;">
         <input id="cart-coupon-code" placeholder="Coupon code" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
-        <input id="cart-coupon-wa" placeholder="Your WhatsApp #" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+        <input id="cart-coupon-wa" placeholder="WhatsApp # (only for personal codes)" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
         <button onclick="applyCoupon()" style="padding:7px 12px;font-size:12px;background:var(--gold-dim);color:var(--cream);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Apply</button>
       </div>
       <div id="cart-coupon-applied" style="display:none;font-size:12px;color:#8fdb8f;justify-content:space-between;align-items:center;">
@@ -1561,11 +1561,17 @@ function renderCart() {
   }
   const subtotal = cart.reduce((a,c) => a + (isAud ? (c.price_aud||0) : (c.price_inr||0)), 0);
   const region = isAud ? 'australia' : 'india';
-  let discount = 0, couponValid = false;
+  let discount = 0, couponValid = false, couponMsg = '';
   if (appliedCoupon && (appliedCoupon.region === 'all' || appliedCoupon.region === region)) {
-    couponValid = true;
-    discount = appliedCoupon.discount_type === 'percent' ? subtotal * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
-    discount = Math.min(discount, subtotal);
+    const discountBase = couponDiscountBase(cart, appliedCoupon, isAud);
+    if (appliedCoupon.category_filter && discountBase === 0) {
+      couponValid = false;
+      couponMsg = `${appliedCoupon.code} requires a matching item (${appliedCoupon.category_filter}) in your cart`;
+    } else {
+      couponValid = true;
+      discount = appliedCoupon.discount_type === 'percent' ? discountBase * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
+      discount = Math.min(discount, discountBase);
+    }
   }
   const total = subtotal - discount;
   const subRow = document.getElementById('cart-subtotal-row');
@@ -1574,7 +1580,7 @@ function renderCart() {
   if (subEl) subEl.textContent = sym + fmtP(subtotal);
   const totalEl = document.getElementById('cart-total');
   if (totalEl) totalEl.textContent = sym + fmtP(total);
-  renderCouponUI(couponValid, region);
+  renderCouponUI(couponValid, region, couponMsg);
   const waNum = (isAud && waAu) ? waAu : waIn;
   const checkoutBtn = document.getElementById('cart-checkout');
   const rzpBtn = document.getElementById('cart-razorpay');
@@ -1594,7 +1600,18 @@ function renderCart() {
     checkoutBtn.classList.add('disabled');
   }
 }
-function renderCouponUI(couponValid, region) {
+// Only items matching a coupon's category_filter (case-insensitive substring
+// of the item name, same convention as the shop's own category filter —
+// matchF() below) count toward that coupon's discount base. No filter means
+// the whole cart, same as coupons always worked before category scoping.
+function couponDiscountBase(cartItems, coupon, isAud) {
+  const priceField = isAud ? 'price_aud' : 'price_inr';
+  const matching = coupon.category_filter
+    ? cartItems.filter(c => (c.name || '').toLowerCase().includes(coupon.category_filter.toLowerCase()))
+    : cartItems;
+  return matching.reduce((a, c) => a + (c[priceField] || 0), 0);
+}
+function renderCouponUI(couponValid, region, couponMsg) {
   const form = document.getElementById('cart-coupon-form');
   const applied = document.getElementById('cart-coupon-applied');
   const msg = document.getElementById('cart-coupon-msg');
@@ -1609,7 +1626,7 @@ function renderCouponUI(couponValid, region) {
   } else if (appliedCoupon && !couponValid) {
     form.style.display = 'none';
     applied.style.display = 'flex';
-    document.getElementById('cart-coupon-applied-text').textContent = `${appliedCoupon.code} not valid for this market`;
+    document.getElementById('cart-coupon-applied-text').textContent = couponMsg || `${appliedCoupon.code} not valid for this market`;
     msg.textContent = '';
   } else {
     form.style.display = 'flex';
@@ -1620,12 +1637,12 @@ async function applyCoupon() {
   const code = document.getElementById('cart-coupon-code').value.trim();
   const wa = document.getElementById('cart-coupon-wa').value.trim();
   const msg = document.getElementById('cart-coupon-msg');
-  if (!code || !wa) { msg.textContent = 'Enter both the code and your WhatsApp number.'; return; }
+  if (!code) { msg.textContent = 'Enter a coupon code.'; return; }
   const region = currency === 'AU' ? 'australia' : 'india';
   msg.textContent = 'Checking...';
   const res = await spPostRPC('validate_coupon', { p_code: code, p_wa: wa, p_region: region });
   if (res && res.valid) {
-    appliedCoupon = { code: res.code, discount_type: res.discount_type, discount_value: parseFloat(res.discount_value), region, wa };
+    appliedCoupon = { code: res.code, discount_type: res.discount_type, discount_value: parseFloat(res.discount_value), region, wa, category_filter: res.category_filter || null };
     sessionStorage.setItem('msh_coupon', JSON.stringify(appliedCoupon));
     msg.textContent = '';
     renderCart();
@@ -1671,8 +1688,9 @@ async function createRazorpayLink() {
   const subtotal = cart.reduce((a,c) => a + (c.price_inr||0), 0);
   let discount = 0;
   if (appliedCoupon && (appliedCoupon.region === 'all' || appliedCoupon.region === 'india')) {
-    discount = appliedCoupon.discount_type === 'percent' ? subtotal * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
-    discount = Math.min(discount, subtotal);
+    const discountBase = couponDiscountBase(cart, appliedCoupon, false);
+    discount = appliedCoupon.discount_type === 'percent' ? discountBase * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
+    discount = Math.min(discount, discountBase);
   }
   const total = subtotal - discount;
   const items = cart.map(c => ({ name: c.name, variant: c.variant||'', sku_code: c.sku_code, price: c.price_inr }));
