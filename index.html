@@ -1018,25 +1018,61 @@ footer {
   </div>
 </div>
 
-<!-- ════ ACCOUNT MODAL (login via WhatsApp OTP, My Account) ════ -->
+<!-- ════ ACCOUNT MODAL (email-verified signup + password login, My Account) ════ -->
 <div id="account-overlay" onclick="closeAccountModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;"></div>
 <div id="account-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:901;background:var(--dark2,#16110a);border:1px solid var(--gold-dim);border-radius:10px;padding:28px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;">
   <button onclick="closeAccountModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--gold-light);font-size:16px;cursor:pointer;">✕</button>
 
-  <div id="account-step-phone">
+  <div id="account-step-login">
     <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Log In</h3>
-    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter your WhatsApp number to receive a login code.</p>
-    <input id="acct-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
-    <button onclick="sendCustomerOtp()" class="cart-checkout-btn" style="background:var(--gold);">Send Code</button>
-    <p id="acct-phone-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">WhatsApp number or email, and your password.</p>
+    <input id="li-identifier" placeholder="WhatsApp number or email" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="li-password" type="password" placeholder="Password" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="loginCustomer()" class="cart-checkout-btn" style="background:var(--gold);">Log In</button>
+    <p id="li-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+    <p style="font-size:11px;margin-top:14px;text-align:center;">
+      <a href="#" onclick="showAccountStep('forgot');return false;" style="color:var(--gold-light);">Forgot password?</a>
+      &nbsp;·&nbsp;
+      <a href="#" onclick="showAccountStep('signup');return false;" style="color:var(--gold-light);">Create an account</a>
+    </p>
   </div>
 
-  <div id="account-step-otp" style="display:none;">
-    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Enter Code</h3>
-    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter the 6-digit code sent to your WhatsApp.</p>
-    <input id="acct-otp" placeholder="6-digit code" maxlength="6" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
-    <button onclick="verifyCustomerOtp()" class="cart-checkout-btn" style="background:var(--gold);">Verify &amp; Log In</button>
-    <p id="acct-otp-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+  <div id="account-step-signup" style="display:none;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Create Account</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">We'll email you a code to verify your address.</p>
+    <input id="su-name" placeholder="Your name" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="su-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="su-email" type="email" placeholder="Email address" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="su-password" type="password" placeholder="Password (min. 6 characters)" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="startSignup()" class="cart-checkout-btn" style="background:var(--gold);">Send Verification Code</button>
+    <p id="su-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+    <p style="font-size:11px;margin-top:14px;text-align:center;"><a href="#" onclick="showAccountStep('login');return false;" style="color:var(--gold-light);">Already have an account? Log in</a></p>
+  </div>
+
+  <div id="account-step-signup-otp" style="display:none;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Verify Your Email</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter the 6-digit code sent to your email.</p>
+    <input id="su-otp" placeholder="6-digit code" maxlength="6" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="verifySignupOtp()" class="cart-checkout-btn" style="background:var(--gold);">Verify &amp; Create Account</button>
+    <p id="su-otp-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+  </div>
+
+  <div id="account-step-forgot" style="display:none;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Reset Password</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter your email — we'll send a reset code.</p>
+    <input id="fp-email" type="email" placeholder="Email address" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="requestPasswordReset()" class="cart-checkout-btn" style="background:var(--gold);">Send Reset Code</button>
+    <p id="fp-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+    <p style="font-size:11px;margin-top:14px;text-align:center;"><a href="#" onclick="showAccountStep('login');return false;" style="color:var(--gold-light);">Back to log in</a></p>
+  </div>
+
+  <div id="account-step-forgot-otp" style="display:none;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Set New Password</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter the code sent to your email and a new password.</p>
+    <input id="fp-otp" placeholder="6-digit code" maxlength="6" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="fp-password" type="password" placeholder="New password (min. 6 characters)" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="verifyPasswordReset()" class="cart-checkout-btn" style="background:var(--gold);">Reset Password &amp; Log In</button>
+    <p id="fp-otp-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
   </div>
 
   <div id="account-step-loggedin" style="display:none;">
@@ -1687,66 +1723,132 @@ async function restoreCustomerSession() {
   if (!customerSession || !customerSession.token) return;
   const res = await spPostRPC('validate_customer_session', { p_token: customerSession.token });
   if (!res) { customerSession = null; localStorage.removeItem('msh_customer_session'); }
-  else { customerSession = { ...customerSession, name: res.name, wa: res.wa, customer_id: res.customer_id }; localStorage.setItem('msh_customer_session', JSON.stringify(customerSession)); }
+  else { customerSession = { ...customerSession, name: res.name, wa: res.wa, email: res.email, customer_id: res.customer_id }; localStorage.setItem('msh_customer_session', JSON.stringify(customerSession)); }
   updateAccountBtn();
+}
+const ACCOUNT_STEPS = ['login', 'signup', 'signup-otp', 'forgot', 'forgot-otp', 'loggedin'];
+function showAccountStep(step) {
+  ACCOUNT_STEPS.forEach(s => { const el = document.getElementById('account-step-' + s); if (el) el.style.display = (s === step ? 'block' : 'none'); });
 }
 function openAccountModal() {
   document.getElementById('account-overlay').style.display = 'block';
   document.getElementById('account-modal').style.display = 'block';
-  document.getElementById('account-step-phone').style.display = 'none';
-  document.getElementById('account-step-otp').style.display = 'none';
-  document.getElementById('account-step-loggedin').style.display = 'none';
   if (customerSession && customerSession.token) {
-    document.getElementById('account-step-loggedin').style.display = 'block';
-    document.getElementById('acct-wa-display').textContent = customerSession.wa || '';
+    showAccountStep('loggedin');
+    document.getElementById('acct-wa-display').textContent = customerSession.email || customerSession.wa || '';
     loadMyAccount();
   } else {
-    document.getElementById('account-step-phone').style.display = 'block';
+    showAccountStep('login');
   }
 }
 function closeAccountModal() {
   document.getElementById('account-overlay').style.display = 'none';
   document.getElementById('account-modal').style.display = 'none';
 }
-async function sendCustomerOtp() {
-  const wa = document.getElementById('acct-wa').value.trim();
-  const msg = document.getElementById('acct-phone-msg');
-  if (!wa) { msg.textContent = 'Enter your WhatsApp number.'; return; }
+function setCustomerSession(data) {
+  customerSession = { token: data.token, wa: data.wa, email: data.email, name: data.name, customer_id: data.customer_id };
+  localStorage.setItem('msh_customer_session', JSON.stringify(customerSession));
+  updateAccountBtn();
+}
+async function loginCustomer() {
+  const identifier = document.getElementById('li-identifier').value.trim();
+  const password = document.getElementById('li-password').value;
+  const msg = document.getElementById('li-msg');
+  if (!identifier || !password) { msg.textContent = 'Enter your WhatsApp number/email and password.'; return; }
+  msg.textContent = 'Logging in…';
+  const res = await spPostRPC('login_customer', { p_identifier: identifier, p_password: password });
+  if (!res || !res.ok) {
+    msg.textContent = res && res.error === 'email_not_verified' ? 'Please verify your email first — check your inbox for the code.'
+      : 'Incorrect WhatsApp number/email or password.';
+    return;
+  }
+  msg.textContent = '';
+  setCustomerSession(res);
+  showAccountStep('loggedin');
+  document.getElementById('acct-wa-display').textContent = customerSession.email || customerSession.wa || '';
+  loadMyAccount();
+  renderReviews();
+}
+async function startSignup() {
+  const name = document.getElementById('su-name').value.trim();
+  const wa = document.getElementById('su-wa').value.trim();
+  const email = document.getElementById('su-email').value.trim();
+  const password = document.getElementById('su-password').value;
+  const msg = document.getElementById('su-msg');
+  if (!name || !wa || !email || !password) { msg.textContent = 'Please fill in every field.'; return; }
   msg.textContent = 'Sending code…';
   try {
-    const res = await fetch(`${_SB}/functions/v1/send-customer-otp`, {
+    const res = await fetch(`${_SB}/functions/v1/start-customer-signup`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
-      body: JSON.stringify({ wa })
+      body: JSON.stringify({ name, wa, email, password })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Could not send code');
+    if (!res.ok) throw new Error(data.error || 'Could not start signup');
     msg.textContent = '';
-    document.getElementById('account-step-phone').style.display = 'none';
-    document.getElementById('account-step-otp').style.display = 'block';
+    showAccountStep('signup-otp');
   } catch (e) {
     msg.textContent = e.message || 'Could not send code — please try again.';
   }
 }
-async function verifyCustomerOtp() {
-  const wa = document.getElementById('acct-wa').value.trim();
-  const code = document.getElementById('acct-otp').value.trim();
-  const msg = document.getElementById('acct-otp-msg');
+async function verifySignupOtp() {
+  const email = document.getElementById('su-email').value.trim();
+  const code = document.getElementById('su-otp').value.trim();
+  const msg = document.getElementById('su-otp-msg');
   if (!code) { msg.textContent = 'Enter the code.'; return; }
   msg.textContent = 'Verifying…';
   try {
-    const res = await fetch(`${_SB}/functions/v1/verify-customer-otp`, {
+    const res = await fetch(`${_SB}/functions/v1/verify-customer-signup`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
-      body: JSON.stringify({ wa, code })
+      body: JSON.stringify({ email, code })
     });
     const data = await res.json();
     if (!res.ok || !data.token) throw new Error(data.error || 'Incorrect or expired code');
-    customerSession = { token: data.token, wa: data.wa, name: data.name, customer_id: data.customer_id };
-    localStorage.setItem('msh_customer_session', JSON.stringify(customerSession));
-    updateAccountBtn();
     msg.textContent = '';
-    document.getElementById('account-step-otp').style.display = 'none';
-    document.getElementById('account-step-loggedin').style.display = 'block';
-    document.getElementById('acct-wa-display').textContent = customerSession.wa || '';
+    setCustomerSession(data);
+    showAccountStep('loggedin');
+    document.getElementById('acct-wa-display').textContent = customerSession.email || customerSession.wa || '';
+    loadMyAccount();
+    renderReviews();
+  } catch (e) {
+    msg.textContent = e.message || 'Incorrect or expired code.';
+  }
+}
+async function requestPasswordReset() {
+  const email = document.getElementById('fp-email').value.trim();
+  const msg = document.getElementById('fp-msg');
+  if (!email) { msg.textContent = 'Enter your email address.'; return; }
+  msg.textContent = 'Sending code…';
+  try {
+    const res = await fetch(`${_SB}/functions/v1/request-password-reset`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not send code');
+    msg.textContent = '';
+    showAccountStep('forgot-otp');
+  } catch (e) {
+    msg.textContent = e.message || 'Could not send code — please try again.';
+  }
+}
+async function verifyPasswordReset() {
+  const email = document.getElementById('fp-email').value.trim();
+  const code = document.getElementById('fp-otp').value.trim();
+  const password = document.getElementById('fp-password').value;
+  const msg = document.getElementById('fp-otp-msg');
+  if (!code || !password) { msg.textContent = 'Enter the code and a new password.'; return; }
+  msg.textContent = 'Resetting…';
+  try {
+    const res = await fetch(`${_SB}/functions/v1/verify-password-reset`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
+      body: JSON.stringify({ email, code, password })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.token) throw new Error(data.error || 'Incorrect or expired code');
+    msg.textContent = '';
+    setCustomerSession(data);
+    showAccountStep('loggedin');
+    document.getElementById('acct-wa-display').textContent = customerSession.email || customerSession.wa || '';
     loadMyAccount();
     renderReviews();
   } catch (e) {

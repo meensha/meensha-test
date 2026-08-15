@@ -1,41 +1,53 @@
 -- Customer login (M11) — stage 1 of the build plan (see
--- ~/.claude/plans/stateless-nibbling-scone.md for the full plan). WhatsApp
--- OTP login + "My Account" order/payment/shipping visibility.
+-- ~/.claude/plans/stateless-nibbling-scone.md for the full plan).
+--
+-- Signup: WA number + email + name + password, email verified by a 6-digit
+-- OTP before the account is usable. Login: WA number OR email + password,
+-- no OTP. Forgot password: email OTP, then set a new password. OTP is
+-- delivered by email (free — Resend/Brevo free tier), not WhatsApp (paid,
+-- needs a Business API provider) — this whole flow costs nothing to run.
 --
 -- No customer_id FK gets backfilled onto historical orders/sales — "my
 -- orders" is matched by verified WhatsApp number against the existing
 -- customer->>'wa' jsonb field already used everywhere (same trust level
--- coupon-locking already relies on). customers exists to anchor OTP login
--- and sessions, not as the join key for orders.
+-- coupon-locking already relies on), regardless of whether the customer
+-- logged in with their WA number or their email. customers.wa stays the
+-- account's real identity; email is a second unique identifier + OTP
+-- delivery address, not a replacement for it.
 --
--- All three tables use the same lockdown pattern as orders/telegram_sessions/
+-- All tables use the same lockdown pattern as orders/telegram_sessions/
 -- user_credentials: RLS on, zero anon/authenticated policies. customer_otp
 -- and customer_sessions are OTP-hash/session-token tables — touched only by
--- the two Edge Functions (via service_role, which bypasses RLS/grants
--- entirely, so no GRANT EXECUTE is needed for the service-role-only
--- functions below). customers holds PII (name+WA) so it stays locked down
--- too, even though it's less sensitive than the other two.
+-- the Edge Functions (via service_role, which bypasses RLS/grants entirely,
+-- so no GRANT EXECUTE is needed for the service-role-only functions below).
+-- customers holds PII + a password hash so it stays locked down too.
 
 CREATE TABLE IF NOT EXISTS customers (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  wa            text UNIQUE NOT NULL,  -- canonical form: digits only, country code, e.g. '918709525218'
-  name          text,
-  created_at    timestamptz DEFAULT now(),
-  last_login_at timestamptz
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  wa                 text UNIQUE NOT NULL,  -- canonical form: digits only, country code, e.g. '918709525218'
+  email              text UNIQUE NOT NULL,
+  name               text,
+  password_hash      text NOT NULL,
+  email_verified_at  timestamptz,
+  created_at         timestamptz DEFAULT now(),
+  last_login_at      timestamptz
 );
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 -- no policies — only SECURITY DEFINER RPCs touch this
 
+-- purpose ∈ 'signup' | 'reset'. Keyed by email since delivery is always by
+-- email now, regardless of which flow the code is for.
 CREATE TABLE IF NOT EXISTS customer_otp (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  wa         text NOT NULL,
+  email      text NOT NULL,
+  purpose    text NOT NULL,
   code_hash  text NOT NULL,
   attempts   int NOT NULL DEFAULT 0,
   expires_at timestamptz NOT NULL,
   used_at    timestamptz,
   created_at timestamptz DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_customer_otp_wa ON customer_otp(wa, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_customer_otp_email ON customer_otp(email, purpose, created_at DESC);
 ALTER TABLE customer_otp ENABLE ROW LEVEL SECURITY;
 -- no policies — service_role only (called from the Edge Functions)
 
@@ -49,31 +61,59 @@ CREATE TABLE IF NOT EXISTS customer_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_customer_sessions_customer ON customer_sessions(customer_id);
 ALTER TABLE customer_sessions ENABLE ROW LEVEL SECURITY;
--- no policies — service_role + the two anon-exposed RPCs below (which never
+-- no policies — service_role + the anon-exposed RPCs below (which never
 -- accept a client-supplied wa/customer_id, only an opaque token) touch this
 
 -- ═══════════════════════════════════════════════
--- OTP send/verify — service_role only (called from the Edge Functions with
--- the service_role key, which bypasses RLS/grants, so these are
--- deliberately NOT granted to anon/authenticated at all).
+-- Signup — service_role only (called from Edge Functions with the
+-- service_role key, which bypasses RLS/grants, so these are deliberately
+-- NOT granted to anon/authenticated at all).
 -- ═══════════════════════════════════════════════
 
-CREATE OR REPLACE FUNCTION create_customer_otp(p_wa text, p_code text)
+-- Creates (or refreshes, if the previous attempt was never verified) an
+-- unverified customer row and returns its id, ready for an OTP to be sent
+-- to p_email. Fails if the wa or email already belongs to a *verified*
+-- account — an abandoned unverified signup can be retried/overwritten.
+CREATE OR REPLACE FUNCTION start_customer_signup(p_wa text, p_email text, p_name text, p_password text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  existing customers;
+BEGIN
+  SELECT * INTO existing FROM customers WHERE wa = p_wa OR email = p_email;
+  IF existing IS NOT NULL AND existing.email_verified_at IS NOT NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error',
+      CASE WHEN existing.wa = p_wa THEN 'wa_taken' ELSE 'email_taken' END);
+  END IF;
+
+  IF existing IS NOT NULL THEN
+    UPDATE customers SET wa = p_wa, email = p_email, name = p_name,
+      password_hash = crypt(p_password, gen_salt('bf'))
+      WHERE id = existing.id;
+  ELSE
+    INSERT INTO customers (wa, email, name, password_hash)
+      VALUES (p_wa, p_email, p_name, crypt(p_password, gen_salt('bf')));
+  END IF;
+
+  RETURN jsonb_build_object('ok', true);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION create_customer_otp(p_email text, p_purpose text, p_code text)
 RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE v_id uuid;
 BEGIN
-  INSERT INTO customer_otp (wa, code_hash, expires_at)
-  VALUES (p_wa, crypt(p_code, gen_salt('bf')), now() + interval '5 minutes')
+  INSERT INTO customer_otp (email, purpose, code_hash, expires_at)
+  VALUES (p_email, p_purpose, crypt(p_code, gen_salt('bf')), now() + interval '10 minutes')
   RETURNING id INTO v_id;
   RETURN v_id;
 END;
 $$;
 
--- Returns {token, customer_id, wa, name} on a correct code, or NULL on a
--- wrong/expired/already-used one (still increments attempts on a wrong
--- code so a 6-digit code can't be brute-forced within its 5-minute window).
-CREATE OR REPLACE FUNCTION verify_customer_otp_code(p_wa text, p_code text)
+-- Verifies a 'signup' OTP, marks the account verified, and logs it straight
+-- in (returns a session token) — no separate login step right after signup.
+CREATE OR REPLACE FUNCTION verify_customer_signup_otp(p_email text, p_code text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
@@ -82,26 +122,103 @@ DECLARE
   v_token text;
 BEGIN
   SELECT * INTO o FROM customer_otp
-    WHERE wa = p_wa AND used_at IS NULL AND expires_at > now() AND attempts < 5
+    WHERE email = p_email AND purpose = 'signup' AND used_at IS NULL AND expires_at > now() AND attempts < 5
     ORDER BY created_at DESC LIMIT 1;
-  IF o IS NULL THEN RETURN NULL; END IF;
+  IF o IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'expired_or_missing'); END IF;
 
   IF o.code_hash <> crypt(p_code, o.code_hash) THEN
     UPDATE customer_otp SET attempts = attempts + 1 WHERE id = o.id;
-    RETURN NULL;
+    RETURN jsonb_build_object('ok', false, 'error', 'incorrect_code');
   END IF;
-
   UPDATE customer_otp SET used_at = now() WHERE id = o.id;
 
-  INSERT INTO customers (wa) VALUES (p_wa)
-    ON CONFLICT (wa) DO UPDATE SET last_login_at = now()
-    RETURNING * INTO c;
+  UPDATE customers SET email_verified_at = now(), last_login_at = now()
+    WHERE email = p_email RETURNING * INTO c;
+  IF c IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'account_missing'); END IF;
 
   v_token := encode(gen_random_bytes(32), 'hex');
   INSERT INTO customer_sessions (token, customer_id, wa, expires_at)
-    VALUES (v_token, c.id, p_wa, now() + interval '30 days');
+    VALUES (v_token, c.id, c.wa, now() + interval '30 days');
 
-  RETURN jsonb_build_object('token', v_token, 'customer_id', c.id, 'wa', c.wa, 'name', c.name);
+  RETURN jsonb_build_object('ok', true, 'token', v_token, 'customer_id', c.id, 'wa', c.wa, 'email', c.email, 'name', c.name);
+END;
+$$;
+
+-- ═══════════════════════════════════════════════
+-- Login — password-based, no OTP. Anon-callable: only ever verifies a
+-- bcrypt hash and returns an opaque session token, never exposes the hash
+-- itself, so this carries the same trust level as any password-login RPC.
+-- p_identifier is either a WA number (digits) or an email address.
+-- ═══════════════════════════════════════════════
+
+CREATE OR REPLACE FUNCTION login_customer(p_identifier text, p_password text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  c customers;
+  v_token text;
+BEGIN
+  SELECT * INTO c FROM customers WHERE (wa = p_identifier OR email = p_identifier);
+  IF c IS NULL OR c.password_hash <> crypt(p_password, c.password_hash) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid_credentials');
+  END IF;
+  IF c.email_verified_at IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'email_not_verified');
+  END IF;
+
+  UPDATE customers SET last_login_at = now() WHERE id = c.id;
+  v_token := encode(gen_random_bytes(32), 'hex');
+  INSERT INTO customer_sessions (token, customer_id, wa, expires_at)
+    VALUES (v_token, c.id, c.wa, now() + interval '30 days');
+
+  RETURN jsonb_build_object('ok', true, 'token', v_token, 'customer_id', c.id, 'wa', c.wa, 'email', c.email, 'name', c.name);
+END;
+$$;
+GRANT EXECUTE ON FUNCTION login_customer(text, text) TO anon, authenticated;
+
+-- ═══════════════════════════════════════════════
+-- Forgot password — service_role only (Edge Functions send the email).
+-- ═══════════════════════════════════════════════
+
+-- Always returns ok:true whether or not the email exists, so this can't be
+-- used to enumerate registered emails. Only actually queues an OTP (for the
+-- Edge Function to send) when the email is real.
+CREATE OR REPLACE FUNCTION request_password_reset(p_email text)
+RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM customers WHERE email = p_email);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION verify_password_reset(p_email text, p_code text, p_new_password text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  o customer_otp;
+  c customers;
+  v_token text;
+BEGIN
+  SELECT * INTO o FROM customer_otp
+    WHERE email = p_email AND purpose = 'reset' AND used_at IS NULL AND expires_at > now() AND attempts < 5
+    ORDER BY created_at DESC LIMIT 1;
+  IF o IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'expired_or_missing'); END IF;
+
+  IF o.code_hash <> crypt(p_code, o.code_hash) THEN
+    UPDATE customer_otp SET attempts = attempts + 1 WHERE id = o.id;
+    RETURN jsonb_build_object('ok', false, 'error', 'incorrect_code');
+  END IF;
+  UPDATE customer_otp SET used_at = now() WHERE id = o.id;
+
+  UPDATE customers SET password_hash = crypt(p_new_password, gen_salt('bf'))
+    WHERE email = p_email RETURNING * INTO c;
+  IF c IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'account_missing'); END IF;
+
+  v_token := encode(gen_random_bytes(32), 'hex');
+  INSERT INTO customer_sessions (token, customer_id, wa, expires_at)
+    VALUES (v_token, c.id, c.wa, now() + interval '30 days');
+
+  RETURN jsonb_build_object('ok', true, 'token', v_token, 'customer_id', c.id, 'wa', c.wa, 'email', c.email, 'name', c.name);
 END;
 $$;
 
@@ -120,7 +237,7 @@ BEGIN
   IF s IS NULL THEN RETURN NULL; END IF;
   UPDATE customer_sessions SET last_seen_at = now() WHERE token = p_token;
   SELECT * INTO c FROM customers WHERE id = s.customer_id;
-  RETURN jsonb_build_object('customer_id', s.customer_id, 'wa', s.wa, 'name', c.name);
+  RETURN jsonb_build_object('customer_id', s.customer_id, 'wa', s.wa, 'email', c.email, 'name', c.name);
 END;
 $$;
 
