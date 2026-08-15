@@ -672,6 +672,7 @@ footer {
   </ul>
   <div class="nav-right">
     <button id="currency-toggle" onclick="toggleCurrency()" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:5px 12px;cursor:pointer;margin-right:4px;">🇮🇳 INR</button>
+    <button id="account-toggle" onclick="openAccountModal()" style="background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:6px 12px;cursor:pointer;margin-right:4px;font-size:14px;">👤<span id="account-toggle-label" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;margin-left:4px;display:none;"></span></button>
     <button id="cart-toggle" onclick="openCart()" style="position:relative;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:6px 12px;cursor:pointer;margin-right:4px;font-size:14px;">🛍️<span id="cart-count" style="display:none;position:absolute;top:-6px;right:-6px;background:var(--gold);color:var(--dark);font-family:'Cinzel',serif;font-size:9px;font-weight:700;border-radius:50%;width:16px;height:16px;align-items:center;justify-content:center;">0</span></button>
     <a class="nav-btn-c" id="contact-link" href="https://wa.me/918709525218" target="_blank"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><span class="nav-btn-c-label">Contact</span></a>
     <a class="nav-btn-s" href="#shop-page" onclick="openShop('all');return false;">Shop Now</a>
@@ -834,6 +835,10 @@ footer {
     <h2>What They're Saying</h2>
   </div>
   <div id="reviews-grid" style="max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;"></div>
+  <div style="max-width:420px;margin:32px auto 0;text-align:center;">
+    <button onclick="openReviewForm()" style="background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:9px 20px;cursor:pointer;font-size:12px;letter-spacing:.05em;font-family:'Cinzel',serif;">Write a Review</button>
+    <div id="review-form-box" style="display:none;text-align:left;margin-top:16px;"></div>
+  </div>
 </section>
 
 <!-- ════ SHOP ════ -->
@@ -1014,6 +1019,35 @@ footer {
   </div>
 </div>
 
+<!-- ════ ACCOUNT MODAL (login via WhatsApp OTP, My Account) ════ -->
+<div id="account-overlay" onclick="closeAccountModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;"></div>
+<div id="account-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:901;background:var(--dark2,#16110a);border:1px solid var(--gold-dim);border-radius:10px;padding:28px;width:90%;max-width:380px;max-height:85vh;overflow-y:auto;">
+  <button onclick="closeAccountModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--gold-light);font-size:16px;cursor:pointer;">✕</button>
+
+  <div id="account-step-phone">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Log In</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter your WhatsApp number to receive a login code.</p>
+    <input id="acct-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="sendCustomerOtp()" class="cart-checkout-btn" style="background:var(--gold);">Send Code</button>
+    <p id="acct-phone-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+  </div>
+
+  <div id="account-step-otp" style="display:none;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Enter Code</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Enter the 6-digit code sent to your WhatsApp.</p>
+    <input id="acct-otp" placeholder="6-digit code" maxlength="6" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <button onclick="verifyCustomerOtp()" class="cart-checkout-btn" style="background:var(--gold);">Verify &amp; Log In</button>
+    <p id="acct-otp-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+  </div>
+
+  <div id="account-step-loggedin" style="display:none;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">My Account</h3>
+    <p id="acct-wa-display" style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;"></p>
+    <div id="acct-orders"></div>
+    <button onclick="logoutCustomer()" style="margin-top:16px;background:none;border:1px solid var(--gold-dim);border-radius:4px;color:var(--gold-light);padding:8px 12px;cursor:pointer;font-size:12px;width:100%;">Log Out</button>
+  </div>
+</div>
+
 <script>
 /* ── SUPABASE ── */
 const _SB='https://eglanmhhcccsuhbxywua.supabase.co',_SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
@@ -1063,6 +1097,7 @@ let currency = localStorage.getItem('msh_currency') || null;
 let waIn = '918709525218', waAu = '', razorpayEnabled = false;
 let checkoutCustomer = JSON.parse(sessionStorage.getItem('msh_checkout_customer')||'null');
 let appliedCoupon = JSON.parse(sessionStorage.getItem('msh_coupon')||'null');
+let customerSession = JSON.parse(localStorage.getItem('msh_customer_session')||'null'); // {token, wa, name, customer_id}
 
 async function detectCurrency() {
   if (currency) return;
@@ -1213,10 +1248,11 @@ async function renderInstagramTiles() {
 async function renderReviews() {
   let revs = [];
   try { revs = await spFetch('reviews', '?status=eq.approved&order=created_at.desc&limit=12'); } catch(e) { return; }
-  if (!revs.length) return;
   const grid = document.getElementById('reviews-grid');
   const section = document.getElementById('reviews-section');
   if (!grid || !section) return;
+  section.style.display = 'block';
+  if (!revs.length) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(232,213,163,.4);font-style:italic;">Be the first to share your experience.</p>'; return; }
   grid.innerHTML = revs.map(r => `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
     <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
     <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${r.review_text || ''}</p>
@@ -1633,6 +1669,141 @@ function closeCart() {
   document.getElementById('cart-drawer').classList.remove('on');
 }
 
+/* ── CUSTOMER LOGIN (WhatsApp OTP) ── */
+function updateAccountBtn() {
+  const lbl = document.getElementById('account-toggle-label');
+  if (!lbl) return;
+  if (customerSession && customerSession.name) { lbl.textContent = customerSession.name.split(' ')[0]; lbl.style.display = 'inline'; }
+  else if (customerSession) { lbl.textContent = 'Account'; lbl.style.display = 'inline'; }
+  else { lbl.style.display = 'none'; }
+}
+async function restoreCustomerSession() {
+  if (!customerSession || !customerSession.token) return;
+  const res = await spPostRPC('validate_customer_session', { p_token: customerSession.token });
+  if (!res) { customerSession = null; localStorage.removeItem('msh_customer_session'); }
+  else { customerSession = { ...customerSession, name: res.name, wa: res.wa, customer_id: res.customer_id }; localStorage.setItem('msh_customer_session', JSON.stringify(customerSession)); }
+  updateAccountBtn();
+}
+function openAccountModal() {
+  document.getElementById('account-overlay').style.display = 'block';
+  document.getElementById('account-modal').style.display = 'block';
+  document.getElementById('account-step-phone').style.display = 'none';
+  document.getElementById('account-step-otp').style.display = 'none';
+  document.getElementById('account-step-loggedin').style.display = 'none';
+  if (customerSession && customerSession.token) {
+    document.getElementById('account-step-loggedin').style.display = 'block';
+    document.getElementById('acct-wa-display').textContent = customerSession.wa || '';
+    loadMyAccount();
+  } else {
+    document.getElementById('account-step-phone').style.display = 'block';
+  }
+}
+function closeAccountModal() {
+  document.getElementById('account-overlay').style.display = 'none';
+  document.getElementById('account-modal').style.display = 'none';
+}
+async function sendCustomerOtp() {
+  const wa = document.getElementById('acct-wa').value.trim();
+  const msg = document.getElementById('acct-phone-msg');
+  if (!wa) { msg.textContent = 'Enter your WhatsApp number.'; return; }
+  msg.textContent = 'Sending code…';
+  try {
+    const res = await fetch(`${_SB}/functions/v1/send-customer-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
+      body: JSON.stringify({ wa })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Could not send code');
+    msg.textContent = '';
+    document.getElementById('account-step-phone').style.display = 'none';
+    document.getElementById('account-step-otp').style.display = 'block';
+  } catch (e) {
+    msg.textContent = e.message || 'Could not send code — please try again.';
+  }
+}
+async function verifyCustomerOtp() {
+  const wa = document.getElementById('acct-wa').value.trim();
+  const code = document.getElementById('acct-otp').value.trim();
+  const msg = document.getElementById('acct-otp-msg');
+  if (!code) { msg.textContent = 'Enter the code.'; return; }
+  msg.textContent = 'Verifying…';
+  try {
+    const res = await fetch(`${_SB}/functions/v1/verify-customer-otp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
+      body: JSON.stringify({ wa, code })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.token) throw new Error(data.error || 'Incorrect or expired code');
+    customerSession = { token: data.token, wa: data.wa, name: data.name, customer_id: data.customer_id };
+    localStorage.setItem('msh_customer_session', JSON.stringify(customerSession));
+    updateAccountBtn();
+    msg.textContent = '';
+    document.getElementById('account-step-otp').style.display = 'none';
+    document.getElementById('account-step-loggedin').style.display = 'block';
+    document.getElementById('acct-wa-display').textContent = customerSession.wa || '';
+    loadMyAccount();
+    renderReviews();
+  } catch (e) {
+    msg.textContent = e.message || 'Incorrect or expired code.';
+  }
+}
+function logoutCustomer() {
+  customerSession = null;
+  localStorage.removeItem('msh_customer_session');
+  updateAccountBtn();
+  closeAccountModal();
+  renderReviews();
+}
+async function loadMyAccount() {
+  const el = document.getElementById('acct-orders');
+  if (!el || !customerSession) return;
+  el.innerHTML = '<p style="font-size:12px;opacity:.6;">Loading your orders…</p>';
+  const res = await spPostRPC('get_my_orders', { p_token: customerSession.token });
+  if (!res) { el.innerHTML = '<p style="font-size:12px;opacity:.6;">Could not load orders.</p>'; return; }
+  const rows = [...(res.pending||[]), ...(res.completed||[])];
+  if (!rows.length) { el.innerHTML = '<p style="font-size:12px;opacity:.6;">No orders yet.</p>'; return; }
+  el.innerHTML = rows.map(o => `<div style="border:1px solid var(--gold-dim);border-radius:6px;padding:10px;margin-bottom:8px;font-size:12px;">
+    <div style="font-weight:700;color:var(--gold-light);">${o.inv || o.id.slice(0,8)}</div>
+    <div style="opacity:.7;">${(o.items||[]).map(i=>i.name).join(', ')}</div>
+    <div style="opacity:.7;">${o.status ? 'Status: '+o.status : (o.shipping_status ? 'Shipping: '+o.shipping_status : 'Completed')}</div>
+  </div>`).join('');
+}
+
+/* ── SUBMIT A REVIEW (logged-in customers, delivered orders only) ── */
+async function openReviewForm() {
+  if (!customerSession || !customerSession.token) { openAccountModal(); return; }
+  const box = document.getElementById('review-form-box');
+  if (!box) return;
+  box.style.display = 'block';
+  box.innerHTML = '<p style="font-size:12px;opacity:.6;">Loading your delivered orders…</p>';
+  const res = await spPostRPC('get_my_orders', { p_token: customerSession.token });
+  const delivered = (res && res.completed || []).filter(s => s.shipping_status === 'delivered' || s.delivery_mode !== 'shipping');
+  if (!delivered.length) { box.innerHTML = '<p style="font-size:12px;opacity:.6;">Reviews can be written once an order has been delivered to you.</p>'; return; }
+  const opts = delivered.map(s => `<option value="${s.id}">${s.inv || s.id.slice(0,8)} — ${(s.items||[]).map(i=>i.name).join(', ')}</option>`).join('');
+  box.innerHTML = `
+    <select id="rev-sale-id" style="width:100%;margin-bottom:8px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">${opts}</select>
+    <select id="rev-rating" style="width:100%;margin-bottom:8px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+      <option value="5">★★★★★ Excellent</option><option value="4">★★★★☆ Good</option><option value="3">★★★☆☆ Okay</option><option value="2">★★☆☆☆ Poor</option><option value="1">★☆☆☆☆ Very Poor</option>
+    </select>
+    <textarea id="rev-text" placeholder="Share your experience…" rows="3" style="width:100%;margin-bottom:8px;padding:8px 10px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;"></textarea>
+    <button onclick="submitReview()" class="cart-checkout-btn" style="background:var(--gold);">Submit Review</button>
+    <p id="rev-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>`;
+}
+async function submitReview() {
+  const saleId = document.getElementById('rev-sale-id').value;
+  const rating = parseInt(document.getElementById('rev-rating').value, 10);
+  const text = document.getElementById('rev-text').value.trim();
+  const msg = document.getElementById('rev-msg');
+  if (!text) { msg.textContent = 'Please write a few words about your experience.'; return; }
+  msg.textContent = 'Submitting…';
+  const res = await spPostRPC('submit_review', { p_token: customerSession.token, p_sale_id: saleId, p_item_snapshot: null, p_rating: rating, p_review_text: text, p_photo_url: null, p_photo_url_2: null });
+  if (res && res.ok) {
+    document.getElementById('review-form-box').innerHTML = '<p style="font-size:12px;color:#8fdb8f;">Thank you! Your review has been submitted for approval.</p>';
+  } else {
+    msg.textContent = (res && res.error) || 'Could not submit review.';
+  }
+}
+
 function filterShop(f, btn) {
   spF = f;
   document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
@@ -1683,6 +1854,7 @@ loadShop().then(() => {
   // an open cart here, since the drawer itself only exists on this page.
   if (location.hash === '#open-cart') openCart();
 });
+restoreCustomerSession();
 </script>
 </body>
 </html>
