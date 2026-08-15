@@ -121,6 +121,26 @@ async function tgSend(chatId: number, text: string, replyMarkup?: unknown) {
   });
 }
 
+// Best-effort copy of a sale confirmation to MeenshaMonitor (@meenshabot),
+// a separate read-only bot for owner-side visibility. Silently no-ops if
+// the monitor chat hasn't been set up yet (settings.telegram_monitor_chat_id
+// empty) or TELEGRAM_MONITOR_BOT_TOKEN isn't set — this must never block or
+// fail a real sale.
+async function notifyMonitor(supabase: SB, text: string) {
+  try {
+    const monitorToken = Deno.env.get("TELEGRAM_MONITOR_BOT_TOKEN");
+    if (!monitorToken) return;
+    const { data: row } = await supabase.from("settings").select("value").eq("key", "telegram_monitor_chat_id").single();
+    const chatId = row?.value;
+    if (!chatId) return;
+    await fetch(`https://api.telegram.org/bot${monitorToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+  } catch { /* monitor notification is best-effort, never breaks a sale */ }
+}
+
 async function saveSession(supabase: SB, chatId: number, state: string, data: SessionData) {
   await supabase.from("telegram_sessions").upsert({
     chat_id: chatId,
@@ -686,6 +706,7 @@ async function finalizeSale(supabase: SB, chatId: number, data: SessionData) {
     `✅ Sale recorded — ${inv}\n\n${lines}\n\nTotal: ₹${total}\nPaid: ₹${paid}\nBalance: ₹${total - paid}` +
       (waLink ? `\n\nTap to send invoice: ${waLink}` : ""),
   );
+  await notifyMonitor(supabase, `🇮🇳 Sale ${inv} — ₹${total} (${data.pay_mode || "?"}), via India Kiosk bot`);
   await showTopMenu(chatId);
 }
 

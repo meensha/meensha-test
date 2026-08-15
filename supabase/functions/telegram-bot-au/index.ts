@@ -35,6 +35,26 @@ async function tgSend(chatId: number | string, text: string, keyboard?: any) {
   });
 }
 
+// Best-effort copy of a sale confirmation to MeenshaMonitor (@meenshabot) —
+// the cross-region visibility bot referenced in the header comment above.
+// Silently no-ops if the monitor chat hasn't been set up yet
+// (settings.telegram_monitor_chat_id empty) or TELEGRAM_MONITOR_BOT_TOKEN
+// isn't set — this must never block or fail a real sale.
+async function notifyMonitor(supabase: any, text: string) {
+  try {
+    const monitorToken = Deno.env.get("TELEGRAM_MONITOR_BOT_TOKEN");
+    if (!monitorToken) return;
+    const { data: row } = await supabase.from("settings").select("value").eq("key", "telegram_monitor_chat_id").single();
+    const chatId = row?.value;
+    if (!chatId) return;
+    await fetch(`https://api.telegram.org/bot${monitorToken}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text }),
+    });
+  } catch { /* monitor notification is best-effort, never breaks a sale */ }
+}
+
 async function tgSendPhoto(chatId: number | string, photoUrl: string, caption: string, keyboard?: any) {
   await fetch(`${TG_API}/sendPhoto`, {
     method: "POST",
@@ -191,6 +211,7 @@ async function kioskFinalize(supabase: any, chatId: number, data: any) {
   await tgSend(chatId, `✅ Sale complete — ${sale.inv}\nTotal: ${fmtAud(total)}\n\n[Send to customer via WhatsApp](https://wa.me/${waDigits}?text=${waMsg})`, {
     inline_keyboard: [[{ text: "🆕 Start new sale", callback_data: "kiosk:start" }]],
   });
+  await notifyMonitor(supabase, `🇦🇺 Sale ${sale.inv} — ${fmtAud(total)} (${data.payment_mode || "?"}), via AU Kiosk bot`);
 }
 
 // ── Stock Intake (draft-only) ───────────────────────────────────────────────
