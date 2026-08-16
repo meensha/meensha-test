@@ -17,6 +17,8 @@
 //   - Reports: lightweight, AU-scoped only (this bot's own region) — the
 //     fuller cross-region audit/tech-health view lives in @meenshabot, not here.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { askGemini } from "../_shared/askGemini.ts";
+import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN_AU")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -317,7 +319,13 @@ async function handleTextInput(supabase: any, chatId: number, state: string, dat
       }
       break;
     default:
-      await tgSend(chatId, "Not sure what to do with that — try /start.");
+      try {
+        const answer = await askGemini(supabase, text, LOOKUP_CATALOG_REGIONAL, (sb, name, params) =>
+          runLookup(sb, name, { ...params, region: "australia" }));
+        await tgSend(chatId, answer);
+      } catch {
+        await tgSend(chatId, "Not sure what to do with that — try /start.");
+      }
   }
 }
 
@@ -407,9 +415,21 @@ Deno.serve(async (req: Request) => {
   const callbackData = update.callback_query?.data;
   const photo = update.message?.photo;
 
-  if (text === "/start" || (state === "idle" && !callbackData && text !== undefined && !photo)) {
+  if (text === "/start") {
     await showTopMenu(chatId);
     await saveSession(supabase, chatId, "idle", {});
+  } else if (state === "idle" && !callbackData && text !== undefined && !photo) {
+    // Idle + free text that isn't /start: treat as a natural-language
+    // question (stock/price/sales lookups, AU-scoped only) instead of
+    // just dumping them back to the menu.
+    try {
+      const answer = await askGemini(supabase, text, LOOKUP_CATALOG_REGIONAL, (sb, name, params) =>
+        runLookup(sb, name, { ...params, region: "australia" }));
+      await tgSend(chatId, answer);
+    } catch {
+      await showTopMenu(chatId);
+      await saveSession(supabase, chatId, "idle", {});
+    }
   } else if (callbackData === "kiosk:start") {
     await saveSession(supabase, chatId, "kiosk_search", { cart: [] });
     await tgSend(chatId, "Type a product name to search AU stock:");

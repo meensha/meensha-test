@@ -7,6 +7,8 @@
 // Supabase auto-provides SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { askGemini } from "../_shared/askGemini.ts";
+import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -512,8 +514,16 @@ async function handleTextInput(
     return;
   }
 
-  // No active flow expecting text input — just show the menu.
-  await showTopMenu(chatId);
+  // No active flow expecting text input — treat it as a natural-language
+  // question (stock/price/sales lookups, India-scoped only) instead of just
+  // dumping them back to the menu.
+  try {
+    const answer = await askGemini(supabase, text, LOOKUP_CATALOG_REGIONAL, (sb, name, params) =>
+      runLookup(sb, name, { ...params, region: "india" }));
+    await tgSend(chatId, answer);
+  } catch {
+    await showTopMenu(chatId);
+  }
 }
 
 // A coupon discount applies to exactly one item in the cart, not the whole
