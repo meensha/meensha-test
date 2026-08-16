@@ -1,11 +1,13 @@
 # Meensha — Documentation Index
 
-**Start here:** [`MEENSHA_HANDOFF_2026-08-15.md`](MEENSHA_HANDOFF_2026-08-15.md) — the current living status doc. Everything else in this folder is a detail doc it references.
+**Start here:** [`MEENSHA_HANDOFF_2026-08-16.md`](MEENSHA_HANDOFF_2026-08-16.md) — today's addendum (read this first), then [`MEENSHA_HANDOFF_2026-08-15.md`](MEENSHA_HANDOFF_2026-08-15.md) for the fuller current-state doc it builds on.
 
 | Doc | What it covers |
 |---|---|
-| `MEENSHA_HANDOFF_2026-08-15.md` | ⭐ Current state, deployment status, feature inventory, known gaps — read first |
-| `MEENSHA_HANDOFF_2026-08-11.md` | Previous handoff snapshot — superseded, kept for history |
+| `MEENSHA_HANDOFF_2026-08-16.md` | ⭐ Latest — Telegram bot Q&A, MeenshaMonitor auto-registration, a live bug found+fixed — read first |
+| `MEENSHA_HANDOFF_2026-08-15.md` | Fuller current-state doc — customer auth, coupons, nav redesign, MeenshaMonitor wiring |
+| `MEENSHA_HANDOFF_2026-08-11.md` | Earlier handoff snapshot — superseded, kept for history |
+| `BLOG_DRAFT_building_meensha.md` | Notes/beats for a future blog post on building this stack — not publish-ready prose |
 | `TELEGRAM_BOT_BUILD_PLAN.md` | India Telegram bot detailed spec/build plan |
 | `MEENSHA_AUTH_SECURITY_HANDOFF.md` | Password/auth security investigation + fix confirmation |
 | `PRICE_TAG_PRINT_REDESIGN.md` | Approved price-tag printing redesign |
