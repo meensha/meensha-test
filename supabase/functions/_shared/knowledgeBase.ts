@@ -7,7 +7,7 @@
 // deno-lint-ignore no-explicit-any
 type SB = any;
 
-export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary";
+export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending";
 
 export interface LookupDef {
   name: LookupName;
@@ -21,6 +21,7 @@ export const LOOKUP_CATALOG_REGIONAL: LookupDef[] = [
   { name: "item_lookup", description: "Find stock count and price for a product by name/material/variant", params: { query: "search text, e.g. 'ajrak' or 'kalamkari dupatta'" } },
   { name: "sales_summary", description: "Sales total/count for a time period", params: { period: "'today' | 'week' | 'month'" } },
   { name: "low_stock", description: "Items with 2 or fewer units available", params: {} },
+  { name: "returns_pending", description: "Faulty/defective items flagged and awaiting return to the vendor", params: {} },
 ];
 
 export const LOOKUP_CATALOG_FULL: LookupDef[] = [
@@ -29,6 +30,7 @@ export const LOOKUP_CATALOG_FULL: LookupDef[] = [
   { name: "low_stock", description: "Items with 2 or fewer units available, either region", params: {} },
   { name: "tech_health", description: "Live tech-stack status: website, Supabase, Razorpay, GitHub, with response times and a few key stats", params: {} },
   { name: "pnl_summary", description: "Profit and loss for a period: revenue minus purchases (COGS) minus overheads", params: { period: "'today' | 'week' | 'month'" } },
+  { name: "returns_pending", description: "Faulty/defective items flagged and awaiting return to the vendor", params: {} },
 ];
 
 function periodStart(period: string): string {
@@ -110,6 +112,32 @@ async function techHealth(supabase: SB): Promise<string> {
   ].join("\n");
 }
 
+// Single source of truth for "what's pending return to a vendor" — same
+// query admin.html's Home dashboard card (H-RETURNS) reads directly, and
+// what the 10am digest (returns-pending-digest) sends.
+async function returnsPending(supabase: SB): Promise<string> {
+  const { data: rows } = await supabase
+    .from("inventory_returns_pending")
+    .select("qty,reason,flagged_at,sku_id,vendor_uuid")
+    .eq("status", "pending")
+    .order("flagged_at", { ascending: false });
+  if (!rows?.length) return "No faulty items pending return to a vendor right now.";
+
+  const skuIds = [...new Set(rows.map((r: any) => r.sku_id).filter(Boolean))];
+  const vendorIds = [...new Set(rows.map((r: any) => r.vendor_uuid).filter(Boolean))];
+  const [{ data: skus }, { data: vendors }] = await Promise.all([
+    skuIds.length ? supabase.from("inventory_skus").select("id,name").in("id", skuIds) : { data: [] },
+    vendorIds.length ? supabase.from("vendors").select("id,name").in("id", vendorIds) : { data: [] },
+  ]);
+  const skuName = (id: string) => skus?.find((s: any) => s.id === id)?.name || "Unknown item";
+  const vendorName = (id: string) => vendors?.find((v: any) => v.id === id)?.name || "Unknown vendor";
+
+  const lines = rows.map((r: any) =>
+    `• ${skuName(r.sku_id)} x${r.qty} — ${vendorName(r.vendor_uuid)}${r.reason ? " — " + r.reason : ""} (flagged ${(r.flagged_at || "").slice(0, 10)})`
+  );
+  return lines.join("\n");
+}
+
 async function pnlSummary(supabase: SB, params: { period?: string }): Promise<string> {
   const period = params.period || "week";
   const from = periodStart(period);
@@ -132,6 +160,7 @@ export async function runLookup(supabase: SB, name: LookupName, params: Record<s
     case "low_stock": return lowStock(supabase);
     case "tech_health": return techHealth(supabase);
     case "pnl_summary": return pnlSummary(supabase, params);
+    case "returns_pending": return returnsPending(supabase);
     default: return "Unknown lookup.";
   }
 }

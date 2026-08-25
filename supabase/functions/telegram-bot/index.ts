@@ -397,11 +397,9 @@ async function handleKiosk(
       await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
-    if (callbackData.startsWith("kiosk:cartdel:")) {
-      const unitId = callbackData.split(":")[2];
-      data.cart = data.cart.filter((c: { unit_id: string }) => c.unit_id !== unitId);
-      await showCart(chatId, data);
-      await saveSession(supabase, chatId, "kiosk_cart", data);
+    if (callbackData.startsWith("kiosk:cartitem:")) {
+      const skuId = callbackData.split(":")[2];
+      await showCartItemMenu(supabase, chatId, data, skuId);
       return;
     }
     if (callbackData === "kiosk:checkout") {
@@ -412,6 +410,46 @@ async function handleKiosk(
       }
       await tgSend(chatId, "Customer's WhatsApp number?", { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
       await saveSession(supabase, chatId, "kiosk_customer_wa", data);
+      return;
+    }
+  }
+
+  // Per-item submenu reached by tapping an item on the Cart screen —
+  // change quantity, delete it entirely, or back out with no change.
+  if (state === "kiosk_cart_item") {
+    const skuId = data.editingSkuId;
+    if (callbackData === "kiosk:cartitem:back") {
+      await showCart(chatId, data);
+      await saveSession(supabase, chatId, "kiosk_cart", data);
+      return;
+    }
+    if (callbackData === "kiosk:cartitem:delete") {
+      data.cart = data.cart.filter((c: { sku_id: string }) => c.sku_id !== skuId);
+      data.editingSkuId = undefined;
+      await showCart(chatId, data);
+      await saveSession(supabase, chatId, "kiosk_cart", data);
+      return;
+    }
+    if (callbackData === "kiosk:cartitem:editqty") {
+      const { data: sku } = await supabase.from("inventory_skus").select("id, name").eq("id", skuId).single();
+      // Drops this item's current pieces back out of the cart first — the
+      // stock-availability check in the quantity step counts anything
+      // still in data.cart as unavailable, so this SKU has to be cleared
+      // before re-asking "how many," or it'd undercount by what's already
+      // held. Nothing is written to the database either way; the cart only
+      // exists in the session until checkout.
+      data.cart = data.cart.filter((c: { sku_id: string }) => c.sku_id !== skuId);
+      data.editingSkuId = undefined;
+      if (!sku) {
+        await tgSend(chatId, "That item is no longer available.");
+        await showCart(chatId, data);
+        await saveSession(supabase, chatId, "kiosk_cart", data);
+        return;
+      }
+      data.pendingSkuId = skuId;
+      data.pendingSkuName = sku.name;
+      await tgSend(chatId, `New quantity of "${sku.name}"?`, { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
+      await saveSession(supabase, chatId, "kiosk_pick_qty", data);
       return;
     }
   }
@@ -584,8 +622,25 @@ async function showUnitPicker(supabase: SB, chatId: number, skuId: string, data:
   await tgSend(chatId, `Pick the specific piece${progress}:`, { inline_keyboard: buttons });
 }
 
-// Explicit Cart screen between picking pieces and checkout — Add/Delete/
-// Checkout, per the finalized kiosk flow spec.
+type CartLine = { unit_id: string; unit_code: string; sku_id: string; name: string; price: number };
+
+// Groups the cart's individual physical pieces by SKU for display/editing —
+// staff picked specific unit_codes to get here, but thinks of the cart in
+// terms of "2 of this item," not by piece. Tapping a group opens
+// showCartItemMenu (change qty / delete / no change), not a direct delete.
+function groupCartBySku(cart: CartLine[]): { sku_id: string; name: string; qty: number; subtotal: number }[] {
+  const groups = new Map<string, { sku_id: string; name: string; qty: number; subtotal: number }>();
+  for (const c of cart) {
+    const g = groups.get(c.sku_id) ?? { sku_id: c.sku_id, name: c.name, qty: 0, subtotal: 0 };
+    g.qty += 1;
+    g.subtotal += c.price;
+    groups.set(c.sku_id, g);
+  }
+  return [...groups.values()];
+}
+
+// Explicit Cart screen between picking pieces and checkout — tap an item to
+// edit/delete it, Add item, Checkout, or Cancel sale entirely.
 async function showCart(chatId: number, data: SessionData) {
   if (!data.cart.length) {
     await tgSend(chatId, "Cart is empty.", {
@@ -593,21 +648,39 @@ async function showCart(chatId: number, data: SessionData) {
     });
     return;
   }
-  const cartTotal = data.cart.reduce((a: number, c: { price: number }) => a + c.price, 0);
-  const lines = data.cart
-    .map((c: { name: string; price: number }) => `• ${c.name} — ₹${c.price}`)
-    .join("\n");
-  const delButtons = data.cart.map((c: { unit_id: string; unit_code: string }) => [
-    { text: `🗑 Remove ${c.unit_code}`, callback_data: `kiosk:cartdel:${c.unit_id}` },
+  const groups = groupCartBySku(data.cart);
+  const cartTotal = groups.reduce((a, g) => a + g.subtotal, 0);
+  const lines = groups.map((g) => `• ${g.name} × ${g.qty} — ₹${g.subtotal}`).join("\n");
+  const itemButtons = groups.map((g) => [
+    { text: `✏️ ${g.name} (${g.qty})`, callback_data: `kiosk:cartitem:${g.sku_id}` },
   ]);
   await tgSend(chatId, `Cart:\n\n${lines}\n\nSubtotal: ₹${cartTotal}`, {
     inline_keyboard: [
-      ...delButtons,
+      ...itemButtons,
       [{ text: "➕ Add item", callback_data: "kiosk:more" }],
       [{ text: "✅ Checkout", callback_data: "kiosk:checkout" }],
       CANCEL_ROW,
     ],
   });
+}
+
+async function showCartItemMenu(supabase: SB, chatId: number, data: SessionData, skuId: string) {
+  const group = groupCartBySku(data.cart).find((g) => g.sku_id === skuId);
+  if (!group) {
+    await showCart(chatId, data);
+    await saveSession(supabase, chatId, "kiosk_cart", data);
+    return;
+  }
+  data.editingSkuId = skuId;
+  await tgSend(chatId, `"${group.name}" — ${group.qty} in cart (₹${group.subtotal})`, {
+    inline_keyboard: [
+      [{ text: "✏️ Change quantity", callback_data: "kiosk:cartitem:editqty" }],
+      [{ text: "🗑 Delete this item", callback_data: "kiosk:cartitem:delete" }],
+      [{ text: "◀ No change — back to cart", callback_data: "kiosk:cartitem:back" }],
+      CANCEL_ROW,
+    ],
+  });
+  await saveSession(supabase, chatId, "kiosk_cart_item", data);
 }
 
 async function handleTextInput(
