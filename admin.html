@@ -170,6 +170,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <button class="tab" onclick="showTab('sum',this)" id="tb-sum">📈 Summary</button>
   <button class="tab" onclick="showTab('pnl',this)" id="tb-pnl">💰 P&L</button>
   <button class="tab" onclick="showTab('vend',this)" id="tb-vend">🧑‍🌾 Vendors</button>
+  <button class="tab" onclick="showTab('appr',this)" id="tb-appr">🧾 Approvals</button>
   <button class="tab" onclick="showTab('coup',this)" id="tb-coup">🎟️ Coupons</button>
   <button class="tab" onclick="showTab('rev',this)" id="tb-rev">⭐ Reviews</button>
   <button class="tab" onclick="showTab('usr',this)" id="tb-usr">👥 Users</button>
@@ -180,10 +181,20 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <div id="tp-home" class="tp on">
   <div class="sr" id="H-STATS"></div>
   <div class="card"><div class="ct" style="color:var(--orn);">🚚 Shipping Pending</div><div id="H-SHIP"><p style="color:var(--gy);font-style:italic;font-size:13px;">No pending shipments ✅</p></div></div>
+  <div class="card"><div class="ct" style="color:var(--red);">🚨 Returns Pending — Faulty Items</div><div id="H-RETURNS"><p style="color:var(--gy);font-style:italic;font-size:13px;">Loading…</p></div></div>
   <div class="card"><div class="ct">📋 Recent Sales</div><div class="tw"><table><thead><tr><th>Inv#</th><th>Date</th><th>Customer</th><th>Total</th><th>Mode</th><th>Ship Status</th></tr></thead><tbody id="H-SALES"></tbody></table></div></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card"><div class="ct">📦 Low Stock</div><div id="H-LOW"></div></div>
     <div class="card"><div class="ct">💬 Customer Requests</div><div id="H-REQ"></div></div>
+  </div>
+</div>
+
+<!-- ═══ PURCHASE APPROVALS ═══ -->
+<div id="tp-appr" class="tp">
+  <div class="card">
+    <div class="ct">🧾 Purchase Batches Awaiting Approval</div>
+    <div style="font-size:12px;color:var(--gy);margin-bottom:10px;">Submitted via Telegram (Enter Inventory) — nothing here is live inventory yet. Approving creates the purchase record and sellable stock; defective items go to Returns Pending instead, never into stock.</div>
+    <div id="APPR-LIST"></div>
   </div>
 </div>
 
@@ -740,6 +751,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <div style="font-size:10px;color:var(--gy);margin-top:3px;" id="VE-VID-HINT">3-digit numeric; auto-suggested</div>
     </div>
     <div class="fi" style="grid-column:span 2;"><label>Name *</label><input id="VE-NM" placeholder="e.g. Ramesh Weaves"></div>
+    <div class="fi" style="grid-column:span 2;"><label>Company Name</label><input id="VE-CO" placeholder="optional"></div>
     <div class="fi"><label>WhatsApp</label><input id="VE-WA" placeholder="+91..."></div>
     <div class="fi"><label>Place</label><input id="VE-PL" placeholder="e.g. Varanasi"></div>
     <div class="fi"><label>GST No.</label><input id="VE-GST" placeholder="optional"></div>
@@ -1100,7 +1112,7 @@ const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,'Cotton Silk':2.2,'Tussar Silk':2.0,'Kota Doria':1.8,'default':2.0};
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
 // Default role permissions (super_admin can override via UI)
-const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','coup','rev','usr','conn'],owner:['home','inv','stock','sale','sum','pnl','vend','coup','rev','conn'],sales:['sale','inv']};
+const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','usr','conn'],owner:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','conn'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
 const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',fabric:'Cotton',qty:6,sold:0,cost:3000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#2',cat:'AJRK/MODL/SLK',name:'Ajrak Modal Silk',subtype:'',fabric:'Modal Silk',qty:5,sold:0,cost:1399,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#5',cat:'PCHMPL/COT/SLK',name:'Pochampally Cotton Silk',subtype:'',fabric:'Cotton Silk',qty:1,sold:0,cost:720,mrp:1800,disc:10,sale_price:1620,photos:[]},{item_id:'#6',cat:'DOLA/SLK2',name:'Dola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:720,mrp:1500,disc:10,sale_price:1350,photos:[]},{item_id:'#7',cat:'DOLA/SLK1',name:'Dola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:899,mrp:2000,disc:10,sale_price:1800,photos:[]},{item_id:'#8',cat:'TUSS/SLK/MDHB',name:'Tussar Silk',subtype:'Madhubani',fabric:'Tussar Silk',qty:3,sold:0,cost:3200,mrp:6400,disc:10,sale_price:5760,photos:[]},{item_id:'#9',cat:'TUSS/DUPIN',name:'Tussar Dupin',subtype:'',fabric:'Tussar',qty:1,sold:0,cost:3100,mrp:6000,disc:10,sale_price:5400,photos:[]},{item_id:'#10',cat:'TUSS/HAND',name:'Tussar',subtype:'Handpainted',fabric:'Tussar',qty:2,sold:0,cost:4800,mrp:9000,disc:10,sale_price:8100,photos:[]},{item_id:'#11',cat:'TUSS/SUIT/MDHB',name:'Tussar Suit',subtype:'Madhubani',fabric:'Tussar',qty:4,sold:0,cost:3000,mrp:5600,disc:10,sale_price:5040,photos:[]},{item_id:'#12',cat:'TUSS/GHCHA',name:'Tussar',subtype:'Ghicha',fabric:'Tussar',qty:4,sold:0,cost:4200,mrp:8500,disc:10,sale_price:7650,photos:[]},{item_id:'#13',cat:'IKKT/COT',name:'Ikkat',subtype:'Cotton',fabric:'Cotton',qty:13,sold:0,cost:2000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#14',cat:'KLMK/COT',name:'Kalamkari',subtype:'Cotton',fabric:'Cotton',qty:6,sold:0,cost:1000,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#15',cat:'MUL/COT',name:'Mul Cotton',subtype:'',fabric:'Cotton',qty:1,sold:0,cost:2200,mrp:4500,disc:10,sale_price:4050,photos:[]},{item_id:'#16',cat:'GHRCHL/AJRKSEMI',name:'Gharchola',subtype:'Semi Ajrak',fabric:'Silk',qty:4,sold:0,cost:3700,mrp:7500,disc:10,sale_price:6750,photos:[]},{item_id:'#17',cat:'GHRCHL/BANDH',name:'Gharchola',subtype:'Bandhej',fabric:'Silk',qty:1,sold:0,cost:3100,mrp:6300,disc:10,sale_price:5670,photos:[]},{item_id:'#18',cat:'AJRK/PL',name:'Ajrak Plain',subtype:'',fabric:'Cotton',qty:5,sold:0,cost:2600,mrp:5500,disc:10,sale_price:4950,photos:[]},{item_id:'#19',cat:'MODAL/PL',name:'Modal Plain',subtype:'',fabric:'Modal',qty:5,sold:0,cost:1650,mrp:3300,disc:10,sale_price:2970,photos:[]},{item_id:'#20',cat:'MODAL/AJRK',name:'Modal Ajrak',subtype:'',fabric:'Modal',qty:5,sold:0,cost:2500,mrp:4800,disc:10,sale_price:4320,photos:[]},{item_id:'#21',cat:'KOTA/BLOCK',name:'Kota Doria',subtype:'Block Print',fabric:'Kota Doria',qty:2,sold:0,cost:1700,mrp:2900,disc:10,sale_price:2610,photos:[]},{item_id:'#22',cat:'KOTA/SCRN',name:'Kota Doria',subtype:'Screen Print',fabric:'Kota Doria',qty:2,sold:0,cost:1300,mrp:2500,disc:10,sale_price:2250,photos:[]},{item_id:'#23',cat:'DOLA/MODAL/SLK',name:'Dola Modal Silk',subtype:'',fabric:'Modal Silk',qty:1,sold:0,cost:2700,mrp:5800,disc:10,sale_price:5220,photos:[]},{item_id:'#24',cat:'PATOLA/SLK1',name:'Patola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:10000,mrp:17900,disc:10,sale_price:16110,photos:[]},{item_id:'#25',cat:'PATOLA/SLK2',name:'Patola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:11000,mrp:18500,disc:10,sale_price:16650,photos:[]}];
 
@@ -1302,7 +1314,7 @@ function applyRole(){
   if(r==='super_admin'){const el=document.getElementById('TBU');if(el)el.style.color='#C9A84C';}
   // Apply permissions: hide tabs not in the role's allowed list
   const allowed=rolePerms[r]||rolePerms.sales;
-  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn'};
+  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',appr:'tb-appr',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn'};
   Object.entries(tabMap).forEach(([mod,tabId])=>{
     const el=document.getElementById(tabId);
     if(!el)return;
@@ -1597,14 +1609,40 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections};
   renders[id]?.();
 }
 
 // ═══════════════════════════════════════════════
 // HOME
 // ═══════════════════════════════════════════════
-function renderHome(){
+async function renderReturnsPending(){
+  const el=document.getElementById('H-RETURNS');if(!el)return;
+  const rows=await sbQ('inventory_returns_pending','?status=eq.pending&order=flagged_at.desc');
+  if(!rows||!rows.length){el.innerHTML='<p style="color:var(--gy);font-style:italic;font-size:13px;">No faulty items pending return ✅</p>';return;}
+  el.innerHTML=rows.map(r=>{
+    const sku=skus.find(s=>s.id===r.sku_id);
+    const v=vendorByUuid(r.vendor_uuid);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0e8d8;font-size:12px;gap:8px;">
+      <span><strong>${sanitise(sku?.name||'—')}</strong> x${r.qty} — ${sanitise(v?.name||'—')}<br>
+      <span style="color:var(--gy);">${sanitise(r.reason||'')} · flagged ${sanitise((r.flagged_at||'').slice(0,10))}</span></span>
+      <button class="btn bgn xs" onclick="markReturnSent('${r.id}')">✅ Sent to vendor</button>
+    </div>`;
+  }).join('');
+}
+async function markReturnSent(id){
+  const row=(await sbQ('inventory_returns_pending','?id=eq.'+id))?.[0];
+  await sbUpd('inventory_returns_pending','?id=eq.'+id,{status:'sent_to_vendor',resolved_at:new Date().toISOString()});
+  if(row?.unit_ids?.length){
+    for(const uid of row.unit_ids)await sbUpd('inventory_units','?id=eq.'+uid,{status:'returned_to_vendor',updated_at:new Date().toISOString()});
+    units=await sbQ('inventory_units','?order=unit_code');
+  }
+  toast('✅ Marked sent to vendor','#27ae60');
+  renderReturnsPending();
+}
+
+async function renderHome(){
+  renderReturnsPending();
   const rev=sales.reduce((a,s)=>a+(s.total||0),0);
   const bal=sales.reduce((a,s)=>a+(s.balance||0),0);
   const avail=inv.reduce((a,i)=>a+(i.qty||0)-(i.sold||0),0);
@@ -1728,7 +1766,7 @@ function renderVendors(){
 async function openVendorModal(){
   editVendorId=null;
   document.getElementById('VEND-TITLE').textContent='➕ New Vendor';
-  ['VE-NM','VE-WA','VE-PL','VE-GST','VE-ADDR','VE-NOT'].forEach(id=>document.getElementById(id).value='');
+  ['VE-NM','VE-CO','VE-WA','VE-PL','VE-GST','VE-ADDR','VE-NOT'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('VE-RAT').value='';
   document.getElementById('VE-ST').value='active';
   document.getElementById('VE-VIDWARN').style.display='none';
@@ -1749,6 +1787,7 @@ function editVendor(id){
   document.getElementById('VE-VID').readOnly=!canEditVid;
   document.getElementById('VE-VID-HINT').textContent=canEditVid?'Super admin: you can edit this directly.':'ID is locked. Use "Request ID Change" from vendor details.';
   document.getElementById('VE-NM').value=v.name||'';
+  document.getElementById('VE-CO').value=v.company_name||'';
   document.getElementById('VE-WA').value=v.wa_number||'';
   document.getElementById('VE-PL').value=v.place||'';
   document.getElementById('VE-GST').value=v.gst_number||'';
@@ -1773,6 +1812,7 @@ async function saveVendor(){
   const data={
     vendor_id:vid,
     name:nm,
+    company_name:document.getElementById('VE-CO').value.trim(),
     wa_number:document.getElementById('VE-WA').value.trim(),
     place:document.getElementById('VE-PL').value.trim(),
     gst_number:document.getElementById('VE-GST').value.trim(),
@@ -1853,8 +1893,9 @@ function showVDTab(t,el){
         <span style="font-size:11px;color:var(--gy);margin-left:8px;">${arr.length} units · ${stA} available · ${stS} sold</span>
         <div style="margin-top:6px;font-family:monospace;font-size:10px;line-height:1.8;">
           ${arr.map(u=>{
-            const col=u.status==='sold'?'#999':u.status==='damaged'?'var(--red)':'#2d2d2d';
-            return `<span style="display:inline-block;padding:2px 6px;background:#f5f0e8;border-radius:4px;margin:2px;color:${col};">${sanitise(u.unit_code)}${u.status==='sold'?' ✓':''}</span>`;
+            const col=u.status==='sold'?'#999':u.status==='damaged'||u.status==='pending_return'?'var(--red)':'#2d2d2d';
+            const tag=u.status==='sold'?' ✓':u.status==='pending_return'?' ↩':'';
+            return `<span style="display:inline-block;padding:2px 6px;background:#f5f0e8;border-radius:4px;margin:2px;color:${col};">${sanitise(u.unit_code)}${tag}${u.status==='available'?` <a href="javascript:void(0)" onclick="returnUnitToVendor('${u.id}')" style="color:var(--red);text-decoration:none;" title="Return to seller">↩</a>`:''}</span>`;
           }).join('')}
         </div>
       </div>`;
@@ -1896,6 +1937,78 @@ function renderIssueCard(i,showActions){
       </div>
     </div>
   </div>`;
+}
+
+// ────── Purchase Approvals (Telegram Enter Inventory drafts) ──────────
+async function renderApprovals(){
+  const el=document.getElementById('APPR-LIST');if(!el)return;
+  el.innerHTML='<p style="color:var(--gy);font-style:italic;">Loading…</p>';
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_stock_intake_drafts`,{method:'POST',headers:HDR(),body:JSON.stringify({p_status:'pending'})});
+  const rows=r.ok?(await r.json()):[];
+  if(!rows.length){el.innerHTML='<p style="color:var(--gy);font-style:italic;">Nothing pending approval ✅</p>';return;}
+  const byBatch={};rows.forEach(d=>{(byBatch[d.batch_id]=byBatch[d.batch_id]||[]).push(d);});
+  el.innerHTML=Object.entries(byBatch).map(([batchId,items])=>{
+    const v=vendorByUuid(items[0].vendor_uuid);
+    const pay=items[0].payment||{};
+    const total=items.reduce((a,d)=>a+(d.purchase_price||0)*(d.qty||0),0);
+    return `<div style="border:1px solid var(--bd);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px;">
+        <div><strong>${sanitise(v?.name||'Unknown vendor')}</strong> <span style="font-size:11px;color:var(--gy);">${sanitise(v?.vendor_id||'')}</span><br>
+        <span style="font-size:11px;color:var(--gy);">Submitted by ${sanitise(items[0].submitted_by||'—')} · ${sanitise((items[0].created_at||'').slice(0,16).replace('T',' '))}</span></div>
+        <div style="text-align:right;font-size:12px;">Payment: ${sanitise(pay.mode||'—')} · ₹${fmt(pay.amount_paid||0)}<br>Items total (cost): ₹${fmt(total)}</div>
+      </div>
+      <div class="tw"><table><thead><tr><th>Item</th><th>Material</th><th>Variant</th><th>Qty</th><th>Cost</th><th>Sale ₹</th><th></th></tr></thead><tbody>
+        ${items.map(d=>`<tr${d.is_defective?' style="background:#fff5f0;"':''}>
+          <td>${sanitise(d.proposed_name||'—')}</td>
+          <td>${sanitise(d.proposed_material||'—')}</td>
+          <td>${sanitise(d.proposed_variant||'—')}</td>
+          <td>${d.qty}</td>
+          <td>₹${fmt(d.purchase_price||0)}</td>
+          <td>₹${fmt(d.proposed_sale_price||0)}</td>
+          <td>${d.is_defective?`<span class="bx br2">⚠️ Defective x${d.defect_qty||d.qty} — ${sanitise(d.defect_reason||'')}</span>`:''}</td>
+        </tr>`).join('')}
+      </tbody></table></div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button class="btn bgn sm" onclick="approvePurchaseBatch('${batchId}')">✅ Approve batch</button>
+        <button class="btn br sm" onclick="rejectPurchaseBatch('${batchId}')">✕ Reject batch</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function approvePurchaseBatch(batchId){
+  if(!confirm('Approve this batch? This creates the purchase and live inventory (defective lines go to Returns Pending, not stock).'))return;
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_approve_purchase_batch`,{method:'POST',headers:HDR(),body:JSON.stringify({p_batch_id:batchId,p_reviewed_by:CU.display_name||'admin'})});
+  if(!r.ok){toast('Approve failed: '+(await r.text()).slice(0,100),'var(--red)');return;}
+  toast('✅ Purchase approved — inventory is live','#27ae60');
+  purch=await sbQ('purchases','?order=created_at.desc');skus=await sbQ('inventory_skus','?order=sku_code');units=await sbQ('inventory_units','?order=unit_code');
+  renderApprovals();
+}
+
+async function rejectPurchaseBatch(batchId){
+  const reason=prompt('Reason for rejecting this batch?');
+  if(reason===null)return;
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_reject_purchase_batch`,{method:'POST',headers:HDR(),body:JSON.stringify({p_batch_id:batchId,p_reason:reason,p_reviewed_by:CU.display_name||'admin'})});
+  if(!r.ok){toast('Reject failed: '+(await r.text()).slice(0,100),'var(--red)');return;}
+  toast('Batch rejected','var(--orn)');
+  renderApprovals();
+}
+
+// ────── Return to seller (existing unit found defective later) ──────
+async function returnUnitToVendor(unitId){
+  const u=units.find(x=>x.id===unitId);if(!u)return;
+  if(u.status!=='available'){toast('Only available units can be returned','var(--red)');return;}
+  const reason=prompt('Reason for returning this piece to the vendor?');
+  if(reason===null)return;
+  const purchRow=purch.find(p=>p.id===u.purchase_id);
+  await sbIns('inventory_returns_pending',{
+    sku_id:u.sku_id,purchase_id:u.purchase_id,vendor_uuid:purchRow?.vendor_uuid||null,
+    unit_ids:[u.id],qty:1,reason,flagged_by:CU.display_name||'admin'
+  });
+  await sbUpd('inventory_units','?id=eq.'+u.id,{status:'pending_return',updated_at:new Date().toISOString()});
+  units=await sbQ('inventory_units','?order=unit_code');
+  toast('↩ Marked pending return to vendor','#e67e22');
+  showVDTab('units',document.querySelector('.vdtab[data-t="units"]'));
 }
 
 // ────── Issues ─────────────────────────────────
