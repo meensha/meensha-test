@@ -359,13 +359,20 @@ async function handleKiosk(
   if (state === "kiosk_confirm") {
     if (callbackData === "kiosk:confirm") {
       await finalizeSale(supabase, chatId, data);
-      await saveSession(supabase, chatId, "idle", {});
+      // Kiosk mode is persistent — loop back to picking the next item
+      // instead of dropping to idle, so staff can ring up sale after sale
+      // without re-tapping "Kiosk mode" each time. "✕ Cancel sale" (present
+      // on every kiosk screen) is the way out to the top menu.
+      data = { cart: [], page: 0 };
+      await showItemPicker(supabase, chatId, data);
+      await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
     if (callbackData === "kiosk:cancel") {
       await tgSend(chatId, "Sale cancelled.");
-      await showTopMenu(chatId);
-      await saveSession(supabase, chatId, "idle", {});
+      data = { cart: [], page: 0 };
+      await showItemPicker(supabase, chatId, data);
+      await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
   }
