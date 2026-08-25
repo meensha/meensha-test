@@ -1532,6 +1532,17 @@ async function initApp(){
   // item options refreshed now that skus/inv are actually loaded.
   if(document.querySelectorAll('#SA-BODY tr').length===1){document.getElementById('SA-BODY').innerHTML='';addSARow();}
   showTab('home',document.getElementById('tb-home'));
+  openInvoiceFromUrlIfAny();
+}
+
+// Lets the Telegram bot link straight to a sale's real branded invoice
+// (?invoice=MSH-1234) instead of the bot re-building its own text version —
+// same print/PDF view staff already use, just deep-linked.
+function openInvoiceFromUrlIfAny(){
+  const invParam=new URLSearchParams(window.location.search).get('invoice');
+  if(!invParam)return;
+  const s=sales.find(x=>x.inv===invParam);
+  if(s)previewInvData(s);
 }
 
 async function loadAll(){
