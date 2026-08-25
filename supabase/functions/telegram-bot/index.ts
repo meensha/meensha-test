@@ -193,6 +193,10 @@ async function handleStockCheck(supabase: SB, chatId: number) {
 
 // ═══════════════════════════════════════════════
 // KIOSK MODE (record a sale) — mirrors admin.html's saveSale()
+// Flow: item → quantity → stock check → pick that many physical pieces →
+// Cart (Add/Delete/Checkout) → WhatsApp number → name → summary → coupon →
+// confirm → payment mode → (Razorpay: real payment link, waits on the
+// webhook; Cash/UPI: amount received → finalize) → invoice.
 // ═══════════════════════════════════════════════
 async function handleKiosk(
   supabase: SB,
@@ -236,8 +240,17 @@ async function handleKiosk(
     }
     if (callbackData.startsWith("kiosk:item:")) {
       const skuId = callbackData.split(":")[2];
-      await showUnitPicker(supabase, chatId, skuId, data);
-      await saveSession(supabase, chatId, "kiosk_pick_unit", data);
+      const { data: sku } = await supabase.from("inventory_skus").select("id, name").eq("id", skuId).single();
+      if (!sku) {
+        await tgSend(chatId, "That item is no longer available — pick another.");
+        await showItemPicker(supabase, chatId, data);
+        await saveSession(supabase, chatId, "kiosk_pick_item", data);
+        return;
+      }
+      data.pendingSkuId = skuId;
+      data.pendingSkuName = sku.name;
+      await tgSend(chatId, `Quantity of "${sku.name}"?`, { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
+      await saveSession(supabase, chatId, "kiosk_pick_qty", data);
       return;
     }
     if (callbackData === "kiosk:clearsearch") {
@@ -258,8 +271,7 @@ async function handleKiosk(
       .single();
     if (!unit) {
       await tgSend(chatId, "That piece is no longer available — pick another.");
-      await showItemPicker(supabase, chatId, data);
-      await saveSession(supabase, chatId, "kiosk_pick_item", data);
+      await showUnitPicker(supabase, chatId, data.pendingSkuId, data, data.qtyRemaining);
       return;
     }
     const sku = unit.inventory_skus;
@@ -271,31 +283,42 @@ async function handleKiosk(
       variant: sku.display_variant,
       price: sku.sale_price,
     });
-    const cartLines = data.cart
-      .map((c: { name: string; price: number }) => `• ${c.name} — ₹${c.price}`)
-      .join("\n");
-    const cartTotal = data.cart.reduce((a: number, c: { price: number }) => a + c.price, 0);
-    await tgSend(chatId, `Cart so far:\n\n${cartLines}\n\nSubtotal: ₹${cartTotal}`, {
-      inline_keyboard: [
-        [{ text: "➕ Add another item", callback_data: "kiosk:more" }],
-        [{ text: "✅ Done, checkout", callback_data: "kiosk:checkout" }],
-        CANCEL_ROW,
-      ],
-    });
-    await saveSession(supabase, chatId, "kiosk_cart_review", data);
+    data.qtyRemaining = (data.qtyRemaining ?? 1) - 1;
+    if (data.qtyRemaining > 0) {
+      await showUnitPicker(supabase, chatId, data.pendingSkuId, data, data.qtyRemaining);
+      await saveSession(supabase, chatId, "kiosk_pick_unit", data);
+      return;
+    }
+    data.pendingSkuId = undefined;
+    data.pendingSkuName = undefined;
+    data.qtyRemaining = undefined;
+    await showCart(chatId, data);
+    await saveSession(supabase, chatId, "kiosk_cart", data);
     return;
   }
 
-  if (state === "kiosk_cart_review") {
+  if (state === "kiosk_cart") {
     if (callbackData === "kiosk:more") {
       data.page = 0;
       await showItemPicker(supabase, chatId, data);
       await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
+    if (callbackData.startsWith("kiosk:cartdel:")) {
+      const unitId = callbackData.split(":")[2];
+      data.cart = data.cart.filter((c: { unit_id: string }) => c.unit_id !== unitId);
+      await showCart(chatId, data);
+      await saveSession(supabase, chatId, "kiosk_cart", data);
+      return;
+    }
     if (callbackData === "kiosk:checkout") {
-      await tgSend(chatId, "Customer name?", { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
-      await saveSession(supabase, chatId, "kiosk_customer_name", data);
+      if (!data.cart.length) {
+        await tgSend(chatId, "Cart is empty — add an item first.");
+        await showCart(chatId, data);
+        return;
+      }
+      await tgSend(chatId, "Customer's WhatsApp number?", { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
+      await saveSession(supabase, chatId, "kiosk_customer_wa", data);
       return;
     }
   }
@@ -303,7 +326,7 @@ async function handleKiosk(
   if (state === "kiosk_discount_pick") {
     if (callbackData === "kiosk:discount:none") {
       data.discount = 0;
-      await askPaymentMode(supabase, chatId, data);
+      await showConfirmation(supabase, chatId, data);
       return;
     }
     if (callbackData === "kiosk:discount:custom") {
@@ -334,9 +357,29 @@ async function handleKiosk(
     }
   }
 
+  if (state === "kiosk_confirm") {
+    if (callbackData === "kiosk:confirm") {
+      await askPaymentMode(supabase, chatId, data);
+      return;
+    }
+    if (callbackData === "kiosk:cancel") {
+      await tgSend(chatId, "Sale cancelled.");
+      data = { cart: [], page: 0 };
+      await showItemPicker(supabase, chatId, data);
+      await saveSession(supabase, chatId, "kiosk_pick_item", data);
+      return;
+    }
+  }
+
   if (state === "kiosk_payment_mode" && callbackData.startsWith("kiosk:pay:")) {
     const modeMap: Record<string, string> = { cash: "Cash", upi: "UPI Direct", razorpay: "Razorpay" };
     data.pay_mode = modeMap[callbackData.split(":")[2]];
+
+    if (data.pay_mode === "Razorpay") {
+      await sendRazorpayLink(supabase, chatId, data);
+      return;
+    }
+
     const total = orderTotal(data);
     await tgSend(chatId, `Amount received — ₹${total}?`, {
       inline_keyboard: [
@@ -352,29 +395,15 @@ async function handleKiosk(
 
   if (state === "kiosk_amount" && callbackData === "kiosk:amount:full") {
     data.amount = orderTotal(data);
-    await showConfirmation(supabase, chatId, data);
+    await finalizeSale(supabase, chatId, data);
+    // Kiosk mode is persistent — loop back to picking the next item instead
+    // of dropping to idle, so staff can ring up sale after sale without
+    // re-tapping "Kiosk mode" each time. "✕ Cancel sale" (present on every
+    // kiosk screen) is the way out to the top menu.
+    data = { cart: [], page: 0 };
+    await showItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "kiosk_pick_item", data);
     return;
-  }
-
-  if (state === "kiosk_confirm") {
-    if (callbackData === "kiosk:confirm") {
-      await finalizeSale(supabase, chatId, data);
-      // Kiosk mode is persistent — loop back to picking the next item
-      // instead of dropping to idle, so staff can ring up sale after sale
-      // without re-tapping "Kiosk mode" each time. "✕ Cancel sale" (present
-      // on every kiosk screen) is the way out to the top menu.
-      data = { cart: [], page: 0 };
-      await showItemPicker(supabase, chatId, data);
-      await saveSession(supabase, chatId, "kiosk_pick_item", data);
-      return;
-    }
-    if (callbackData === "kiosk:cancel") {
-      await tgSend(chatId, "Sale cancelled.");
-      data = { cart: [], page: 0 };
-      await showItemPicker(supabase, chatId, data);
-      await saveSession(supabase, chatId, "kiosk_pick_item", data);
-      return;
-    }
   }
 }
 
@@ -444,7 +473,7 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
   await tgSend(chatId, header, { inline_keyboard: buttons });
 }
 
-async function showUnitPicker(supabase: SB, chatId: number, skuId: string, data: SessionData) {
+async function showUnitPicker(supabase: SB, chatId: number, skuId: string, data: SessionData, remaining?: number) {
   const { data: units } = await supabase
     .from("inventory_units")
     .select("id, unit_code")
@@ -458,7 +487,34 @@ async function showUnitPicker(supabase: SB, chatId: number, skuId: string, data:
     ]);
   buttons.push(BACK_ROW);
   buttons.push(CANCEL_ROW);
-  await tgSend(chatId, "Pick the specific piece:", { inline_keyboard: buttons });
+  const progress = remaining && remaining > 1 ? ` (${remaining} more to pick)` : "";
+  await tgSend(chatId, `Pick the specific piece${progress}:`, { inline_keyboard: buttons });
+}
+
+// Explicit Cart screen between picking pieces and checkout — Add/Delete/
+// Checkout, per the finalized kiosk flow spec.
+async function showCart(chatId: number, data: SessionData) {
+  if (!data.cart.length) {
+    await tgSend(chatId, "Cart is empty.", {
+      inline_keyboard: [[{ text: "➕ Add item", callback_data: "kiosk:more" }], CANCEL_ROW],
+    });
+    return;
+  }
+  const cartTotal = data.cart.reduce((a: number, c: { price: number }) => a + c.price, 0);
+  const lines = data.cart
+    .map((c: { name: string; price: number }) => `• ${c.name} — ₹${c.price}`)
+    .join("\n");
+  const delButtons = data.cart.map((c: { unit_id: string; unit_code: string }) => [
+    { text: `🗑 Remove ${c.unit_code}`, callback_data: `kiosk:cartdel:${c.unit_id}` },
+  ]);
+  await tgSend(chatId, `Cart:\n\n${lines}\n\nSubtotal: ₹${cartTotal}`, {
+    inline_keyboard: [
+      ...delButtons,
+      [{ text: "➕ Add item", callback_data: "kiosk:more" }],
+      [{ text: "✅ Checkout", callback_data: "kiosk:checkout" }],
+      CANCEL_ROW,
+    ],
+  });
 }
 
 async function handleTextInput(
@@ -476,15 +532,49 @@ async function handleTextInput(
     return;
   }
 
-  if (state === "kiosk_customer_name") {
-    data.customer_name = text.trim();
-    await tgSend(chatId, "WhatsApp number?", { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
-    await saveSession(supabase, chatId, "kiosk_customer_wa", data);
+  if (state === "kiosk_pick_qty") {
+    const requested = parseInt(text.trim(), 10);
+    if (!requested || requested < 1) {
+      await tgSend(chatId, "Enter a valid quantity (a number, 1 or more).");
+      return;
+    }
+    const inCartUnitIds = new Set((data.cart ?? []).map((c: { unit_id: string }) => c.unit_id));
+    const { data: units } = await supabase
+      .from("inventory_units")
+      .select("id")
+      .eq("sku_id", data.pendingSkuId)
+      .eq("status", "available");
+    const availableCount = (units ?? []).filter((u: { id: string }) => !inCartUnitIds.has(u.id)).length;
+    if (requested > availableCount) {
+      await tgSend(chatId, `Only ${availableCount} available — enter a smaller quantity.`);
+      return;
+    }
+    data.qtyRemaining = requested;
+    await showUnitPicker(supabase, chatId, data.pendingSkuId, data, requested);
+    await saveSession(supabase, chatId, "kiosk_pick_unit", data);
     return;
   }
 
+  // WhatsApp number is captured before name (finalized flow order). Accepts
+  // a bare 10-digit number or one already carrying a 91/+91 prefix; auto-
+  // prefixes +91 either way and rejects anything that isn't exactly 10
+  // digits underneath, so a mistyped number doesn't silently save wrong.
   if (state === "kiosk_customer_wa") {
-    data.customer_wa = text.trim();
+    const digitsOnly = text.replace(/\D/g, "");
+    const tenDigit = digitsOnly.length === 12 && digitsOnly.startsWith("91") ? digitsOnly.slice(2) : digitsOnly;
+    if (tenDigit.length !== 10) {
+      await tgSend(chatId, "That doesn't look like a valid 10-digit number — try again (e.g. 9876543210).");
+      return;
+    }
+    data.customer_wa = "+91" + tenDigit;
+    await tgSend(chatId, "Customer name?", { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
+    await saveSession(supabase, chatId, "kiosk_customer_name", data);
+    return;
+  }
+
+  if (state === "kiosk_customer_name") {
+    data.customer_name = text.trim();
+    await showOrderSummary(chatId, data);
     await showDiscountPicker(supabase, chatId, data);
     return;
   }
@@ -493,7 +583,7 @@ async function handleTextInput(
     const subtotal = data.cart.reduce((a: number, c: { price: number }) => a + c.price, 0);
     const parsed = parseFloat(text);
     data.discount = isNaN(parsed) ? 0 : Math.max(0, Math.min(parsed, subtotal));
-    await askPaymentMode(supabase, chatId, data);
+    await showConfirmation(supabase, chatId, data);
     return;
   }
 
@@ -517,7 +607,10 @@ async function handleTextInput(
     const total = orderTotal(data);
     const parsed = parseFloat(text);
     data.amount = isNaN(parsed) ? total : parsed;
-    await showConfirmation(supabase, chatId, data);
+    await finalizeSale(supabase, chatId, data);
+    data = { cart: [], page: 0 };
+    await showItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "kiosk_pick_item", data);
     return;
   }
 
@@ -557,7 +650,7 @@ async function pickDiscountItem(supabase: SB, chatId: number, data: SessionData,
   );
   applyCouponToItem(data, coupon, target);
   await tgSend(chatId, `🎟️ Applied ${coupon.code} to ${target.name} — -₹${data.discount}`);
-  await askPaymentMode(supabase, chatId, data);
+  await showConfirmation(supabase, chatId, data);
 }
 
 // deno-lint-ignore no-explicit-any
@@ -615,6 +708,19 @@ async function showDiscountPicker(supabase: SB, chatId: number, data: SessionDat
   await saveSession(supabase, chatId, "kiosk_discount_pick", data);
 }
 
+// Cart-table snapshot shown right after name is captured, before the
+// coupon question — the "final summary" step in the finalized flow spec.
+async function showOrderSummary(chatId: number, data: SessionData) {
+  const subtotal = data.cart.reduce((a: number, c: { price: number }) => a + c.price, 0);
+  const lines = data.cart
+    .map((c: { name: string; variant?: string; price: number }) => `${c.name}${c.variant ? " (" + c.variant + ")" : ""} — ₹${c.price}`)
+    .join("\n");
+  await tgSend(
+    chatId,
+    `Order summary:\n\n${lines}\n\nSubtotal: ₹${subtotal}\nCustomer: ${data.customer_name} (${data.customer_wa})`,
+  );
+}
+
 async function askPaymentMode(supabase: SB, chatId: number, data: SessionData) {
   await tgSend(chatId, "Payment mode?", {
     inline_keyboard: [
@@ -643,13 +749,15 @@ function formatCartLines(data: SessionData): string {
     .join("\n");
 }
 
+// Confirms the order + total only — payment mode and amount received are
+// asked afterward (in that order), per the finalized flow spec.
 async function showConfirmation(supabase: SB, chatId: number, data: SessionData) {
   const subtotal = data.cart.reduce((a: number, c: { price: number }) => a + c.price, 0);
   const total = orderTotal(data);
   const lines = formatCartLines(data);
   await tgSend(
     chatId,
-    `Confirm sale?\n\n${lines}\n\nCustomer: ${data.customer_name} (${data.customer_wa})\nPayment: ${data.pay_mode}\nSubtotal: ₹${subtotal}\nTotal: ₹${total}\nReceived: ₹${data.amount}`,
+    `Confirm order?\n\n${lines}\n\nCustomer: ${data.customer_name} (${data.customer_wa})\nSubtotal: ₹${subtotal}\nTotal: ₹${total}`,
     {
       inline_keyboard: [
         [{ text: "✅ Confirm", callback_data: "kiosk:confirm" }],
@@ -658,6 +766,55 @@ async function showConfirmation(supabase: SB, chatId: number, data: SessionData)
     },
   );
   await saveSession(supabase, chatId, "kiosk_confirm", data);
+}
+
+// Razorpay sales go through the exact same create-payment-link Edge
+// Function the storefront uses, and only get written to `sales` when
+// razorpay-webhook confirms the payment — never recorded here as if
+// already paid. Kiosk mode stays persistent: the sale is left pending
+// while the next customer is served; the webhook messages this chat_id
+// back once the payment actually lands (see razorpay-webhook/index.ts).
+async function sendRazorpayLink(supabase: SB, chatId: number, data: SessionData) {
+  const total = orderTotal(data);
+  const unit_ids = data.cart.map((c: { unit_id: string }) => c.unit_id);
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/create-payment-link`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({
+      items: data.cart.map((c: { name: string }) => ({ name: c.name })),
+      total,
+      customer: { name: data.customer_name, wa: data.customer_wa },
+      unit_ids,
+      currency: "INR",
+      coupon: data.appliedCoupon ? { code: data.appliedCoupon.code, wa: data.appliedCoupon.wa } : null,
+      source: "telegram_kiosk",
+      telegram_chat_id: chatId,
+    }),
+  });
+  const linkData = await res.json();
+  if (!res.ok || !linkData.short_url) {
+    await tgSend(chatId, `Couldn't create the Razorpay link: ${linkData?.error ?? "unknown error"} — try Cash/UPI instead, or retry.`);
+    await askPaymentMode(supabase, chatId, data);
+    return;
+  }
+
+  const waDigits = String(data.customer_wa ?? "").replace(/\D/g, "");
+  const waMsg = encodeURIComponent(`Hi ${data.customer_name}! Please pay ₹${total} for your Meensha order here: ${linkData.short_url}`);
+  const waLink = waDigits ? `https://wa.me/${waDigits}?text=${waMsg}` : null;
+
+  await tgSend(
+    chatId,
+    `💳 Razorpay link created — ₹${total}\n${linkData.short_url}` +
+      (waLink ? `\n\nTap to send to customer: ${waLink}` : "") +
+      `\n\nYou'll get a message here the moment it's paid.`,
+  );
+
+  data = { cart: [], page: 0 };
+  await showItemPicker(supabase, chatId, data);
+  await saveSession(supabase, chatId, "kiosk_pick_item", data);
 }
 
 async function finalizeSale(supabase: SB, chatId: number, data: SessionData) {
@@ -717,14 +874,18 @@ async function finalizeSale(supabase: SB, chatId: number, data: SessionData) {
     `Hi ${data.customer_name}! Your Meensha order:\n\n${lines}\n\nTotal: ₹${total}\nPaid: ₹${paid}\n\nInvoice: ${inv}`,
   );
   const waLink = waDigits ? `https://wa.me/${waDigits}?text=${waMsg}` : null;
+  // The real branded/print-ready invoice lives on the website (same
+  // buildInvHTML/printInv admin.html already uses) — the bot just deep-links
+  // to it (?invoice=) instead of building its own version.
+  const invoiceUrl = `https://meensha.in/admin.html?invoice=${encodeURIComponent(inv)}`;
 
   await tgSend(
     chatId,
     `✅ Sale recorded — ${inv}\n\n${lines}\n\nTotal: ₹${total}\nPaid: ₹${paid}\nBalance: ₹${total - paid}` +
-      (waLink ? `\n\nTap to send invoice: ${waLink}` : ""),
+      (waLink ? `\n\nTap to send to customer: ${waLink}` : "") +
+      `\n\n🧾 View/print invoice: ${invoiceUrl}`,
   );
   await notifyMonitor(supabase, `🇮🇳 Sale ${inv} — ₹${total} (${data.pay_mode || "?"}), via India Kiosk bot`);
-  await showTopMenu(chatId);
 }
 
 // ═══════════════════════════════════════════════

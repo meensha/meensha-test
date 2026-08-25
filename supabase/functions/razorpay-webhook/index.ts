@@ -112,6 +112,26 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // Kiosk-initiated Razorpay sales don't finalize in the bot itself — the
+  // staff member sent a payment link and moved on. This is the only place
+  // that knows the payment actually landed, so it's the only place that can
+  // tell them to hand over the item.
+  if (order.source === "telegram_kiosk" && order.telegram_chat_id) {
+    try {
+      const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+      if (botToken) {
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: order.telegram_chat_id,
+            text: `✅ Payment received — ₹${order.total} from ${order.customer?.name ?? "customer"} (Invoice ${inv}). You can hand over the item now.`,
+          }),
+        });
+      }
+    } catch { /* payment is already recorded regardless — this is best-effort */ }
+  }
+
   return new Response("ok", { status: 200 });
 });
 

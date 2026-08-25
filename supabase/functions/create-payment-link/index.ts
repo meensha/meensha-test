@@ -24,7 +24,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { items, total, customer, unit_ids, currency, coupon } = await req.json();
+    const { items, total, customer, unit_ids, currency, coupon, source, telegram_chat_id } = await req.json();
 
     if (!Array.isArray(unit_ids) || !unit_ids.length) {
       return json({ error: "Cart is empty" }, 400);
@@ -107,6 +107,8 @@ Deno.serve(async (req: Request) => {
       razorpay_short_url: rzpData.short_url,
       status: "created",
       coupon: coupon || null,
+      source: source || "storefront",
+      telegram_chat_id: telegram_chat_id || null,
     });
     if (insErr) return json({ error: "Could not save order" }, 500);
 
