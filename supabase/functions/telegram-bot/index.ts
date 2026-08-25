@@ -1,7 +1,8 @@
-// Telegram bot for Shalini — stage 2 (Kiosk mode / record a sale).
-// See TELEGRAM_BOT_BUILD_PLAN.md for the full state machine spec.
-// Enter inventory + Godown check are stages 3-4, not built yet — their
-// buttons currently just reply "coming soon".
+// Telegram bot for Shalini — Kiosk mode, Enter Inventory, Godown check.
+// See TELEGRAM_BOT_BUILD_PLAN.md for the original state machine spec
+// (Enter Inventory has since been redesigned: staged via
+// submit_purchase_intake_batch, reviewed/approved on the web dashboard —
+// see the Approvals tab in admin.html and the memory note on this project).
 //
 // Required secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET
 // Supabase auto-provides SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
@@ -30,6 +31,9 @@ const CANCEL_ROW = [{ text: "✕ Cancel sale", callback_data: "kiosk:cancelall" 
 // read-only until a discrepancy note is actually submitted), so "cancel"
 // here just means "exit back to the top menu."
 const GODOWN_EXIT_ROW = [{ text: "✕ Exit", callback_data: "godown:exit" }];
+// Enter Inventory is staged-then-approved — nothing here writes real
+// inventory, so "exit" never needs a confirmation, same reasoning as Godown.
+const INV_EXIT_ROW = [{ text: "✕ Exit", callback_data: "inv:exit" }];
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
@@ -90,13 +94,21 @@ Deno.serve(async (req: Request) => {
   } else if (callbackData === "stock:check") {
     await handleStockCheck(supabase, chatId);
   } else if (callbackData?.startsWith("inv:")) {
-    await tgSend(chatId, "Enter inventory mode isn't built yet — coming soon.");
+    await handleInventory(supabase, chatId, state, data, callbackData);
   } else if (callbackData?.startsWith("godown:")) {
     await handleGodown(supabase, chatId, state, data, callbackData);
+  } else if (callbackData?.startsWith("hist:")) {
+    await handleSalesHistory(supabase, chatId, data, callbackData);
+  } else if (callbackData?.startsWith("evphoto:")) {
+    await handleEventPhotoToggle(supabase, chatId, callbackData);
   } else if (photo?.length && state === "godown_discrepancy_note") {
     await handleGodownPhoto(supabase, chatId, data, photo);
+  } else if (photo?.length && state === "inv_item_photos") {
+    await handleInventoryPhoto(supabase, chatId, data, photo);
   } else if (text && state.startsWith("godown_")) {
     await handleGodownText(supabase, chatId, state, data, text);
+  } else if (text && state.startsWith("inv_")) {
+    await handleInventoryText(supabase, chatId, state, data, text);
   } else if (text) {
     await handleTextInput(supabase, chatId, state, data, text);
   }
@@ -159,8 +171,42 @@ async function showTopMenu(chatId: number) {
       [{ text: "📋 Check stock", callback_data: "stock:check" }],
       [{ text: "➕ Enter inventory", callback_data: "inv:start" }],
       [{ text: "📦 Godown check", callback_data: "godown:start" }],
+      [{ text: "🧾 Sales history", callback_data: "hist:start" }],
+      [{ text: "📸 Event photo submissions", callback_data: "evphoto:menu" }],
     ],
   });
+}
+
+// Manual on/off switch for public event-photo submission (event-photos.html
+// on the storefront). Explicit here always wins over the event's own
+// date_from/date_to window (see add_event_photo RPC) — lets staff shut it
+// off early or open it outside the scheduled dates without editing the
+// event itself.
+async function handleEventPhotoToggle(supabase: SB, chatId: number, callbackData: string) {
+  if (callbackData === "evphoto:menu") {
+    const { data: row } = await supabase.from("settings").select("value").eq("key", "event_photo_submission_enabled").maybeSingle();
+    const current = row?.value === "true" ? "ON" : row?.value === "false" ? "OFF" : "OFF (following event dates)";
+    await tgSend(chatId, `📸 Public event-photo submission is currently: ${current}`, {
+      inline_keyboard: [
+        [{ text: "🟢 Turn ON", callback_data: "evphoto:on" }],
+        [{ text: "🔴 Turn OFF", callback_data: "evphoto:off" }],
+        [{ text: "◀ Back to menu", callback_data: "evphoto:exit" }],
+      ],
+    });
+    return;
+  }
+  if (callbackData === "evphoto:on" || callbackData === "evphoto:off") {
+    const value = callbackData === "evphoto:on" ? "true" : "false";
+    // settings' primary key is `id`, not `key` — upsert needs an explicit
+    // conflict target or it'll insert a duplicate row instead of updating.
+    await supabase.from("settings").upsert({ key: "event_photo_submission_enabled", value }, { onConflict: "key" });
+    await tgSend(chatId, `📸 Public event-photo submission is now ${value === "true" ? "🟢 ON" : "🔴 OFF"}.`);
+    await showTopMenu(chatId);
+    return;
+  }
+  if (callbackData === "evphoto:exit") {
+    await showTopMenu(chatId);
+  }
 }
 
 // Plain read-only stock list — no match/discrepancy questions, nothing
@@ -889,13 +935,496 @@ async function finalizeSale(supabase: SB, chatId: number, data: SessionData) {
 }
 
 // ═══════════════════════════════════════════════
+// ENTER INVENTORY — vendor search/create, item entry loop, a summary/edit
+// screen, then submit_purchase_intake_batch. Nothing here writes real
+// inventory: it's staged (stock_intake_drafts) until approved on the web
+// dashboard's Approvals tab (admin_approve_purchase_batch), which creates
+// the purchase + sellable units and routes any flagged-defective pieces to
+// inventory_returns_pending instead. Persistent like Kiosk mode — after a
+// successful submit, loops back to vendor search for the next purchase
+// instead of the top menu; "✕ Exit" (on every screen) is the way out.
+// ═══════════════════════════════════════════════
+async function handleInventory(
+  supabase: SB,
+  chatId: number,
+  state: string,
+  data: SessionData,
+  callbackData: string,
+) {
+  if (callbackData === "inv:start") {
+    data = { items: [] };
+    await tgSend(chatId, "Search vendor by name or WhatsApp number:", {
+      inline_keyboard: [[{ text: "➕ New Vendor", callback_data: "inv:newvendor" }], INV_EXIT_ROW],
+    });
+    await saveSession(supabase, chatId, "inv_vendor_search", data);
+    return;
+  }
+
+  if (callbackData === "inv:exit") {
+    await tgSend(chatId, "Exited Enter Inventory — nothing was saved.");
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  if (callbackData === "inv:newvendor") {
+    data.newVendor = {};
+    await tgSend(chatId, "New vendor — Name?", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_vendor_new_name", data);
+    return;
+  }
+
+  if (callbackData.startsWith("inv:vendor:")) {
+    const vendorId = callbackData.split(":")[2];
+    const { data: v } = await supabase.from("vendors").select("id,name").eq("id", vendorId).single();
+    if (!v) {
+      await tgSend(chatId, "That vendor is gone — try search again.");
+      return;
+    }
+    data.vendor_uuid = v.id;
+    data.vendor_name = v.name;
+    await startItemEntry(supabase, chatId, data);
+    return;
+  }
+
+  if (callbackData === "inv:defect:no") {
+    await finishCurrentItem(supabase, chatId, data);
+    return;
+  }
+  if (callbackData === "inv:defect:yes") {
+    await tgSend(chatId, `How many of the ${data.curItem.qty} are defective?`, { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_defect_qty", data);
+    return;
+  }
+
+  if (callbackData === "inv:additem") {
+    await startItemEntry(supabase, chatId, data);
+    return;
+  }
+  if (callbackData === "inv:review") {
+    await showInvSummary(supabase, chatId, data);
+    return;
+  }
+
+  if (callbackData.startsWith("inv:removerow:")) {
+    const idx = parseInt(callbackData.split(":")[2]);
+    data.items.splice(idx, 1);
+    await showInvSummary(supabase, chatId, data);
+    return;
+  }
+  if (callbackData.startsWith("inv:editrow:")) {
+    data.editIdx = parseInt(callbackData.split(":")[2]);
+    await tgSend(chatId, "Edit which field?", {
+      inline_keyboard: [
+        [{ text: "Name", callback_data: "inv:editfield:name" }, { text: "Material", callback_data: "inv:editfield:material" }],
+        [{ text: "Variant", callback_data: "inv:editfield:variant" }, { text: "Cost", callback_data: "inv:editfield:cost" }],
+        [{ text: "Qty", callback_data: "inv:editfield:qty" }, { text: "Sale price", callback_data: "inv:editfield:mrp" }],
+        [{ text: "◀ Back to summary", callback_data: "inv:review" }],
+        INV_EXIT_ROW,
+      ],
+    });
+    await saveSession(supabase, chatId, "inv_edit_pick_field", data);
+    return;
+  }
+  if (callbackData.startsWith("inv:editfield:")) {
+    data.editField = callbackData.split(":")[2];
+    await tgSend(chatId, `New value for ${data.editField}?`, { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_edit_value", data);
+    return;
+  }
+
+  if (callbackData === "inv:submit") {
+    if (!data.items?.length) {
+      await tgSend(chatId, "Add at least one item first.");
+      return;
+    }
+    await tgSend(chatId, "Amount paid (₹)?", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_payment_amount", data);
+    return;
+  }
+  if (callbackData.startsWith("inv:paymode:")) {
+    data.paymentMode = callbackData.split(":")[2];
+    await tgSend(
+      chatId,
+      `Split — Shalini's share (₹)? Total paid: ₹${data.paymentAmount}. Type 'skip' for an even 50/50 split.`,
+      { inline_keyboard: [INV_EXIT_ROW] },
+    );
+    await saveSession(supabase, chatId, "inv_payment_split", data);
+    return;
+  }
+
+  if (callbackData === "inv:finalsubmit") {
+    const items = data.items.map((it: SessionData) => ({
+      proposed_name: it.name,
+      proposed_material: it.material,
+      proposed_variant: it.variant,
+      proposed_sale_price: it.mrp,
+      purchase_price: it.cost,
+      qty: it.qty,
+      photo_urls: it.photos || [],
+      is_defective: !!it.is_defective,
+      defect_qty: it.defect_qty || null,
+      defect_reason: it.defect_reason || null,
+    }));
+    const payment = { mode: data.paymentMode, amount_paid: data.paymentAmount, split: data.paymentSplit };
+    const { error } = await supabase.rpc("submit_purchase_intake_batch", {
+      p_vendor_uuid: data.vendor_uuid,
+      p_items: items,
+      p_payment: payment,
+      p_submitted_by: `chat_id:${chatId}`,
+      p_region: "india",
+    });
+    if (error) {
+      await tgSend(chatId, "Couldn't submit that purchase — try again, or check with admin.");
+      return;
+    }
+    const vendorName = data.vendor_name;
+    await tgSend(chatId, `✅ Submitted for approval (${items.length} items) — admin will review on the web dashboard before it's live.`);
+    await notifyMonitor(supabase, `🧾 Purchase submitted for approval — ${vendorName}, ${items.length} items, via India bot`);
+    data = { items: [] };
+    await tgSend(chatId, "Search vendor by name or WhatsApp number for the next purchase:", {
+      inline_keyboard: [[{ text: "➕ New Vendor", callback_data: "inv:newvendor" }], INV_EXIT_ROW],
+    });
+    await saveSession(supabase, chatId, "inv_vendor_search", data);
+    return;
+  }
+}
+
+async function startItemEntry(supabase: SB, chatId: number, data: SessionData) {
+  data.curItem = {};
+  await tgSend(chatId, `Vendor: ${data.vendor_name}\n\nItem name?`, { inline_keyboard: [INV_EXIT_ROW] });
+  await saveSession(supabase, chatId, "inv_item_name", data);
+}
+
+// Splits a partially-defective line into two staged rows (one good, one
+// defective) — admin_approve_purchase_batch treats each stock_intake_drafts
+// row as entirely good or entirely defective, so a "3 good, 1 defective"
+// entry becomes two rows here rather than one row with a defect count.
+async function finishCurrentItem(supabase: SB, chatId: number, data: SessionData) {
+  const item = data.curItem;
+  if (item.defect_qty && item.defect_qty > 0) {
+    const goodQty = item.qty - item.defect_qty;
+    if (goodQty > 0) {
+      data.items.push({ ...item, qty: goodQty, is_defective: false, defect_qty: null, defect_reason: null });
+    }
+    data.items.push({ ...item, qty: item.defect_qty, is_defective: true });
+  } else {
+    data.items.push({ ...item, is_defective: false });
+  }
+  delete data.curItem;
+  await showItemAddedMenu(supabase, chatId, data);
+}
+
+async function showItemAddedMenu(supabase: SB, chatId: number, data: SessionData) {
+  await tgSend(chatId, "Item added.", {
+    inline_keyboard: [
+      [{ text: "➕ Add another item", callback_data: "inv:additem" }],
+      [{ text: "📋 Review purchase so far", callback_data: "inv:review" }],
+      INV_EXIT_ROW,
+    ],
+  });
+  await saveSession(supabase, chatId, "inv_item_added", data);
+}
+
+async function showInvSummary(supabase: SB, chatId: number, data: SessionData) {
+  if (!data.items?.length) {
+    await tgSend(chatId, "No items staged yet.", {
+      inline_keyboard: [[{ text: "➕ Add item", callback_data: "inv:additem" }], INV_EXIT_ROW],
+    });
+    return;
+  }
+  const lines = data.items
+    .map((it: SessionData, i: number) =>
+      `${i + 1}. ${it.name}${it.variant ? ` (${it.variant})` : ""} — ₹${it.cost} x${it.qty}` +
+      (it.is_defective ? ` ⚠️ defective${it.defect_reason ? ": " + it.defect_reason : ""}` : ""))
+    .join("\n");
+  const buttons = data.items.map((_: SessionData, i: number) => [
+    { text: `✏️ Edit #${i + 1}`, callback_data: `inv:editrow:${i}` },
+    { text: `🗑️ Remove #${i + 1}`, callback_data: `inv:removerow:${i}` },
+  ]);
+  buttons.push([{ text: "➕ Add another item", callback_data: "inv:additem" }]);
+  buttons.push([{ text: "✅ Confirm & submit purchase", callback_data: "inv:submit" }]);
+  buttons.push(INV_EXIT_ROW);
+  await tgSend(chatId, `Purchase so far — Vendor: ${data.vendor_name}\n\n${lines}`, { inline_keyboard: buttons });
+  await saveSession(supabase, chatId, "inv_summary", data);
+}
+
+async function showFinalConfirm(supabase: SB, chatId: number, data: SessionData) {
+  const total = data.items.reduce((a: number, it: SessionData) => a + it.cost * it.qty, 0);
+  await tgSend(
+    chatId,
+    `Submit this purchase to the live system?\n\nVendor: ${data.vendor_name}\nItems: ${data.items.length}\nTotal cost: ₹${total}\nPaid: ₹${data.paymentAmount} (${data.paymentMode})\nSplit: Shalini ₹${data.paymentSplit.shalini} / Meenakshi ₹${data.paymentSplit.meenakshi}\n\nThis submits for admin approval — nothing is live inventory until approved.`,
+    {
+      inline_keyboard: [
+        [{ text: "✅ Submit", callback_data: "inv:finalsubmit" }],
+        [{ text: "◀ Back to summary", callback_data: "inv:review" }],
+        INV_EXIT_ROW,
+      ],
+    },
+  );
+  await saveSession(supabase, chatId, "inv_final_confirm", data);
+}
+
+async function handleInventoryText(supabase: SB, chatId: number, state: string, data: SessionData, text: string) {
+  const skip = text.trim().toLowerCase() === "skip";
+
+  if (state === "inv_vendor_search") {
+    const q = text.trim();
+    const { data: matches } = await supabase
+      .from("vendors")
+      .select("id,name,company_name,wa_number")
+      .or(`name.ilike.%${q}%,company_name.ilike.%${q}%,wa_number.ilike.%${q}%`)
+      .limit(8);
+    if (!matches?.length) {
+      await tgSend(chatId, `No vendors matched "${q}".`, {
+        inline_keyboard: [[{ text: "➕ New Vendor", callback_data: "inv:newvendor" }], INV_EXIT_ROW],
+      });
+      return;
+    }
+    const buttons = matches.map((v: { id: string; name: string; company_name?: string }) => [
+      { text: `${v.name}${v.company_name ? " (" + v.company_name + ")" : ""}`, callback_data: `inv:vendor:${v.id}` },
+    ]);
+    buttons.push([{ text: "➕ New Vendor", callback_data: "inv:newvendor" }]);
+    buttons.push(INV_EXIT_ROW);
+    await tgSend(chatId, `Matches for "${q}":`, { inline_keyboard: buttons });
+    return;
+  }
+
+  if (state === "inv_vendor_new_name") {
+    if (!text.trim()) {
+      await tgSend(chatId, "Name can't be empty — vendor name?");
+      return;
+    }
+    data.newVendor.name = text.trim();
+    await tgSend(chatId, "Company name? Type 'skip' if none.", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_vendor_new_company", data);
+    return;
+  }
+  if (state === "inv_vendor_new_company") {
+    data.newVendor.company_name = skip ? null : text.trim();
+    await tgSend(chatId, "WhatsApp number? Type 'skip' if none.", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_vendor_new_wa", data);
+    return;
+  }
+  if (state === "inv_vendor_new_wa") {
+    data.newVendor.wa_number = skip ? null : text.trim();
+    await tgSend(chatId, "Place? Type 'skip' if none.", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_vendor_new_place", data);
+    return;
+  }
+  if (state === "inv_vendor_new_place") {
+    data.newVendor.place = skip ? null : text.trim();
+    const { data: vid } = await supabase.rpc("next_vendor_id");
+    const { data: created, error } = await supabase
+      .from("vendors")
+      .insert({
+        vendor_id: vid,
+        name: data.newVendor.name,
+        company_name: data.newVendor.company_name,
+        wa_number: data.newVendor.wa_number,
+        place: data.newVendor.place,
+        status: "active",
+      })
+      .select()
+      .single();
+    if (error || !created) {
+      await tgSend(chatId, "Couldn't save that vendor — try again.");
+      return;
+    }
+    data.vendor_uuid = created.id;
+    data.vendor_name = created.name;
+    delete data.newVendor;
+    await tgSend(chatId, `✅ Vendor added: ${created.name} (${vid})`);
+    await startItemEntry(supabase, chatId, data);
+    return;
+  }
+
+  if (state === "inv_item_name") {
+    if (!text.trim()) {
+      await tgSend(chatId, "Name can't be empty — item name?");
+      return;
+    }
+    data.curItem.name = text.trim();
+    await tgSend(chatId, "Material? Type 'skip' if none.", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_material", data);
+    return;
+  }
+  if (state === "inv_item_material") {
+    data.curItem.material = skip ? null : text.trim();
+    await tgSend(chatId, "Variant? Type 'skip' if none.", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_variant", data);
+    return;
+  }
+  if (state === "inv_item_variant") {
+    data.curItem.variant = skip ? null : text.trim();
+    await tgSend(chatId, "Cost per piece (₹)?", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_cost", data);
+    return;
+  }
+  if (state === "inv_item_cost") {
+    const cost = parseFloat(text);
+    if (!cost || cost <= 0) {
+      await tgSend(chatId, "Enter a valid cost per piece (₹)?");
+      return;
+    }
+    data.curItem.cost = cost;
+    await tgSend(chatId, "Quantity?", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_qty", data);
+    return;
+  }
+  if (state === "inv_item_qty") {
+    const qty = parseInt(text);
+    if (!qty || qty <= 0) {
+      await tgSend(chatId, "Enter a valid quantity?");
+      return;
+    }
+    data.curItem.qty = qty;
+    const suggestion = await suggestMrp(supabase, data.curItem.name, data.curItem.material, data.curItem.variant, data.curItem.cost);
+    await tgSend(
+      chatId,
+      `${suggestion ? `Suggested sale price: ${suggestion}\n\n` : ""}Type the sale price to use (₹), or 'skip' to leave blank.`,
+      { inline_keyboard: [INV_EXIT_ROW] },
+    );
+    await saveSession(supabase, chatId, "inv_item_mrp", data);
+    return;
+  }
+  if (state === "inv_item_mrp") {
+    data.curItem.mrp = skip ? null : parseFloat(text) || null;
+    data.curItem.photos = [];
+    await tgSend(chatId, "Send 1-4 photos of this item, then type 'done'.", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_photos", data);
+    return;
+  }
+  if (state === "inv_item_photos") {
+    if (text.trim().toLowerCase() === "done") {
+      if (!data.curItem.photos?.length) {
+        await tgSend(chatId, "At least one photo is required — send a photo, then type 'done'.");
+        return;
+      }
+      await tgSend(chatId, "Any defective pieces in this batch — flag for return to vendor now?", {
+        inline_keyboard: [
+          [{ text: "⚠️ Yes", callback_data: "inv:defect:yes" }, { text: "No", callback_data: "inv:defect:no" }],
+          INV_EXIT_ROW,
+        ],
+      });
+      await saveSession(supabase, chatId, "inv_item_defect_check", data);
+    }
+    return;
+  }
+  if (state === "inv_item_defect_qty") {
+    const q = parseInt(text);
+    if (!q || q <= 0 || q > data.curItem.qty) {
+      await tgSend(chatId, `Enter a valid defective quantity (1-${data.curItem.qty})?`);
+      return;
+    }
+    data.curItem.defect_qty = q;
+    await tgSend(chatId, "Reason?", { inline_keyboard: [INV_EXIT_ROW] });
+    await saveSession(supabase, chatId, "inv_item_defect_reason", data);
+    return;
+  }
+  if (state === "inv_item_defect_reason") {
+    data.curItem.defect_reason = text.trim();
+    await finishCurrentItem(supabase, chatId, data);
+    return;
+  }
+
+  if (state === "inv_edit_value") {
+    const field = data.editField;
+    const item = data.items[data.editIdx];
+    if (["cost", "qty", "mrp"].includes(field)) item[field] = parseFloat(text) || item[field];
+    else item[field] = text.trim();
+    delete data.editField;
+    delete data.editIdx;
+    await showInvSummary(supabase, chatId, data);
+    return;
+  }
+
+  if (state === "inv_payment_amount") {
+    const amt = parseFloat(text);
+    if (!amt || amt <= 0) {
+      await tgSend(chatId, "Enter a valid amount (₹)?");
+      return;
+    }
+    data.paymentAmount = amt;
+    await tgSend(chatId, "Payment mode?", {
+      inline_keyboard: [
+        [{ text: "UPI", callback_data: "inv:paymode:upi" }, { text: "Cash", callback_data: "inv:paymode:cash" }],
+        [{ text: "Bank Transfer", callback_data: "inv:paymode:bank" }, { text: "Cheque", callback_data: "inv:paymode:cheque" }],
+        INV_EXIT_ROW,
+      ],
+    });
+    await saveSession(supabase, chatId, "inv_payment_mode", data);
+    return;
+  }
+  if (state === "inv_payment_split") {
+    let shalini: number, meenakshi: number;
+    if (skip) {
+      shalini = data.paymentAmount / 2;
+      meenakshi = data.paymentAmount / 2;
+    } else {
+      shalini = parseFloat(text) || 0;
+      meenakshi = data.paymentAmount - shalini;
+    }
+    data.paymentSplit = { shalini, meenakshi };
+    await showFinalConfirm(supabase, chatId, data);
+    return;
+  }
+}
+
+async function handleInventoryPhoto(supabase: SB, chatId: number, data: SessionData, photoSizes: { file_id: string }[]) {
+  if (!data.curItem) return;
+  const largest = photoSizes[photoSizes.length - 1];
+  const url = await uploadTelegramPhoto(largest.file_id);
+  if (!url) {
+    await tgSend(chatId, "Couldn't save that photo — try again, or type 'done' if you already have one.");
+    return;
+  }
+  data.curItem.photos = [...(data.curItem.photos || []), url].slice(0, 4);
+  await saveSession(supabase, chatId, "inv_item_photos", data);
+  await tgSend(chatId, `Photo ${data.curItem.photos.length}/4 saved. Send another, or type 'done'.`);
+}
+
+// No search grounding (unlike admin.html's callGeminiSearch) — a plain
+// estimate from the model's general knowledge is enough for a "starting
+// suggestion, editable" prompt; staff always type the real value next.
+async function suggestMrp(
+  supabase: SB,
+  name: string,
+  material: string | null,
+  variant: string | null,
+  cost: number,
+): Promise<string | null> {
+  try {
+    const { data: keyRow } = await supabase.from("settings").select("value").eq("key", "gemini_key").maybeSingle();
+    const apiKey = keyRow?.value;
+    if (!apiKey) return null;
+    const prompt = `Estimate a fair retail sale price in INR for a handloom saree: "${name}" ${material || ""} ${variant ? "(" + variant + ")" : ""}, cost price ₹${cost}. Reply with ONLY a number, no currency symbol, no other text.`;
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const num = parseFloat((raw || "").replace(/[^\d.]/g, ""));
+    return num ? `₹${num}` : null;
+  } catch {
+    return null;
+  }
+}
+
+// ═══════════════════════════════════════════════
 // GODOWN CHECK (stock audit) — EOD reconciliation + ad-hoc spot check.
 // Both paths converge on the same match/discrepancy step, then log any
 // discrepancy to vendor_issues (same table/fields admin.html's Vendor
-// Issues tab uses) so it shows up there for follow-up. Scope note: the
-// "offer to return a damaged piece to the seller" extension from the
-// original plan needs the not-yet-built purchase_returns/returned_to_vendor
-// schema (that's part of the still-unbuilt Enter Inventory stage) — this
+// Issues tab uses) so it shows up there for follow-up. Returning a damaged
+// piece to the vendor now reuses the same inventory_returns_pending flow as
+// Enter Inventory's intake-time defect flagging (see admin.html's "Return
+// to seller" action) — this
 // just logs the issue for now, same as manually logging one in admin.html.
 // ═══════════════════════════════════════════════
 type GodownItem = { sku_id: string; name: string; au: boolean; avail: number; soldToday?: number };
@@ -1242,4 +1771,120 @@ async function advanceGodown(supabase: SB, chatId: number, fromState: string, da
   }
   await tgSend(chatId, "Type another item name to search, or Exit.", { inline_keyboard: [GODOWN_EXIT_ROW] });
   await saveSession(supabase, chatId, "godown_spot_search", data);
+}
+
+// ═══════════════════════════════════════════════
+// SALES HISTORY (read-only) — browse recent sales, resend an invoice.
+// India-scoped: only sales recorded via this bot or admin.html's manual
+// entry for India stock, matching every other lookup on this bot (Kiosk,
+// natural-language Q&A) — AU sales stay on the AU bot.
+// ═══════════════════════════════════════════════
+const HIST_PAGE_SIZE = 5;
+
+async function handleSalesHistory(supabase: SB, chatId: number, data: SessionData, callbackData: string) {
+  if (callbackData === "hist:start") {
+    data.histOffset = 0;
+    await showSalesHistoryPage(supabase, chatId, data);
+    await saveSession(supabase, chatId, "hist_list", data);
+    return;
+  }
+  if (callbackData.startsWith("hist:page:")) {
+    data.histOffset = parseInt(callbackData.split(":")[2]);
+    await showSalesHistoryPage(supabase, chatId, data);
+    await saveSession(supabase, chatId, "hist_list", data);
+    return;
+  }
+  if (callbackData.startsWith("hist:view:")) {
+    const saleId = callbackData.split(":")[2];
+    await showSaleSummary(supabase, chatId, saleId);
+    return;
+  }
+  if (callbackData.startsWith("hist:invoice:")) {
+    const saleId = callbackData.split(":")[2];
+    await sendHistoryInvoiceLink(supabase, chatId, saleId);
+    return;
+  }
+  if (callbackData === "hist:back") {
+    await showSalesHistoryPage(supabase, chatId, data);
+    await saveSession(supabase, chatId, "hist_list", data);
+    return;
+  }
+  if (callbackData === "hist:exit") {
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+}
+
+async function showSalesHistoryPage(supabase: SB, chatId: number, data: SessionData) {
+  const offset = data.histOffset ?? 0;
+  const { data: rows, count } = await supabase
+    .from("sales")
+    .select("id, inv, date, customer, total", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + HIST_PAGE_SIZE - 1);
+
+  if (!rows?.length) {
+    await tgSend(chatId, offset === 0 ? "No sales recorded yet." : "No more sales.", {
+      inline_keyboard: [[{ text: "✕ Exit", callback_data: "hist:exit" }]],
+    });
+    return;
+  }
+
+  const buttons = rows.map((s: { id: string; inv: string; date: string; customer: { name?: string }; total: number }) => [
+    { text: `${s.inv} · ${s.customer?.name ?? "—"} · ₹${s.total} · ${s.date}`, callback_data: `hist:view:${s.id}` },
+  ]);
+  const navRow = [];
+  if (offset > 0) navRow.push({ text: "◀ Prev 5", callback_data: `hist:page:${Math.max(0, offset - HIST_PAGE_SIZE)}` });
+  if ((count ?? 0) > offset + HIST_PAGE_SIZE) navRow.push({ text: "Next 5 ▶", callback_data: `hist:page:${offset + HIST_PAGE_SIZE}` });
+  if (navRow.length) buttons.push(navRow);
+  buttons.push([{ text: "✕ Exit", callback_data: "hist:exit" }]);
+
+  await tgSend(chatId, "🧾 Recent sales — tap one for details:", { inline_keyboard: buttons });
+}
+
+async function showSaleSummary(supabase: SB, chatId: number, saleId: string) {
+  const { data: s } = await supabase
+    .from("sales")
+    .select("inv, date, customer, items, total, paid, balance, pay_mode")
+    .eq("id", saleId)
+    .single();
+  if (!s) {
+    await tgSend(chatId, "That sale couldn't be found — it may have been removed.", {
+      inline_keyboard: [[{ text: "◀ Back to list", callback_data: "hist:back" }]],
+    });
+    return;
+  }
+  const lines = (s.items ?? [])
+    .map((it: { name: string; variant?: string; price: number }) => `• ${it.name}${it.variant ? " (" + it.variant + ")" : ""} — ₹${it.price}`)
+    .join("\n");
+  await tgSend(
+    chatId,
+    `${s.inv} — ${s.date}\nCustomer: ${s.customer?.name ?? "—"} (${s.customer?.wa ?? "—"})\n\n${lines}\n\nTotal: ₹${s.total}\nPaid: ₹${s.paid}\nBalance: ₹${s.balance}\nPayment: ${s.pay_mode ?? "—"}`,
+    {
+      inline_keyboard: [
+        [{ text: "🧾 Send Invoice", callback_data: `hist:invoice:${saleId}` }],
+        [{ text: "◀ Back to list", callback_data: "hist:back" }],
+      ],
+    },
+  );
+}
+
+async function sendHistoryInvoiceLink(supabase: SB, chatId: number, saleId: string) {
+  const { data: s } = await supabase.from("sales").select("inv, customer, total, paid").eq("id", saleId).single();
+  if (!s) {
+    await tgSend(chatId, "That sale couldn't be found.");
+    return;
+  }
+  const invoiceUrl = `https://meensha.in/admin.html?invoice=${encodeURIComponent(s.inv)}`;
+  const waDigits = String(s.customer?.wa ?? "").replace(/\D/g, "");
+  const waMsg = encodeURIComponent(
+    `Hi ${s.customer?.name ?? ""}! Here's your Meensha invoice ${s.inv} — Total ₹${s.total}, Paid ₹${s.paid}.`,
+  );
+  const waLink = waDigits ? `https://wa.me/${waDigits}?text=${waMsg}` : null;
+  await tgSend(
+    chatId,
+    `🧾 View/print invoice: ${invoiceUrl}` + (waLink ? `\n\nTap to send to customer: ${waLink}` : ""),
+    { inline_keyboard: [[{ text: "◀ Back to list", callback_data: "hist:back" }]] },
+  );
 }

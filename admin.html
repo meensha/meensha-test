@@ -1064,7 +1064,9 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <div class="mt2" id="EV-TITLE">📅 Add Event</div>
   <div class="fg">
     <div class="fi" style="grid-column:1/-1"><label>Title *</label><input id="EV-NM" placeholder="e.g. AFWWA Exhibition"></div>
-    <div class="fi"><label>Dates *</label><input id="EV-DT" placeholder="26-27 March 2025"></div>
+    <div class="fi"><label>Dates * <span style="font-weight:400;color:var(--gy);">(display text)</span></label><input id="EV-DT" placeholder="26-27 March 2025"></div>
+    <div class="fi"><label>From *</label><input type="date" id="EV-FROM"></div>
+    <div class="fi"><label>To * <span style="font-weight:400;color:var(--gy);">(same as From for a one-day event)</span></label><input type="date" id="EV-TO"></div>
     <div class="fi"><label>Timings</label><input id="EV-TM" placeholder="10 AM – 7 PM"></div>
     <div class="fi" style="grid-column:1/-1"><label>Location *</label><input id="EV-LOC" placeholder="AFWWA Complex, Jalahalli, Bengaluru"></div>
     <div class="fi"><label>Status</label><select id="EV-ST"><option value="upcoming">Upcoming</option><option value="past">Past</option></select></div>
@@ -3779,10 +3781,24 @@ async function delUsr(id){if(!confirm('Delete user?'))return;await sbDel('users'
 // ═══════════════════════════════════════════════
 // EVENTS
 // ═══════════════════════════════════════════════
-function openEvModal(){editEvId=null;document.getElementById('EV-TITLE').textContent='📅 Add Event';['EV-NM','EV-DT','EV-TM','EV-LOC','EV-WU'].forEach(id=>document.getElementById(id).value='');document.getElementById('EV-ST').value='upcoming';document.getElementById('EV-PHS').innerHTML='';evTmpPh=[];document.getElementById('MO-EV').classList.remove('hi');}
-async function editEv(id){const ev=popups.find(x=>x.id===id);if(!ev)return;editEvId=id;document.getElementById('EV-TITLE').textContent='✏️ Edit Event';document.getElementById('EV-NM').value=ev.title||'';document.getElementById('EV-DT').value=ev.dates||'';document.getElementById('EV-TM').value=ev.timings||'';document.getElementById('EV-LOC').value=ev.location||'';document.getElementById('EV-WU').value=ev.writeup||'';document.getElementById('EV-ST').value=ev.status||'upcoming';evTmpPh=[...(ev.photos||[])];document.getElementById('EV-PHS').innerHTML=evTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="evTmpPh.splice(${i},1);this.closest('.pt').remove()">✕</button></div>`).join('');document.getElementById('MO-EV').classList.remove('hi');}
+function openEvModal(){editEvId=null;document.getElementById('EV-TITLE').textContent='📅 Add Event';['EV-NM','EV-DT','EV-FROM','EV-TO','EV-TM','EV-LOC','EV-WU'].forEach(id=>document.getElementById(id).value='');document.getElementById('EV-ST').value='upcoming';document.getElementById('EV-PHS').innerHTML='';evTmpPh=[];document.getElementById('MO-EV').classList.remove('hi');}
+async function editEv(id){const ev=popups.find(x=>x.id===id);if(!ev)return;editEvId=id;document.getElementById('EV-TITLE').textContent='✏️ Edit Event';document.getElementById('EV-NM').value=ev.title||'';document.getElementById('EV-DT').value=ev.dates||'';document.getElementById('EV-FROM').value=ev.date_from||'';document.getElementById('EV-TO').value=ev.date_to||'';document.getElementById('EV-TM').value=ev.timings||'';document.getElementById('EV-LOC').value=ev.location||'';document.getElementById('EV-WU').value=ev.writeup||'';document.getElementById('EV-ST').value=ev.status||'upcoming';evTmpPh=[...(ev.photos||[])];document.getElementById('EV-PHS').innerHTML=evTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="evTmpPh.splice(${i},1);this.closest('.pt').remove()">✕</button></div>`).join('');document.getElementById('MO-EV').classList.remove('hi');}
 function handleEvPh(e){Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{evTmpPh.push(ev.target.result);document.getElementById('EV-PHS').innerHTML=evTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="evTmpPh.splice(${i},1);this.closest('.pt').remove()">✕</button></div>`).join('');};r.readAsDataURL(f);});}
-async function saveEv(){const nm=document.getElementById('EV-NM').value.trim(),loc=document.getElementById('EV-LOC').value.trim();if(!nm||!loc){toast('Title and location required','var(--red)');return;}const photos=await uploadTmpPhs('item-photos',evTmpPh);const data={title:nm,location:loc,dates:document.getElementById('EV-DT').value,timings:document.getElementById('EV-TM').value,writeup:document.getElementById('EV-WU').value,status:document.getElementById('EV-ST').value,photos};try{if(editEvId){await sbUpd('popups',`?id=eq.${editEvId}`,data);}else{await sbIns('popups',data);}popups=await sbQ('popups','?order=display_order,created_at.desc');renderHome();closeMo('MO-EV');toast('✅ Event saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
+async function saveEv(){
+  const nm=document.getElementById('EV-NM').value.trim(),loc=document.getElementById('EV-LOC').value.trim();
+  const dateFrom=document.getElementById('EV-FROM').value,dateTo=document.getElementById('EV-TO').value;
+  if(!nm||!loc){toast('Title and location required','var(--red)');return;}
+  if(!dateFrom||!dateTo){toast('From and To dates are required (same date for a one-day event)','var(--red)');return;}
+  const today=new Date().toISOString().slice(0,10);
+  // Only block past start dates on brand-new events — editing an event
+  // that's already underway or finished (adding photos, fixing a typo,
+  // marking it "past") must stay possible.
+  if(!editEvId && dateFrom<today){toast('From date can\'t be in the past','var(--red)');return;}
+  if(dateTo<dateFrom){toast('To date can\'t be before the From date','var(--red)');return;}
+  const photos=await uploadTmpPhs('item-photos',evTmpPh);
+  const data={title:nm,location:loc,dates:document.getElementById('EV-DT').value,date_from:dateFrom,date_to:dateTo,timings:document.getElementById('EV-TM').value,writeup:document.getElementById('EV-WU').value,status:document.getElementById('EV-ST').value,photos};
+  try{if(editEvId){await sbUpd('popups',`?id=eq.${editEvId}`,data);}else{await sbIns('popups',data);}popups=await sbQ('popups','?order=display_order,created_at.desc');renderHome();closeMo('MO-EV');toast('✅ Event saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}
+}
 async function delEv(id){if(!confirm('Delete event?'))return;await sbDel('popups',`?id=eq.${id}`);popups=popups.filter(p=>p.id!==id);renderHome();toast('Deleted','var(--red)');}
 
 // ═══════════════════════════════════════════════

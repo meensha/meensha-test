@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Share Your Photos — Meensha</title>
+<style>
+  :root{--gold:#C9A84C;--gold-light:#e0c374;--gold-dim:rgba(201,168,76,.35);--cream:#f7f3ec;--bg:#1A1208;}
+  body{margin:0;font-family:'Georgia',serif;background:var(--bg);color:var(--cream);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .card{max-width:420px;width:100%;background:rgba(255,255,255,.03);border:1px solid var(--gold-dim);border-radius:10px;padding:24px;}
+  h1{font-size:18px;color:var(--gold-light);margin:0 0 4px;}
+  p.sub{font-size:12px;color:rgba(247,243,236,.6);margin:0 0 18px;}
+  input,select{width:100%;box-sizing:border-box;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;}
+  .row{display:flex;gap:6px;}
+  .row select{flex:0 0 92px;}
+  .row input{flex:1;}
+  button{width:100%;padding:10px;font-size:13px;background:var(--gold);color:#1A1208;border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-top:4px;}
+  button:disabled{opacity:.5;cursor:default;}
+  .msg{font-size:11px;color:#e08a8a;margin-top:8px;min-height:14px;}
+  .link{font-size:11px;text-align:center;margin-top:14px;}
+  .link a{color:var(--gold-light);text-decoration:none;}
+  .step{display:none;}
+  .step.active{display:block;}
+  .closed{text-align:center;color:rgba(247,243,236,.7);font-size:13px;}
+  .photo-item{display:flex;gap:8px;align-items:center;margin:8px 0;}
+  .photo-item img{width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--gold-dim);flex:0 0 auto;}
+  .photo-item input{margin-bottom:0;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📸 Share Your Photos</h1>
+  <p class="sub">Add your photos from the event to Meensha's gallery.</p>
+
+  <div id="step-closed" class="step">
+    <p class="closed">Photo submissions aren't open right now — check back during the event, or ask a Meensha team member.</p>
+  </div>
+
+  <div id="step-login" class="step">
+    <input id="li-id" placeholder="WhatsApp number or email">
+    <input id="li-password" type="password" placeholder="Password">
+    <button onclick="loginCustomer()">Log In</button>
+    <p id="li-msg" class="msg"></p>
+    <p class="link"><a href="#" onclick="showStep('signup');return false;">New here? Create an account</a></p>
+  </div>
+
+  <div id="step-signup" class="step">
+    <input id="su-name" placeholder="Your name">
+    <div class="row">
+      <select id="su-cc">
+        <option value="91" selected>🇮🇳 +91</option>
+        <option value="61">🇦🇺 +61</option>
+        <option value="1">🇺🇸/🇨🇦 +1</option>
+        <option value="44">🇬🇧 +44</option>
+        <option value="971">🇦🇪 +971</option>
+        <option value="65">🇸🇬 +65</option>
+        <option value="60">🇲🇾 +60</option>
+        <option value="94">🇱🇰 +94</option>
+        <option value="977">🇳🇵 +977</option>
+        <option value="49">🇩🇪 +49</option>
+        <option value="33">🇫🇷 +33</option>
+        <option value="64">🇳🇿 +64</option>
+      </select>
+      <input id="su-wa" placeholder="Mobile number" inputmode="numeric">
+    </div>
+    <input id="su-email" type="email" placeholder="Email address">
+    <input id="su-password" type="password" placeholder="Password (min. 6 characters)">
+    <button onclick="startSignup()">Send Verification Code</button>
+    <p id="su-msg" class="msg"></p>
+    <p class="link"><a href="#" onclick="showStep('login');return false;">Already have an account? Log in</a></p>
+  </div>
+
+  <div id="step-otp" class="step">
+    <p class="sub">Enter the 6-digit code sent to your email.</p>
+    <input id="su-otp" placeholder="6-digit code" maxlength="6">
+    <button onclick="verifySignupOtp()">Verify &amp; Create Account</button>
+    <p id="su-otp-msg" class="msg"></p>
+  </div>
+
+  <div id="step-upload" class="step">
+    <select id="ev-pick"></select>
+    <input type="file" id="ph-file" accept="image/*" multiple>
+    <div id="ph-preview"></div>
+    <input id="ph-instagram" placeholder="Your Instagram @handle (optional)">
+    <button onclick="submitPhotos()" id="ph-submit-btn">Upload Photos</button>
+    <p id="ph-msg" class="msg"></p>
+  </div>
+</div>
+
+<script>
+const _SB='https://eglanmhhcccsuhbxywua.supabase.co',_SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+let customerSession = JSON.parse(localStorage.getItem('msh_customer_session')||'null');
+let pendingPhotos = [];
+
+async function spPostRPC(fn,args={}){const r=await fetch(`${_SB}/rest/v1/rpc/${fn}`,{method:'POST',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'application/json'},body:JSON.stringify(args)});if(!r.ok)return null;try{return await r.json();}catch{return null;}}
+
+function showStep(name){
+  document.querySelectorAll('.step').forEach(el=>el.classList.remove('active'));
+  document.getElementById('step-'+name).classList.add('active');
+}
+
+async function loginCustomer(){
+  const identifier=document.getElementById('li-id').value.trim();
+  const password=document.getElementById('li-password').value;
+  const msg=document.getElementById('li-msg');
+  if(!identifier||!password){msg.textContent='Enter your login and password.';return;}
+  msg.textContent='Logging in…';
+  const res=await spPostRPC('login_customer',{p_identifier:identifier,p_password:password});
+  if(!res||res.ok===false){msg.textContent='Incorrect login or password.';return;}
+  customerSession={token:res.token,wa:res.wa,email:res.email,name:res.name,customer_id:res.customer_id};
+  localStorage.setItem('msh_customer_session',JSON.stringify(customerSession));
+  await loadUploadStep();
+}
+
+async function startSignup(){
+  const name=document.getElementById('su-name').value.trim();
+  const cc=document.getElementById('su-cc').value;
+  const waNational=document.getElementById('su-wa').value.trim().replace(/\D/g,'');
+  const email=document.getElementById('su-email').value.trim();
+  const password=document.getElementById('su-password').value;
+  const msg=document.getElementById('su-msg');
+  if(!name||!waNational||!email||!password){msg.textContent='Please fill in every field.';return;}
+  if(waNational.length<6){msg.textContent='Enter a valid mobile number.';return;}
+  const wa=cc+waNational;
+  msg.textContent='Sending code…';
+  try{
+    const res=await fetch(`${_SB}/functions/v1/start-customer-signup`,{method:'POST',headers:{'Content-Type':'application/json','apikey':_SK,'Authorization':'Bearer '+_SK},body:JSON.stringify({name,wa,email,password})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Could not start signup');
+    msg.textContent='';
+    showStep('otp');
+  }catch(e){msg.textContent=e.message||'Could not send code — please try again.';}
+}
+
+async function verifySignupOtp(){
+  const email=document.getElementById('su-email').value.trim();
+  const code=document.getElementById('su-otp').value.trim();
+  const msg=document.getElementById('su-otp-msg');
+  if(!code){msg.textContent='Enter the code.';return;}
+  msg.textContent='Verifying…';
+  try{
+    const res=await fetch(`${_SB}/functions/v1/verify-customer-signup`,{method:'POST',headers:{'Content-Type':'application/json','apikey':_SK,'Authorization':'Bearer '+_SK},body:JSON.stringify({email,code})});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'Incorrect or expired code');
+    customerSession={token:data.token,wa:data.wa,email:data.email,name:data.name,customer_id:data.customer_id};
+    localStorage.setItem('msh_customer_session',JSON.stringify(customerSession));
+    await loadUploadStep();
+  }catch(e){msg.textContent=e.message||'Verification failed.';}
+}
+
+async function loadUploadStep(){
+  const events=await spPostRPC('list_open_photo_events',{});
+  if(!events||!events.length){showStep('closed');return;}
+  const sel=document.getElementById('ev-pick');
+  sel.innerHTML=events.map(e=>`<option value="${e.id}">${e.title}${e.location?' — '+e.location:''}</option>`).join('');
+  showStep('upload');
+}
+
+document.getElementById('ph-file').addEventListener('change',(e)=>{
+  pendingPhotos=Array.from(e.target.files).map(file=>({file,caption:''}));
+  renderPhotoPreview();
+});
+
+function renderPhotoPreview(){
+  document.getElementById('ph-preview').innerHTML=pendingPhotos.map((p,i)=>
+    `<div class="photo-item"><img src="${URL.createObjectURL(p.file)}"><input placeholder="Caption (optional)" oninput="pendingPhotos[${i}].caption=this.value"></div>`
+  ).join('');
+}
+
+async function uploadOnePhoto(file){
+  const compressed=await compressImage(file);
+  const name=`${Date.now()}-${Math.random().toString(36).slice(2,8)}-event.jpg`;
+  const res=await fetch(`${_SB}/storage/v1/object/item-photos/${name}`,{method:'POST',headers:{'apikey':_SK,'Authorization':'Bearer '+_SK,'Content-Type':'image/jpeg'},body:compressed});
+  if(!res.ok)return null;
+  return `${_SB}/storage/v1/object/public/item-photos/${name}`;
+}
+
+function compressImage(file){
+  return new Promise((resolve)=>{
+    const img=new Image();
+    const reader=new FileReader();
+    reader.onload=(e)=>{img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      const maxDim=1280;
+      const scale=Math.min(1,maxDim/Math.max(img.width,img.height));
+      canvas.width=img.width*scale;canvas.height=img.height*scale;
+      canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+      canvas.toBlob(resolve,'image/jpeg',0.8);
+    };img.src=e.target.result;};
+    reader.readAsDataURL(file);
+  });
+}
+
+async function submitPhotos(){
+  const eventId=document.getElementById('ev-pick').value;
+  const instagramHandle=document.getElementById('ph-instagram').value.trim()||null;
+  const msg=document.getElementById('ph-msg');
+  const btn=document.getElementById('ph-submit-btn');
+  if(!pendingPhotos.length){msg.textContent='Pick at least one photo first.';return;}
+  if(!customerSession||!customerSession.token){showStep('login');return;}
+  btn.disabled=true;msg.textContent='Uploading…';
+  let ok=0;
+  for(const p of pendingPhotos){
+    const url=await uploadOnePhoto(p.file);
+    if(!url)continue;
+    // Goes through the event-photo-submit Edge Function, not the RPC
+    // directly — that's what checks whether the event just hit 4 unposted
+    // photos and needs an Instagram carousel posted.
+    try{
+      const res=await fetch(`${_SB}/functions/v1/event-photo-submit`,{method:'POST',headers:{'Content-Type':'application/json','apikey':_SK,'Authorization':'Bearer '+_SK},body:JSON.stringify({token:customerSession.token,event_id:eventId,photo_url:url,caption:p.caption||null,instagram_handle:instagramHandle})});
+      const data=await res.json();
+      if(res.ok&&data.ok)ok++;
+    }catch{}
+  }
+  btn.disabled=false;
+  if(!ok){msg.textContent='Could not upload — submissions may have just closed. Try again shortly.';return;}
+  msg.textContent='';
+  document.getElementById('ph-preview').innerHTML='';
+  pendingPhotos=[];
+  document.getElementById('ph-file').value='';
+  alert(`✅ ${ok} photo${ok>1?'s':''} added — thank you!`);
+}
+
+(async function init(){
+  if(customerSession&&customerSession.token){
+    const res=await spPostRPC('validate_customer_session',{p_token:customerSession.token});
+    if(!res){customerSession=null;localStorage.removeItem('msh_customer_session');}
+  }
+  if(customerSession&&customerSession.token){
+    await loadUploadStep();
+  }else{
+    const events=await spPostRPC('list_open_photo_events',{});
+    if(!events||!events.length){showStep('closed');}
+    else{showStep('login');}
+  }
+})();
+</script>
+</body>
+</html>
