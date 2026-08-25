@@ -57,8 +57,13 @@ Deno.serve(async (req: Request) => {
 });
 
 async function tryPostCarousel(supabase: ReturnType<typeof createClient>, eventId: string) {
-  const accessToken = Deno.env.get("INSTAGRAM_ACCESS_TOKEN");
-  const igUserId = Deno.env.get("INSTAGRAM_BUSINESS_ACCOUNT_ID");
+  // Checks the admin-submitted app_secrets row first (set via admin.html's
+  // Pending Setup card, service_role read — never exposed through the anon
+  // key), falling back to a real Deno secret if one was set via the CLI
+  // instead. Either path works; app_secrets just means staff don't need
+  // CLI access to configure this.
+  const accessToken = (await readAppSecret(supabase, "instagram_access_token")) ?? Deno.env.get("INSTAGRAM_ACCESS_TOKEN");
+  const igUserId = (await readAppSecret(supabase, "instagram_business_account_id")) ?? Deno.env.get("INSTAGRAM_BUSINESS_ACCOUNT_ID");
   if (!accessToken || !igUserId) return; // not configured yet — skip silently
 
   const { data: batch } = await supabase.rpc("get_unposted_event_photos", { p_event_id: eventId, p_limit: CAROUSEL_BATCH_SIZE });
@@ -104,6 +109,11 @@ async function tryPostCarousel(supabase: ReturnType<typeof createClient>, eventI
   if (!publishRes.ok || !publishData.id) return;
 
   await supabase.rpc("mark_event_photos_posted", { p_ids: photos.map((p) => p.id), p_instagram_post_id: publishData.id });
+}
+
+async function readAppSecret(supabase: ReturnType<typeof createClient>, key: string): Promise<string | null> {
+  const { data } = await supabase.from("app_secrets").select("value").eq("key", key).maybeSingle();
+  return data?.value || null;
 }
 
 function json(body: unknown, status = 200) {

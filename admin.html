@@ -214,6 +214,34 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <div><strong>Shipping:</strong> Shiprocket <span class="bx bgy2">KYC pending</span> <span style="color:var(--gy);">— Configured from: <em>[placeholder — fill in]</em></span></div>
     </div>
 
+    <!-- Pending Setup reminder — surfaces the two known open blockers
+         (Resend domain, Instagram credentials) directly in the dashboard
+         instead of only living in a handoff doc. Instagram credentials are
+         genuinely submittable here (via admin_set_secret, a write-only RPC
+         into the locked-down app_secrets table — never readable back
+         through the anon key, unlike `settings`). Resend's fix is a DNS
+         verification step on Resend's own site, so there's no token to
+         submit here — instructions only. -->
+    <div class="card" style="border-color:var(--red);margin-bottom:20px;">
+      <div class="ct" style="color:var(--red);">⚠️ Pending Setup</div>
+      <div style="font-size:12px;line-height:1.7;">
+        <strong>1. Customer signup emails (Resend)</strong> <span id="SET-RESEND-BADGE" class="bx ba">status unknown</span><br>
+        Signup/reset verification emails currently only reach the Resend account owner's inbox — real customers can't complete signup until this is fixed.<br>
+        <strong>Fix:</strong> go to <a href="https://resend.com/domains" target="_blank" style="color:var(--gdk);">resend.com/domains</a>, add and verify a sending domain (a few DNS records with your domain registrar), then set the <code>EMAIL_FROM</code> secret to an address on that domain (<code>supabase secrets set EMAIL_FROM="Meensha &lt;noreply@yourdomain&gt;"</code>). No field to submit here — this step happens on Resend's site + the Supabase CLI, not through this dashboard.
+        <hr style="border-color:var(--bd);margin:12px 0;">
+        <strong>2. Instagram auto-posting</strong> <span id="SET-IG-BADGE" class="bx ba">checking…</span><br>
+        Event-photo carousels (4 photos → auto-posted to Instagram) won't publish until both values below are set.<br>
+        <strong>Get these from:</strong> <a href="https://developers.facebook.com" target="_blank" style="color:var(--gdk);">developers.facebook.com</a> — needs an Instagram Business/Creator account linked to a Facebook Page, a Meta Developer App, and a long-lived access token with <code>instagram_content_publish</code> permission.
+        <div class="fg" style="margin-top:8px;">
+          <div class="fi"><label>Instagram Access Token</label><input type="password" id="SET-IG-TOKEN" placeholder="paste long-lived access token"></div>
+          <div class="fi"><label>Instagram Business Account ID</label><input id="SET-IG-ACCTID" placeholder="numeric ID"></div>
+        </div>
+        <button class="btn bgn sm" onclick="saveInstagramSecrets()">💾 Save</button>
+        <span style="font-size:10px;color:var(--gy);margin-left:8px;">Stored write-only — not readable back through this dashboard once saved, even by staff.</span>
+        <p id="SET-IG-MSG" style="font-size:11px;color:var(--gy);margin-top:6px;"></p>
+      </div>
+    </div>
+
     <div class="sa-title">📱 Functional Links</div>
     <!-- General settings: WA numbers + AUD multiplier -->
     <div style="margin-bottom:20px;">
@@ -1467,7 +1495,44 @@ async function saveShipTracking(){
 function renderConnections(){
   loadShipTracking();
   loadGeneralSettings();
+  loadPendingSetupBadges();
   if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();renderTelegramUsersAu();}
+}
+
+// Resend has no client-checkable status (EMAIL_FROM is a Supabase secret,
+// not something the anon key can read) — that badge just states the known
+// action needed. Instagram's badge is a real check via admin_secret_is_set,
+// which only ever returns true/false, never the secret value itself.
+async function loadPendingSetupBadges(){
+  const rb=document.getElementById('SET-RESEND-BADGE');
+  if(rb){rb.textContent='action needed';rb.className='bx br2';}
+  const ib=document.getElementById('SET-IG-BADGE');
+  if(!ib)return;
+  const [tokenSet,acctSet]=await Promise.all([
+    fetch(`${SB}/rest/v1/rpc/admin_secret_is_set`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_access_token'})}).then(r=>r.json()).catch(()=>false),
+    fetch(`${SB}/rest/v1/rpc/admin_secret_is_set`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_business_account_id'})}).then(r=>r.json()).catch(()=>false),
+  ]);
+  if(tokenSet&&acctSet){ib.textContent='configured ✅';ib.className='bx bg2';}
+  else{ib.textContent='action needed';ib.className='bx br2';}
+}
+
+async function saveInstagramSecrets(){
+  const token=document.getElementById('SET-IG-TOKEN').value.trim();
+  const acctId=document.getElementById('SET-IG-ACCTID').value.trim();
+  const msg=document.getElementById('SET-IG-MSG');
+  if(!token||!acctId){msg.textContent='Fill in both fields.';msg.style.color='var(--red)';return;}
+  msg.textContent='Saving…';msg.style.color='var(--gy)';
+  try{
+    await Promise.all([
+      fetch(`${SB}/rest/v1/rpc/admin_set_secret`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_access_token',p_value:token})}),
+      fetch(`${SB}/rest/v1/rpc/admin_set_secret`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_business_account_id',p_value:acctId})}),
+    ]);
+    document.getElementById('SET-IG-TOKEN').value='';
+    document.getElementById('SET-IG-ACCTID').value='';
+    msg.textContent='';
+    toast('✅ Instagram credentials saved','#27ae60');
+    loadPendingSetupBadges();
+  }catch(e){msg.textContent='Could not save — try again.';msg.style.color='var(--red)';}
 }
 
 // ═══════════════════════════════════════════════
