@@ -101,6 +101,8 @@ Deno.serve(async (req: Request) => {
     await handleSalesHistory(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("evphoto:")) {
     await handleEventPhotoToggle(supabase, chatId, callbackData);
+  } else if (callbackData?.startsWith("maint:")) {
+    await handleMaintenance(supabase, chatId, callbackData, data);
   } else if (photo?.length && state === "godown_discrepancy_note") {
     await handleGodownPhoto(supabase, chatId, data, photo);
   } else if (photo?.length && state === "inv_item_photos") {
@@ -109,6 +111,8 @@ Deno.serve(async (req: Request) => {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text && state.startsWith("inv_")) {
     await handleInventoryText(supabase, chatId, state, data, text);
+  } else if (text && state === "maint_note_text") {
+    await handleMaintenanceText(supabase, chatId, text);
   } else if (text) {
     await handleTextInput(supabase, chatId, state, data, text);
   }
@@ -168,13 +172,56 @@ async function showTopMenu(chatId: number) {
   await tgSend(chatId, "What would you like to do?", {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
-      [{ text: "📋 Check stock", callback_data: "stock:check" }],
       [{ text: "➕ Enter inventory", callback_data: "inv:start" }],
+      [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
+    ],
+  });
+}
+
+// Everything that isn't Kiosk or Enter Inventory lives here — Check stock,
+// Godown check, Sales history, Event photo submissions, and the free-form
+// Note (the only one built new for this menu; the rest just moved here from
+// the old flat top-level list).
+async function showMaintenanceMenu(chatId: number) {
+  await tgSend(chatId, "Maintenance:", {
+    inline_keyboard: [
+      [{ text: "📋 Check stock", callback_data: "stock:check" }],
       [{ text: "📦 Godown check", callback_data: "godown:start" }],
       [{ text: "🧾 Sales history", callback_data: "hist:start" }],
       [{ text: "📸 Event photo submissions", callback_data: "evphoto:menu" }],
+      [{ text: "📝 Add a note", callback_data: "maint:note" }],
+      [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });
+}
+
+async function handleMaintenance(supabase: SB, chatId: number, callbackData: string, data: SessionData) {
+  if (callbackData === "maint:menu") {
+    await showMaintenanceMenu(chatId);
+    return;
+  }
+  if (callbackData === "maint:back") {
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  if (callbackData === "maint:note") {
+    await tgSend(chatId, "Type your note:");
+    await saveSession(supabase, chatId, "maint_note_text", data);
+    return;
+  }
+}
+
+async function handleMaintenanceText(supabase: SB, chatId: number, text: string) {
+  const note = text.trim();
+  if (!note) {
+    await tgSend(chatId, "Note can't be empty — type your note:");
+    return;
+  }
+  await supabase.from("bot_notes").insert({ text: note, submitted_by: `chat_id:${chatId}` });
+  await tgSend(chatId, "📝 Note saved — it'll show on the dashboard.");
+  await showMaintenanceMenu(chatId);
+  await saveSession(supabase, chatId, "idle", {});
 }
 
 // Manual on/off switch for public event-photo submission (event-photos.html
@@ -1374,12 +1421,12 @@ async function handleInventoryText(supabase: SB, chatId: number, state: string, 
 async function handleInventoryPhoto(supabase: SB, chatId: number, data: SessionData, photoSizes: { file_id: string }[]) {
   if (!data.curItem) return;
   const largest = photoSizes[photoSizes.length - 1];
-  const url = await uploadTelegramPhoto(largest.file_id);
-  if (!url) {
-    await tgSend(chatId, "Couldn't save that photo — try again, or type 'done' if you already have one.");
+  const result = await uploadTelegramPhoto(largest.file_id);
+  if ("error" in result) {
+    await tgSend(chatId, `Couldn't save that photo — ${result.error}`);
     return;
   }
-  data.curItem.photos = [...(data.curItem.photos || []), url].slice(0, 4);
+  data.curItem.photos = [...(data.curItem.photos || []), result.url].slice(0, 4);
   await saveSession(supabase, chatId, "inv_item_photos", data);
   await tgSend(chatId, `Photo ${data.curItem.photos.length}/4 saved. Send another, or type 'done'.`);
 }
@@ -1567,12 +1614,12 @@ async function showGodownUnitPicker(supabase: SB, chatId: number, data: SessionD
 
 async function handleGodownPhoto(supabase: SB, chatId: number, data: SessionData, photoSizes: { file_id: string }[]) {
   const largest = photoSizes[photoSizes.length - 1];
-  const url = await uploadTelegramPhoto(largest.file_id);
-  if (!url) {
-    await tgSend(chatId, "Couldn't save that photo — try again, or type a note / tap Skip.");
+  const result = await uploadTelegramPhoto(largest.file_id);
+  if ("error" in result) {
+    await tgSend(chatId, `Couldn't save that photo — ${result.error}`);
     return;
   }
-  data.discPhotoUrl = url;
+  data.discPhotoUrl = result.url;
   await tgSend(chatId, "📷 Photo attached. Add a text note too, or tap Done to save.", {
     inline_keyboard: [[{ text: "✅ Done", callback_data: "godown:disc:notedone" }], GODOWN_EXIT_ROW],
   });
@@ -1583,27 +1630,35 @@ async function handleGodownPhoto(supabase: SB, chatId: number, data: SessionData
 // photo handling (not yet built there, but the pattern is simple enough to
 // use here now): resolve Telegram's file_id to a real URL, fetch the bytes,
 // re-upload to the same item-photos bucket admin.html already uses.
-async function uploadTelegramPhoto(fileId: string): Promise<string | null> {
+async function uploadTelegramPhoto(fileId: string): Promise<{ url: string } | { error: string }> {
   const fileRes = await fetch(`${TG_API}/getFile?file_id=${fileId}`);
   const fileJson = await fileRes.json();
   const filePath = fileJson?.result?.file_path;
-  if (!filePath) return null;
+  if (!filePath) return { error: `Telegram getFile failed: ${JSON.stringify(fileJson).slice(0, 200)}` };
+
   const imgRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`);
+  if (!imgRes.ok) return { error: `Telegram file download failed: ${imgRes.status}` };
   const imgBuf = await imgRes.arrayBuffer();
-  const objectName = `${Date.now()}-godown-telegram.jpg`;
+
+  const objectName = `${Date.now()}-inventory-telegram.jpg`;
   const uploadRes = await fetch(
     `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/item-photos/${objectName}`,
     {
       method: "POST",
       headers: {
+        apikey: Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
         Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
         "Content-Type": "image/jpeg",
+        "x-upsert": "true",
       },
       body: imgBuf,
     },
   );
-  if (!uploadRes.ok) return null;
-  return `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/item-photos/${objectName}`;
+  if (!uploadRes.ok) {
+    const body = await uploadRes.text();
+    return { error: `Storage upload failed: ${uploadRes.status} ${body.slice(0, 200)}` };
+  }
+  return { url: `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/item-photos/${objectName}` };
 }
 
 // Shared by the Skip button, the "Done" button after a photo, and typed
