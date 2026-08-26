@@ -19,15 +19,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runLookup, LOOKUP_CATALOG_FULL } from "../_shared/knowledgeBase.ts";
 import { askGemini } from "../_shared/askGemini.ts";
+import { handleRequestAction } from "../_shared/requestActions.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_MONITOR_BOT_TOKEN")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-async function tgSend(chatId: number | string, text: string) {
+async function tgSend(chatId: number | string, text: string, keyboard?: unknown) {
   await fetch(`${TG_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text }),
+    body: JSON.stringify({ chat_id: chatId, text, reply_markup: keyboard }),
   });
 }
 
@@ -45,9 +46,10 @@ Deno.serve(async (req: Request) => {
   );
 
   const update = await req.json();
-  const msg = update.message;
+  const msg = update.message ?? update.callback_query?.message;
   const chatId = msg?.chat?.id;
-  const text: string | undefined = msg?.text;
+  const text: string | undefined = update.message?.text;
+  const callbackData: string | undefined = update.callback_query?.data;
   if (!chatId) return new Response("ok", { status: 200 });
 
   // Auto-register: write this chat_id to settings the first time (or every
@@ -64,6 +66,17 @@ Deno.serve(async (req: Request) => {
 
   if (firstContact) {
     await tgSend(chatId, "✅ Connected — I'll now send sale notifications and the daily health check here.\n\nYou can also just ask me things, e.g. \"how's Ajrak stock in India\", \"sales this week\", or \"is the site up\".");
+    return new Response("ok", { status: 200 });
+  }
+
+  if (callbackData?.startsWith("req:")) {
+    const actorFrom = update.callback_query?.from;
+    const actor = "Owner (" + ([actorFrom?.first_name, actorFrom?.last_name].filter(Boolean).join(" ") || actorFrom?.username || "Monitor") + ")";
+    await handleRequestAction(supabase, chatId, callbackData, actor, tgSend);
+    await fetch(`${TG_API}/answerCallbackQuery`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callback_query_id: update.callback_query.id }),
+    });
     return new Response("ok", { status: 200 });
   }
 

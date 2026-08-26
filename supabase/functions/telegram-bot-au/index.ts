@@ -19,6 +19,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { askGemini } from "../_shared/askGemini.ts";
 import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
+import { handleRequestAction } from "../_shared/requestActions.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN_AU")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -473,6 +474,10 @@ Deno.serve(async (req: Request) => {
     await reportToday(supabase, chatId);
   } else if (callbackData === "reports:stock") {
     await reportStock(supabase, chatId);
+  } else if (callbackData?.startsWith("req:")) {
+    const actorFrom = update.callback_query?.from;
+    const actor = [actorFrom?.first_name, actorFrom?.last_name].filter(Boolean).join(" ") || actorFrom?.username || `Chat ${chatId}`;
+    await handleRequestAction(supabase, chatId, callbackData, actor, tgSend);
   } else if (photo) {
     await handlePhoto(supabase, chatId, state, data, photo);
   } else {

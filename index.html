@@ -796,6 +796,9 @@ footer {
     <div style="text-align:center;margin-top:36px;">
       <a href="#shop-page" onclick="openShop('all');return false;" class="nav-btn-s" style="display:inline-flex;">View Full Collection →</a>
     </div>
+    <div style="text-align:center;margin-top:18px;">
+      <a href="#" onclick="openRequestModal();return false;" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-decoration:underline;">Looking for something else? Tell us →</a>
+    </div>
 
   </div>
 </section>
@@ -867,6 +870,9 @@ footer {
         <div style="margin-top:16px;display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="sp-show-sold" onchange="renderShopGrid()" style="accent-color:var(--gold);width:14px;height:14px;">
           <label for="sp-show-sold" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:rgba(232,213,163,.45);cursor:pointer;">Show Sold Out</label>
+        </div>
+        <div style="margin-top:16px;">
+          <a href="#" onclick="openRequestModal();return false;" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;color:var(--gold-light);text-decoration:underline;">Looking for something else? Tell us →</a>
         </div>
       </div>
       <div><div id="sp-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:15px;"></div></div>
@@ -1096,6 +1102,35 @@ footer {
     <p id="acct-wa-display" style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;"></p>
     <div id="acct-orders"></div>
     <button onclick="logoutCustomer()" style="margin-top:16px;background:none;border:1px solid var(--gold-dim);border-radius:4px;color:var(--gold-light);padding:8px 12px;cursor:pointer;font-size:12px;width:100%;">Log Out</button>
+  </div>
+</div>
+
+<!-- ════ REQUEST A SAREE ════ -->
+<div id="req-overlay" onclick="closeRequestModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:900;"></div>
+<div id="req-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:901;background:var(--dark2,#16110a);border:1px solid var(--gold-dim);border-radius:10px;padding:28px;width:90%;max-width:420px;max-height:85vh;overflow-y:auto;">
+  <button onclick="closeRequestModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--gold-light);font-size:16px;cursor:pointer;">✕</button>
+
+  <div id="req-step-form">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:6px;">Looking For Something Else?</h3>
+    <p style="font-size:12px;color:rgba(247,243,236,.6);margin-bottom:16px;">Tell us what you're after — we'll do our best to source it. It may take a while to find your favourite piece, but we'll let you know here once it's available.</p>
+
+    <input id="req-item-name" placeholder="What are you looking for? (e.g. saree name, pattern, colour)" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="req-quantity" type="number" min="1" value="1" placeholder="Quantity" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <textarea id="req-notes" placeholder="Anything else? (e.g. by when, delivery location)" rows="3" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;"></textarea>
+    <input id="req-photo" type="file" accept="image/*" onchange="requestPhotoSelected()" style="width:100%;margin-bottom:8px;font-size:11px;color:rgba(247,243,236,.6);">
+    <p id="req-photo-status" style="font-size:11px;color:rgba(247,243,236,.5);margin-bottom:8px;"></p>
+    <input id="req-wa" placeholder="WhatsApp number (with country code)" style="width:100%;margin-bottom:8px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+    <input id="req-insta" placeholder="Instagram handle (optional)" style="width:100%;margin-bottom:10px;padding:9px 10px;font-size:13px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+
+    <button onclick="submitRequestForm()" class="cart-checkout-btn" style="background:var(--gold);">Submit Request</button>
+    <p id="req-msg" style="font-size:11px;color:#e08a8a;margin-top:8px;"></p>
+  </div>
+
+  <div id="req-step-done" style="display:none;text-align:center;">
+    <h3 style="font-family:'Cinzel',serif;color:var(--gold-light);font-size:16px;margin-bottom:10px;">Thank You!</h3>
+    <p style="font-size:13px;color:rgba(247,243,236,.75);margin-bottom:16px;">Thank you for the interest! We will get back to you shortly.</p>
+    <a id="req-wa-secondary" href="#" target="_blank" class="cart-checkout-btn" style="background:#25D366;display:inline-flex;">Send via WhatsApp too</a>
+    <button onclick="closeRequestModal()" style="margin-top:10px;background:none;border:1px solid var(--gold-dim);border-radius:4px;color:var(--gold-light);padding:8px 12px;cursor:pointer;font-size:12px;width:100%;">Close</button>
   </div>
 </div>
 
@@ -1410,7 +1445,7 @@ function renderShopGrid() {
     return `<div class="sp-card${sold?' sp-sold':''}">
       <div class="sp-img">
         ${ph.length ? `<img src="${ph[0]}" alt="${it.name}">` : `<div class="sp-noimg"><span>🧵</span><p>${it.display_material||'Handloom'}</p></div>`}
-        ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="window.open('https://wa.me/${waNum}?text=${som}','_blank')">Notify Me</button></div>` : ''}
+        ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="openRequestModal('${it.id}','${nm.replace(/'/g,"\\'")}')">Notify Me</button></div>` : ''}
       </div>
       <div class="sp-info">
         <div class="sp-nm">${it.name}</div>
@@ -1783,6 +1818,7 @@ function setCustomerSession(data) {
   customerSession = { token: data.token, wa: data.wa, email: data.email, name: data.name, customer_id: data.customer_id };
   localStorage.setItem('msh_customer_session', JSON.stringify(customerSession));
   updateAccountBtn();
+  resumePendingRequestDraft();
 }
 async function loginCustomer() {
   const identifier = document.getElementById('li-identifier').value.trim();
@@ -1950,6 +1986,127 @@ async function submitReview() {
   } else {
     msg.textContent = (res && res.error) || 'Could not submit review.';
   }
+}
+
+/* ── REQUEST A SAREE ── */
+let reqPendingItemId = null, reqPendingItemName = null, reqPhotoUrl = null;
+
+function openRequestModal(itemId, itemName) {
+  reqPendingItemId = itemId || null;
+  reqPendingItemName = itemName || null;
+  document.getElementById('req-overlay').style.display = 'block';
+  document.getElementById('req-modal').style.display = 'block';
+  document.getElementById('req-step-form').style.display = 'block';
+  document.getElementById('req-step-done').style.display = 'none';
+  document.getElementById('req-msg').textContent = '';
+  document.getElementById('req-photo-status').textContent = '';
+  reqPhotoUrl = null;
+  document.getElementById('req-item-name').value = itemName || '';
+  document.getElementById('req-quantity').value = 1;
+  document.getElementById('req-notes').value = '';
+  document.getElementById('req-photo').value = '';
+  // WhatsApp field starts blank but hinted with the right country code for
+  // whichever storefront/currency the customer is currently browsing.
+  document.getElementById('req-wa').placeholder = currency === 'AU'
+    ? 'WhatsApp number (e.g. +61 4xx xxx xxx)'
+    : 'WhatsApp number (e.g. +91 98xxxxxxxx)';
+  if (customerSession && customerSession.wa) document.getElementById('req-wa').value = customerSession.wa;
+}
+function closeRequestModal() {
+  document.getElementById('req-overlay').style.display = 'none';
+  document.getElementById('req-modal').style.display = 'none';
+}
+async function requestPhotoSelected() {
+  const file = document.getElementById('req-photo').files[0];
+  const status = document.getElementById('req-photo-status');
+  if (!file) { reqPhotoUrl = null; status.textContent = ''; return; }
+  status.textContent = 'Uploading…';
+  try {
+    const compressed = await compressRequestImage(file);
+    const nm = Date.now() + '-' + compressed.name.replace(/[^a-zA-Z0-9.]/g, '_');
+    const r = await fetch(`${_SB}/storage/v1/object/request-photos/${nm}`, {
+      method: 'POST', headers: { 'apikey': _SK, 'Authorization': 'Bearer ' + _SK, 'Content-Type': compressed.type, 'x-upsert': 'true' },
+      body: compressed,
+    });
+    if (!r.ok) throw new Error('Upload failed');
+    reqPhotoUrl = `${_SB}/storage/v1/object/public/request-photos/${nm}`;
+    status.textContent = '✅ Photo attached';
+  } catch (e) {
+    reqPhotoUrl = null;
+    status.textContent = 'Could not upload photo — you can still submit without it.';
+  }
+}
+async function compressRequestImage(file, maxDim = 1600, quality = 0.82) {
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+    if (width > maxDim || height > maxDim) { const s = maxDim / Math.max(width, height); width = Math.round(width * s); height = Math.round(height * s); }
+    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+    return blob ? new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
+  } catch { return file; }
+}
+function submitRequestForm() {
+  const itemName = document.getElementById('req-item-name').value.trim();
+  const wa = document.getElementById('req-wa').value.trim();
+  const msg = document.getElementById('req-msg');
+  if (!itemName) { msg.textContent = 'Tell us what you\'re looking for.'; return; }
+  if (!wa) { msg.textContent = 'A WhatsApp number is needed so we can reach you.'; return; }
+  const draft = {
+    item_id: reqPendingItemId,
+    item_name: itemName,
+    quantity: parseInt(document.getElementById('req-quantity').value, 10) || 1,
+    notes: document.getElementById('req-notes').value.trim(),
+    photo_url: reqPhotoUrl,
+    wa,
+    instagram_handle: document.getElementById('req-insta').value.trim() || null,
+    region: currency === 'AU' ? 'australia' : 'india',
+  };
+  sessionStorage.setItem('msh_request_draft', JSON.stringify(draft));
+  if (!customerSession || !customerSession.token) {
+    closeRequestModal();
+    openAccountModal();
+    return;
+  }
+  finalizeRequestSubmit(draft);
+}
+async function resumePendingRequestDraft() {
+  const raw = sessionStorage.getItem('msh_request_draft');
+  if (!raw || !customerSession || !customerSession.token) return;
+  const draft = JSON.parse(raw);
+  openRequestModal(draft.item_id, draft.item_name);
+  await finalizeRequestSubmit(draft);
+}
+async function finalizeRequestSubmit(draft) {
+  const msg = document.getElementById('req-msg');
+  if (msg) msg.textContent = 'Submitting…';
+  const res = await spPostRPC('submit_saree_request', {
+    p_token: customerSession.token,
+    p_item_id: draft.item_id,
+    p_item_name: draft.item_name,
+    p_quantity: draft.quantity,
+    p_notes: draft.notes,
+    p_photo_url: draft.photo_url,
+    p_instagram_handle: draft.instagram_handle,
+    p_region: draft.region,
+  });
+  sessionStorage.removeItem('msh_request_draft');
+  if (!res || !res.ok) {
+    if (msg) msg.textContent = (res && res.error) || 'Could not submit your request — please try again.';
+    return;
+  }
+  // Best-effort: tell the bots. Never blocks the customer's confirmation
+  // if this fails — same fire-and-forget principle as notifyMonitor server-side.
+  fetch(`${_SB}/functions/v1/notify-new-request`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
+    body: JSON.stringify({ id: res.id }),
+  }).catch(() => {});
+  document.getElementById('req-step-form').style.display = 'none';
+  document.getElementById('req-step-done').style.display = 'block';
+  const waNum = draft.region === 'australia' && waAu ? waAu : waIn;
+  const waMsg = encodeURIComponent(`Hi Meensha! I'd like to request: ${draft.item_name} (qty ${draft.quantity})${draft.notes ? '\n' + draft.notes : ''}`);
+  document.getElementById('req-wa-secondary').href = `https://wa.me/${waNum}?text=${waMsg}`;
 }
 
 function filterShop(f, btn) {
