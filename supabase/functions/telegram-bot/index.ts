@@ -10,6 +10,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { askGemini } from "../_shared/askGemini.ts";
 import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
+import { handleRequestAction } from "../_shared/requestActions.ts";
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -103,6 +104,12 @@ Deno.serve(async (req: Request) => {
     await handleEventPhotoToggle(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("maint:")) {
     await handleMaintenance(supabase, chatId, callbackData, data);
+  } else if (callbackData?.startsWith("iglink:")) {
+    await handleIglink(supabase, chatId, data, callbackData);
+  } else if (callbackData?.startsWith("req:")) {
+    const actorFrom = update.callback_query?.from;
+    const actor = [actorFrom?.first_name, actorFrom?.last_name].filter(Boolean).join(" ") || actorFrom?.username || `Chat ${chatId}`;
+    await handleRequestAction(supabase, chatId, callbackData, actor, tgSend);
   } else if (photo?.length && state === "godown_discrepancy_note") {
     await handleGodownPhoto(supabase, chatId, data, photo);
   } else if (photo?.length && state === "inv_item_photos") {
@@ -190,6 +197,7 @@ async function showMaintenanceMenu(chatId: number) {
       [{ text: "🧾 Sales history", callback_data: "hist:start" }],
       [{ text: "📸 Event photo submissions", callback_data: "evphoto:menu" }],
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
+      [{ text: "🔗 Insta link", callback_data: "maint:iglink" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });
@@ -210,6 +218,11 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
     await saveSession(supabase, chatId, "maint_note_text", data);
     return;
   }
+  if (callbackData === "maint:iglink") {
+    await showIglinkItemPicker(supabase, chatId, {});
+    await saveSession(supabase, chatId, "iglink_pick_item", {});
+    return;
+  }
 }
 
 async function handleMaintenanceText(supabase: SB, chatId: number, text: string) {
@@ -222,6 +235,191 @@ async function handleMaintenanceText(supabase: SB, chatId: number, text: string)
   await tgSend(chatId, "📝 Note saved — it'll show on the dashboard.");
   await showMaintenanceMenu(chatId);
   await saveSession(supabase, chatId, "idle", {});
+}
+
+// ═══════════════════════════════════════════════
+// MAINTENANCE → INSTA LINK
+// ═══════════════════════════════════════════════
+// A single-item variant of Kiosk's Razorpay checkout: pick one SKU + one
+// physical unit, generate a stand-alone payment link with no known customer
+// yet, for pasting straight into an Instagram post/bio-link tool. Reuses
+// create-payment-link exactly like sendRazorpayLink does, tagged
+// source:"instagram" so razorpay-webhook notifies this chat once it's paid.
+const IGLINK_BACK_ROW = [{ text: "◀ Back to maintenance", callback_data: "iglink:cancel" }];
+
+async function showIglinkItemPicker(supabase: SB, chatId: number, data: SessionData) {
+  const query = supabase
+    .from("inventory_skus")
+    .select("id, name, mrp, sale_price, display_variant, display_material, au_available");
+  const searchQ: string | undefined = data.search_query;
+  const { data: skus } = searchQ
+    ? await query.or(
+      `name.ilike.%${searchQ}%,display_material.ilike.%${searchQ}%,display_variant.ilike.%${searchQ}%`,
+    )
+    : await query;
+  const { data: units } = await supabase
+    .from("inventory_units")
+    .select("id, sku_id")
+    .eq("status", "available");
+
+  const availCount: Record<string, number> = {};
+  (units ?? []).forEach((u: { sku_id: string }) => {
+    availCount[u.sku_id] = (availCount[u.sku_id] ?? 0) + 1;
+  });
+  const inStock = (skus ?? []).filter((s: { id: string }) => (availCount[s.id] ?? 0) > 0);
+
+  const pageSize = 8;
+  const page = data.page ?? 0;
+  const pageItems = inStock.slice(page * pageSize, (page + 1) * pageSize);
+
+  const buttons = pageItems.map(
+    (s: { id: string; name: string; mrp: number; sale_price: number; au_available: boolean }) => {
+      const auTag = s.au_available ? "🇦🇺 " : "";
+      const mrpTxt = s.mrp && s.mrp !== s.sale_price ? `MRP ₹${s.mrp} → ` : "";
+      return [{
+        text: `${auTag}${s.name} (${availCount[s.id]} left) — ${mrpTxt}₹${s.sale_price}`,
+        callback_data: `iglink:item:${s.id}`,
+      }];
+    },
+  );
+  const navRow = [];
+  if (page > 0) navRow.push({ text: "◀ Prev", callback_data: `iglink:page:${page - 1}` });
+  if ((page + 1) * pageSize < inStock.length) {
+    navRow.push({ text: "Next ▶", callback_data: `iglink:page:${page + 1}` });
+  }
+  if (navRow.length) buttons.push(navRow);
+  if (searchQ) buttons.push([{ text: "✖ Clear search", callback_data: "iglink:clearsearch" }]);
+  buttons.push(IGLINK_BACK_ROW);
+
+  const header = searchQ
+    ? (inStock.length ? `Results for "${searchQ}":` : `No items matched "${searchQ}".`)
+    : (inStock.length ? "Pick an item for the Insta link, or type a name to search:" : "Nothing in stock right now.");
+
+  await tgSend(chatId, header, { inline_keyboard: buttons });
+}
+
+async function showIglinkUnitPicker(supabase: SB, chatId: number, skuId: string) {
+  const { data: units } = await supabase
+    .from("inventory_units")
+    .select("id, unit_code")
+    .eq("sku_id", skuId)
+    .eq("status", "available");
+  const buttons = (units ?? []).map((u: { id: string; unit_code: string }) => [
+    { text: u.unit_code, callback_data: `iglink:unit:${u.id}` },
+  ]);
+  buttons.push(IGLINK_BACK_ROW);
+  await tgSend(chatId, "Pick the specific piece to link:", { inline_keyboard: buttons });
+}
+
+async function showIglinkConfirm(chatId: number, data: SessionData) {
+  await tgSend(
+    chatId,
+    `Generate Insta link for:\n\n${data.pendingItem.name} (${data.pendingItem.unit_code}) — ₹${data.pendingItem.price}`,
+    {
+      inline_keyboard: [
+        [{ text: "✅ Generate link", callback_data: "iglink:confirm" }],
+        IGLINK_BACK_ROW,
+      ],
+    },
+  );
+}
+
+async function sendIglinkPaymentLink(supabase: SB, chatId: number, data: SessionData) {
+  const item = data.pendingItem;
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/create-payment-link`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({
+      items: [{ name: item.name }],
+      total: item.price,
+      customer: { name: "Instagram Customer", wa: "0000000000" },
+      unit_ids: [item.unit_id],
+      currency: "INR",
+      coupon: null,
+      source: "instagram",
+      telegram_chat_id: chatId,
+    }),
+  });
+  const linkData = await res.json();
+  if (!res.ok || !linkData.short_url) {
+    await tgSend(chatId, `Couldn't create the Insta link: ${linkData?.error ?? "unknown error"} — try again.`);
+    await showIglinkConfirm(chatId, data);
+    return;
+  }
+  await tgSend(
+    chatId,
+    `🔗 Insta link ready — ₹${item.price}\n${linkData.short_url}\n\n` +
+      `Suggested caption:\n"${item.name} — ₹${item.price}. Shop now: ${linkData.short_url}"\n\n` +
+      `You'll get a message here the moment it's paid.`,
+  );
+  await showMaintenanceMenu(chatId);
+  await saveSession(supabase, chatId, "idle", {});
+}
+
+async function handleIglink(supabase: SB, chatId: number, data: SessionData, callbackData: string) {
+  if (callbackData === "iglink:cancel") {
+    await showMaintenanceMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  if (callbackData.startsWith("iglink:page:")) {
+    data.page = parseInt(callbackData.split(":")[2], 10) || 0;
+    await showIglinkItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "iglink_pick_item", data);
+    return;
+  }
+  if (callbackData === "iglink:clearsearch") {
+    delete data.search_query;
+    data.page = 0;
+    await showIglinkItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "iglink_pick_item", data);
+    return;
+  }
+  if (callbackData.startsWith("iglink:item:")) {
+    const skuId = callbackData.split(":")[2];
+    const { data: sku } = await supabase
+      .from("inventory_skus")
+      .select("id, name, sale_price")
+      .eq("id", skuId)
+      .single();
+    if (!sku) {
+      await showIglinkItemPicker(supabase, chatId, data);
+      await saveSession(supabase, chatId, "iglink_pick_item", data);
+      return;
+    }
+    data.pendingSku = { id: sku.id, name: sku.name, price: sku.sale_price };
+    await showIglinkUnitPicker(supabase, chatId, skuId);
+    await saveSession(supabase, chatId, "iglink_pick_unit", data);
+    return;
+  }
+  if (callbackData.startsWith("iglink:unit:")) {
+    const unitId = callbackData.split(":")[2];
+    const { data: unit } = await supabase
+      .from("inventory_units")
+      .select("id, unit_code")
+      .eq("id", unitId)
+      .single();
+    if (!unit) {
+      await showIglinkUnitPicker(supabase, chatId, data.pendingSku.id);
+      return;
+    }
+    data.pendingItem = {
+      unit_id: unit.id,
+      unit_code: unit.unit_code,
+      name: data.pendingSku.name,
+      price: data.pendingSku.price,
+    };
+    await showIglinkConfirm(chatId, data);
+    await saveSession(supabase, chatId, "iglink_confirm", data);
+    return;
+  }
+  if (callbackData === "iglink:confirm") {
+    await sendIglinkPaymentLink(supabase, chatId, data);
+    return;
+  }
 }
 
 // Manual on/off switch for public event-photo submission (event-photos.html
@@ -695,6 +893,14 @@ async function handleTextInput(
     data.page = 0;
     await showItemPicker(supabase, chatId, data);
     await saveSession(supabase, chatId, "kiosk_pick_item", data);
+    return;
+  }
+
+  if (state === "iglink_pick_item") {
+    data.search_query = text.trim();
+    data.page = 0;
+    await showIglinkItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "iglink_pick_item", data);
     return;
   }
 

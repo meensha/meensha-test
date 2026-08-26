@@ -115,8 +115,10 @@ Deno.serve(async (req: Request) => {
   // Kiosk-initiated Razorpay sales don't finalize in the bot itself — the
   // staff member sent a payment link and moved on. This is the only place
   // that knows the payment actually landed, so it's the only place that can
-  // tell them to hand over the item.
-  if (order.source === "telegram_kiosk" && order.telegram_chat_id) {
+  // tell them to hand over the item. Instagram links work the same way —
+  // generated ahead of time with no known buyer yet, so the originating
+  // chat needs telling once someone actually pays.
+  if ((order.source === "telegram_kiosk" || order.source === "instagram") && order.telegram_chat_id) {
     try {
       const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
       if (botToken) {

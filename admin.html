@@ -174,6 +174,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <button class="tab" onclick="showTab('coup',this)" id="tb-coup">🎟️ Coupons</button>
   <button class="tab" onclick="showTab('rev',this)" id="tb-rev">⭐ Reviews</button>
   <button class="tab" onclick="showTab('usr',this)" id="tb-usr">👥 Users</button>
+  <button class="tab" onclick="showTab('req',this)" id="tb-req">📮 Requests</button>
   <button class="tab" onclick="showTab('conn',this)" id="tb-conn">🔗 Connections</button>
 </div>
 
@@ -186,7 +187,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <div class="card"><div class="ct">📋 Recent Sales</div><div class="tw"><table><thead><tr><th>Inv#</th><th>Date</th><th>Customer</th><th>Total</th><th>Mode</th><th>Ship Status</th></tr></thead><tbody id="H-SALES"></tbody></table></div></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
     <div class="card"><div class="ct">📦 Low Stock</div><div id="H-LOW"></div></div>
-    <div class="card"><div class="ct">💬 Customer Requests</div><div id="H-REQ"></div></div>
+    <div class="card"><div class="ct">📮 Saree Requests</div><div id="H-REQ"><p style="font-size:12px;color:var(--gy);">Full request queue, reply/dismiss actions, and history moved to the <a href="#" onclick="showTab('req',document.getElementById('tb-req'));return false;" style="color:var(--gdk);">📮 Requests tab</a>.</p></div></div>
   </div>
 </div>
 
@@ -196,6 +197,19 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="ct">🧾 Purchase Batches Awaiting Approval</div>
     <div style="font-size:12px;color:var(--gy);margin-bottom:10px;">Submitted via Telegram (Enter Inventory) — nothing here is live inventory yet. Approving creates the purchase record and sellable stock; defective items go to Returns Pending instead, never into stock.</div>
     <div id="APPR-LIST"></div>
+  </div>
+</div>
+
+<!-- ═══ SAREE REQUESTS ═══ -->
+<div id="tp-req" class="tp">
+  <div class="card">
+    <div class="ct">📮 Open Requests</div>
+    <div style="font-size:12px;color:var(--gy);margin-bottom:10px;">Same Reply/Done/Not-Done actions available here as on the India/AU Telegram bots and MeenshaMonitor — whichever fires first wins, all stay in sync.</div>
+    <div id="REQ-OPEN-LIST"><p style="color:var(--gy);font-size:12px;">Loading…</p></div>
+  </div>
+  <div class="card">
+    <div class="ct">📜 History</div>
+    <div id="REQ-HISTORY-LIST"><p style="color:var(--gy);font-size:12px;">Loading…</p></div>
   </div>
 </div>
 
@@ -1143,7 +1157,7 @@ const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,'Cotton Silk':2.2,'Tussar Silk':2.0,'Kota Doria':1.8,'default':2.0};
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
 // Default role permissions (super_admin can override via UI)
-const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','usr','conn'],owner:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','conn'],sales:['sale','inv']};
+const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','usr','conn','req'],owner:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','conn','req'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
 const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',fabric:'Cotton',qty:6,sold:0,cost:3000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#2',cat:'AJRK/MODL/SLK',name:'Ajrak Modal Silk',subtype:'',fabric:'Modal Silk',qty:5,sold:0,cost:1399,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#5',cat:'PCHMPL/COT/SLK',name:'Pochampally Cotton Silk',subtype:'',fabric:'Cotton Silk',qty:1,sold:0,cost:720,mrp:1800,disc:10,sale_price:1620,photos:[]},{item_id:'#6',cat:'DOLA/SLK2',name:'Dola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:720,mrp:1500,disc:10,sale_price:1350,photos:[]},{item_id:'#7',cat:'DOLA/SLK1',name:'Dola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:899,mrp:2000,disc:10,sale_price:1800,photos:[]},{item_id:'#8',cat:'TUSS/SLK/MDHB',name:'Tussar Silk',subtype:'Madhubani',fabric:'Tussar Silk',qty:3,sold:0,cost:3200,mrp:6400,disc:10,sale_price:5760,photos:[]},{item_id:'#9',cat:'TUSS/DUPIN',name:'Tussar Dupin',subtype:'',fabric:'Tussar',qty:1,sold:0,cost:3100,mrp:6000,disc:10,sale_price:5400,photos:[]},{item_id:'#10',cat:'TUSS/HAND',name:'Tussar',subtype:'Handpainted',fabric:'Tussar',qty:2,sold:0,cost:4800,mrp:9000,disc:10,sale_price:8100,photos:[]},{item_id:'#11',cat:'TUSS/SUIT/MDHB',name:'Tussar Suit',subtype:'Madhubani',fabric:'Tussar',qty:4,sold:0,cost:3000,mrp:5600,disc:10,sale_price:5040,photos:[]},{item_id:'#12',cat:'TUSS/GHCHA',name:'Tussar',subtype:'Ghicha',fabric:'Tussar',qty:4,sold:0,cost:4200,mrp:8500,disc:10,sale_price:7650,photos:[]},{item_id:'#13',cat:'IKKT/COT',name:'Ikkat',subtype:'Cotton',fabric:'Cotton',qty:13,sold:0,cost:2000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#14',cat:'KLMK/COT',name:'Kalamkari',subtype:'Cotton',fabric:'Cotton',qty:6,sold:0,cost:1000,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#15',cat:'MUL/COT',name:'Mul Cotton',subtype:'',fabric:'Cotton',qty:1,sold:0,cost:2200,mrp:4500,disc:10,sale_price:4050,photos:[]},{item_id:'#16',cat:'GHRCHL/AJRKSEMI',name:'Gharchola',subtype:'Semi Ajrak',fabric:'Silk',qty:4,sold:0,cost:3700,mrp:7500,disc:10,sale_price:6750,photos:[]},{item_id:'#17',cat:'GHRCHL/BANDH',name:'Gharchola',subtype:'Bandhej',fabric:'Silk',qty:1,sold:0,cost:3100,mrp:6300,disc:10,sale_price:5670,photos:[]},{item_id:'#18',cat:'AJRK/PL',name:'Ajrak Plain',subtype:'',fabric:'Cotton',qty:5,sold:0,cost:2600,mrp:5500,disc:10,sale_price:4950,photos:[]},{item_id:'#19',cat:'MODAL/PL',name:'Modal Plain',subtype:'',fabric:'Modal',qty:5,sold:0,cost:1650,mrp:3300,disc:10,sale_price:2970,photos:[]},{item_id:'#20',cat:'MODAL/AJRK',name:'Modal Ajrak',subtype:'',fabric:'Modal',qty:5,sold:0,cost:2500,mrp:4800,disc:10,sale_price:4320,photos:[]},{item_id:'#21',cat:'KOTA/BLOCK',name:'Kota Doria',subtype:'Block Print',fabric:'Kota Doria',qty:2,sold:0,cost:1700,mrp:2900,disc:10,sale_price:2610,photos:[]},{item_id:'#22',cat:'KOTA/SCRN',name:'Kota Doria',subtype:'Screen Print',fabric:'Kota Doria',qty:2,sold:0,cost:1300,mrp:2500,disc:10,sale_price:2250,photos:[]},{item_id:'#23',cat:'DOLA/MODAL/SLK',name:'Dola Modal Silk',subtype:'',fabric:'Modal Silk',qty:1,sold:0,cost:2700,mrp:5800,disc:10,sale_price:5220,photos:[]},{item_id:'#24',cat:'PATOLA/SLK1',name:'Patola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:10000,mrp:17900,disc:10,sale_price:16110,photos:[]},{item_id:'#25',cat:'PATOLA/SLK2',name:'Patola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:11000,mrp:18500,disc:10,sale_price:16650,photos:[]}];
 
@@ -1345,7 +1359,7 @@ function applyRole(){
   if(r==='super_admin'){const el=document.getElementById('TBU');if(el)el.style.color='#C9A84C';}
   // Apply permissions: hide tabs not in the role's allowed list
   const allowed=rolePerms[r]||rolePerms.sales;
-  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',appr:'tb-appr',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn'};
+  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',appr:'tb-appr',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn',req:'tb-req'};
   Object.entries(tabMap).forEach(([mod,tabId])=>{
     const el=document.getElementById(tabId);
     if(!el)return;
@@ -1498,6 +1512,54 @@ function renderConnections(){
   loadGeneralSettings();
   loadPendingSetupBadges();
   if(CU.role==='super_admin'){loadRzpEnabled();renderTelegramUsers();renderTelegramUsersAu();}
+}
+
+// ═══════════════════════════════════════════════
+// SAREE REQUESTS — same three actions (Reply/Done/Not-Done) as the
+// India/AU Telegram bots and MeenshaMonitor, writing to the same
+// `requests` row — whichever channel acts first wins, all stay in sync.
+// ═══════════════════════════════════════════════
+async function renderRequestsTab(){
+  const rows=await sbQ('requests','?order=created_at.desc');
+  const regionLbl={india:'🇮🇳',australia:'🇦🇺'};
+  const open=rows.filter(r=>r.status==='new'||r.status==='contacted');
+  const hist=rows.filter(r=>r.status==='done'||r.status==='not_done');
+  const rowHtml=(r,showActions)=>`<div style="padding:10px 0;border-bottom:1px solid #f0e8d8;font-size:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+      <div>
+        <strong>${regionLbl[r.region]||''} ${sanitise(r.customer_name||'Customer')}</strong> — ${sanitise(r.item_name||'')}${r.quantity>1?' (x'+r.quantity+')':''}
+        <span class="bx ${r.status==='done'?'ba':r.status==='not_done'?'br2':r.status==='contacted'?'bgy2':'ba'}" style="margin-left:6px;">${sanitise(r.status)}</span>
+        <br><span style="color:var(--gy);">${sanitise(r.wa||'')}${r.instagram_handle?' · @'+sanitise(r.instagram_handle):''}</span>
+        ${r.notes?`<br><em style="color:var(--gy);">"${sanitise(r.notes)}"</em>`:''}
+        ${r.photo_url?`<br><img src="${r.photo_url}" style="max-width:80px;border-radius:4px;margin-top:4px;">`:''}
+        ${r.contacted_by?`<br><span style="color:var(--gy);font-size:11px;">Contacted by ${sanitise(r.contacted_by)}</span>`:''}
+        ${r.dismissed_by?`<br><span style="color:var(--gy);font-size:11px;">${r.status==='done'?'Done':'Closed'} by ${sanitise(r.dismissed_by)}</span>`:''}
+      </div>
+      ${showActions?`<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
+        <button class="btn bb xs" onclick="reqReply('${r.id}')">💬 Reply</button>
+        <button class="btn bg xs" onclick="reqDismiss('${r.id}','done')">✅ Done</button>
+        <button class="btn br xs" onclick="reqDismiss('${r.id}','not_done')">❌ Not Done</button>
+      </div>`:''}
+    </div>
+  </div>`;
+  document.getElementById('REQ-OPEN-LIST').innerHTML=open.length?open.map(r=>rowHtml(r,true)).join(''):'<p style="color:var(--gy);font-size:12px;">No open requests.</p>';
+  document.getElementById('REQ-HISTORY-LIST').innerHTML=hist.length?hist.map(r=>rowHtml(r,false)).join(''):'<p style="color:var(--gy);font-size:12px;">Nothing resolved yet.</p>';
+}
+async function reqReply(id){
+  const r=(await sbQ('requests',`?id=eq.${id}&select=*`))[0];
+  if(!r){toast('Request not found','var(--red)');return;}
+  const template=`Hi ${r.customer_name||'there'}! Thanks for your interest in ${r.item_name||'the item you asked about'}${r.quantity>1?' (x'+r.quantity+')':''}. We're checking on availability and will let you know as soon as we have an update. 🙏 — Meensha`;
+  const waDigits=(r.wa||'').replace(/\D/g,'');
+  await sbUpd('requests',`?id=eq.${id}`,{status:'contacted',contacted_by:CU.display_name||CU.username,contacted_at:new Date().toISOString(),reply_message:template});
+  if(waDigits) window.open(`https://wa.me/${waDigits}?text=${encodeURIComponent(template)}`,'_blank');
+  else toast('No WhatsApp number on file — copy the template from the request notes to reply via Instagram.','var(--red)');
+  renderRequestsTab();
+}
+async function reqDismiss(id,status){
+  if(!confirm(status==='done'?'Mark this request Done (item received/delivered)?':'Mark this request Not Done (could not be sourced)?'))return;
+  await sbUpd('requests',`?id=eq.${id}`,{status,dismissed_by:CU.display_name||CU.username,dismissed_at:new Date().toISOString()});
+  toast(status==='done'?'✅ Marked done':'Marked not done','#27ae60');
+  renderRequestsTab();
 }
 
 // Resend has no client-checkable status (EMAIL_FROM is a Supabase secret,
@@ -1677,7 +1739,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections,req:renderRequestsTab};
   renders[id]?.();
 }
 
@@ -1745,8 +1807,7 @@ async function renderHome(){
   // Low stock
   const low=inv.filter(i=>(i.qty||0)-(i.sold||0)<=2);
   document.getElementById('H-LOW').innerHTML=low.length?low.map(i=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0e8d8;font-size:12px;"><span>${i.name}${i.subtype?' ('+i.subtype+')':''}</span><span class="bx ${(i.qty-(i.sold||0))<=0?'br2':'ba'}">${(i.qty-(i.sold||0))} left</span></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">All good ✅</p>';
-  // Requests
-  document.getElementById('H-REQ').innerHTML=reqs.length?reqs.map(r=>`<div style="padding:6px 0;border-bottom:1px solid #f0e8d8;font-size:12px;"><strong>${r.customer_name||'Customer'}</strong> — ${r.item_name}<br><span style="color:var(--gy);">${r.wa||''}</span><button class="btn bgy xs" style="margin-left:7px;" onclick="markReqDone('${r.id}')">Done</button></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">No new requests.</p>';
+  // Requests — H-REQ is now a static shortcut into the Requests tab (see tp-req), no longer populated here.
   // Events
   document.getElementById('EV-LIST').innerHTML=popups.length?popups.map(ev=>`<div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:11px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;"><div><strong style="font-size:13px;">${ev.title}</strong><span class="bx ${ev.status==='upcoming'?'bg2':'bgy2'}" style="margin-left:7px;">${ev.status}</span><br><span style="font-size:11px;color:var(--gy);">${ev.dates||''} · ${ev.location||''}</span></div><div style="display:flex;gap:4px;"><button class="btn bgy xs" onclick="editEv('${ev.id}')">✏️</button><button class="btn br xs" onclick="delEv('${ev.id}')">🗑️</button></div></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">No events yet.</p>';
   // Instagram
@@ -1759,7 +1820,6 @@ function shipBadge(s){
   return m[s.shipping_status]||'<span class="bx bgy2">—</span>';
 }
 
-async function markReqDone(id){await sbUpd('requests',`?id=eq.${id}`,{status:'done'});reqs=reqs.filter(r=>r.id!==id);renderHome();}
 
 // ═══════════════════════════════════════════════
 // VENDORS + ISSUES + MIGRATION (M1)
@@ -3181,11 +3241,44 @@ function renderInv(){
     const inOn=s.india_available!==false,auOn=!!s.au_available;
     const mkt=`<button class="btn xs ${inOn?'bg':'bgy'}" style="opacity:${inOn?1:.4};" onclick="toggleMarket('${s.id}','india_available',${!inOn})" title="India catalogue">🇮🇳</button> <button class="btn xs ${auOn?'bg':'bgy'}" style="opacity:${auOn?1:.4};" onclick="toggleMarket('${s.id}','au_available',${!auOn})" title="Australia catalogue">🇦🇺</button>`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input type="checkbox" class="i-sel" value="${s.id}" style="accent-color:var(--gdk);width:15px;height:15px;"></td><td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;"><button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
+    tr.innerHTML=`<td><input type="checkbox" class="i-sel" value="${s.id}" style="accent-color:var(--gdk);width:15px;height:15px;"></td><td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;">${av>0?`<button class="btn xs" style="background:#c13584;color:#fff;" title="Generate Instagram checkout link" onclick="genInstaLink('${s.id}')">🔗</button>`:''}<button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
     tb.appendChild(tr);
   });
 }
 function toggleAllInvSel(cb){document.querySelectorAll('.i-sel').forEach(el=>el.checked=cb.checked);}
+// Same create-payment-link Edge Function the storefront cart and the
+// Shalini bot's Insta Link mode both use — no real customer yet, so a
+// placeholder is sent; Razorpay collects the real buyer's details at
+// checkout.
+async function genInstaLink(skuId){
+  const s=skus.find(x=>x.id===skuId);if(!s)return;
+  const avail=units.filter(u=>u.sku_id===skuId&&u.status==='available');
+  if(!avail.length){toast('No available units for this item','var(--red)');return;}
+  let unit=avail[0];
+  if(avail.length>1){
+    const codes=avail.map(u=>u.unit_code).join(', ');
+    const pick=prompt(`Pick a unit code for the Insta link:\n${codes}`,avail[0].unit_code);
+    if(pick===null)return;
+    const found=avail.find(u=>u.unit_code===pick.trim());
+    if(!found){toast('Unit code not found','var(--red)');return;}
+    unit=found;
+  }
+  if(!confirm(`Generate Insta checkout link for ${s.name} (${unit.unit_code}) — ₹${s.sale_price}?`))return;
+  try{
+    const res=await fetch(`${SB}/functions/v1/create-payment-link`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '+SK},
+      body:JSON.stringify({items:[{name:s.name}],total:s.sale_price,customer:{name:'Instagram Customer',wa:'0000000000'},unit_ids:[unit.id],currency:'INR',source:'instagram'})
+    });
+    const data=await res.json();
+    if(!res.ok||!data.short_url)throw new Error(data.error||'Could not create link');
+    const caption=`${s.name} — ₹${s.sale_price}. Shop now: ${data.short_url}`;
+    navigator.clipboard.writeText(caption).then(
+      ()=>toast('✅ Insta link copied to clipboard: '+data.short_url,'#27ae60'),
+      ()=>toast('✅ Link created: '+data.short_url,'#27ae60')
+    );
+  }catch(e){toast('Error: '+e.message,'var(--red)');}
+}
 async function toggleMarket(skuId,field,val){
   await sbUpd('inventory_skus','?id=eq.'+skuId,{[field]:val,updated_at:new Date().toISOString()});
   const s=skus.find(x=>x.id===skuId);if(s)s[field]=val;
