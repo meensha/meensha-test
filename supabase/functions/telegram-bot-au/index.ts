@@ -209,9 +209,13 @@ async function kioskFinalize(supabase: any, chatId: number, data: any) {
   if (data.coupon_code) await supabase.rpc("consume_coupon", { p_code: data.coupon_code, p_wa: data.customer_wa });
 
   const waDigits = (data.customer_wa ?? "").replace(/\D/g, "");
-  const waMsg = encodeURIComponent(`Meensha Invoice ${sale.inv}\n${items.map((i: any) => `${i.name} x${i.qty}: ${fmtAud(i.amount)}`).join("\n")}\nTotal: ${fmtAud(total)}\nThank you!`);
+  // Links to the real branded invoice (invoice.html, public/unauthenticated
+  // — not admin.html, which requires staff login) instead of re-typing the
+  // order as plain WhatsApp text.
+  const invoiceUrl = `https://meensha.in/invoice.html?invoice=${encodeURIComponent(sale.inv)}&wa=${waDigits}`;
+  const waMsg = encodeURIComponent(`Hi ${data.customer_name}! Thank you for your Meensha order. Your invoice (${sale.inv}) is here: ${invoiceUrl}`);
   await saveSession(supabase, chatId, "idle", {});
-  await tgSend(chatId, `✅ Sale complete — ${sale.inv}\nTotal: ${fmtAud(total)}\n\n[Send to customer via WhatsApp](https://wa.me/${waDigits}?text=${waMsg})`, {
+  await tgSend(chatId, `✅ Sale complete — ${sale.inv}\nTotal: ${fmtAud(total)}\n\n[Tap to send invoice to customer](https://wa.me/${waDigits}?text=${waMsg})\n\n🧾 View/print invoice yourself: ${invoiceUrl}`, {
     inline_keyboard: [[{ text: "🆕 Start new sale", callback_data: "kiosk:start" }]],
   });
   await notifyMonitor(supabase, `🇦🇺 Sale ${sale.inv} — ${fmtAud(total)} (${data.payment_mode || "?"}), via AU Kiosk bot`);

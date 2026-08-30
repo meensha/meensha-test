@@ -1242,20 +1242,22 @@ async function finalizeSale(supabase: SB, chatId: number, data: SessionData) {
 
   const lines = formatCartLines(data);
   const waDigits = String(data.customer_wa ?? "").replace(/\D/g, "");
+  // The customer-facing message links to the real branded invoice
+  // (invoice.html, public/unauthenticated — NOT admin.html, which requires
+  // staff login and can't be opened by a customer) instead of re-typing an
+  // order summary as plain text. invoice.html requires both the invoice
+  // number and the matching WhatsApp number to actually show anything.
+  const invoiceUrl = `https://meensha.in/invoice.html?invoice=${encodeURIComponent(inv)}&wa=${waDigits}`;
   const waMsg = encodeURIComponent(
-    `Hi ${data.customer_name}! Your Meensha order:\n\n${lines}\n\nTotal: ₹${total}\nPaid: ₹${paid}\n\nInvoice: ${inv}`,
+    `Hi ${data.customer_name}! Thank you for your Meensha order. Your invoice (${inv}) is here: ${invoiceUrl}`,
   );
   const waLink = waDigits ? `https://wa.me/${waDigits}?text=${waMsg}` : null;
-  // The real branded/print-ready invoice lives on the website (same
-  // buildInvHTML/printInv admin.html already uses) — the bot just deep-links
-  // to it (?invoice=) instead of building its own version.
-  const invoiceUrl = `https://meensha.in/admin.html?invoice=${encodeURIComponent(inv)}`;
 
   await tgSend(
     chatId,
     `✅ Sale recorded — ${inv}\n\n${lines}\n\nTotal: ₹${total}\nPaid: ₹${paid}\nBalance: ₹${total - paid}` +
-      (waLink ? `\n\nTap to send to customer: ${waLink}` : "") +
-      `\n\n🧾 View/print invoice: ${invoiceUrl}`,
+      (waLink ? `\n\nTap to send invoice to customer: ${waLink}` : "") +
+      `\n\n🧾 View/print invoice yourself: ${invoiceUrl}`,
   );
   await notifyMonitor(supabase, `🇮🇳 Sale ${inv} — ₹${total} (${data.pay_mode || "?"}), via India Kiosk bot`);
 }
@@ -2210,15 +2212,15 @@ async function sendHistoryInvoiceLink(supabase: SB, chatId: number, saleId: stri
     await tgSend(chatId, "That sale couldn't be found.");
     return;
   }
-  const invoiceUrl = `https://meensha.in/admin.html?invoice=${encodeURIComponent(s.inv)}`;
   const waDigits = String(s.customer?.wa ?? "").replace(/\D/g, "");
+  const invoiceUrl = `https://meensha.in/invoice.html?invoice=${encodeURIComponent(s.inv)}&wa=${waDigits}`;
   const waMsg = encodeURIComponent(
-    `Hi ${s.customer?.name ?? ""}! Here's your Meensha invoice ${s.inv} — Total ₹${s.total}, Paid ₹${s.paid}.`,
+    `Hi ${s.customer?.name ?? ""}! Here's your Meensha invoice ${s.inv}: ${invoiceUrl}`,
   );
   const waLink = waDigits ? `https://wa.me/${waDigits}?text=${waMsg}` : null;
   await tgSend(
     chatId,
-    `🧾 View/print invoice: ${invoiceUrl}` + (waLink ? `\n\nTap to send to customer: ${waLink}` : ""),
+    `🧾 View/print invoice yourself: ${invoiceUrl}` + (waLink ? `\n\nTap to send to customer: ${waLink}` : ""),
     { inline_keyboard: [[{ text: "◀ Back to list", callback_data: "hist:back" }]] },
   );
 }

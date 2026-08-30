@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meensha · Invoice</title>
+<style>
+  body { margin:20px; font-family:Georgia,serif; background:#faf6ee; }
+  .msg { max-width:640px; margin:60px auto; text-align:center; color:#8B6914; font-size:14px; }
+  .print-btn { display:block; max-width:640px; margin:0 auto 14px; text-align:center; }
+  .print-btn button { font-family:Georgia,serif; background:#8B6914; color:#fff; border:none; padding:10px 22px; border-radius:6px; cursor:pointer; font-size:13px; }
+  @media print { .print-btn { display:none; } body { background:#fff; margin:0; } }
+</style>
+</head>
+<body>
+<div class="print-btn"><button onclick="window.print()">🖨️ Print / Save as PDF</button></div>
+<div id="content"><p class="msg">Loading your invoice…</p></div>
+
+<script>
+// Public, unauthenticated invoice view — for customers, reached via a
+// WhatsApp link from the staff bots (not admin.html, which requires staff
+// login and can't be sent to a customer). Requires BOTH the invoice number
+// and the WhatsApp number on that sale to match, same trust model already
+// used elsewhere in this project (coupon locking, review links) — an
+// invoice number alone is short/guessable, this stops that being enough
+// on its own to view someone else's order.
+
+const _SB = 'https://eglanmhhcccsuhbxywua.supabase.co';
+const _SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+const fmt = n => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const INV_SLOGANS = [
+  'Thank you for keeping the looms weaving — one saree, one story, one weaver at a time.',
+  'The karigar is grateful for your patronage. 🙏',
+  'Every thread you\'ve chosen carries a weaver\'s hands and generations of craft.',
+  'Your support keeps a heritage alive. Thank you for choosing handloom.',
+  'From the loom to your hands — thank you for honouring this craft.',
+  'आपके सहयोग से करघे चलते रहते हैं। धन्यवाद। · Your support keeps the looms turning.',
+  'A thousand hours of weaving, now yours to cherish. Thank you.',
+  'You haven\'t just bought a saree — you\'ve kept a tradition alive. शुक्रिया।'
+];
+
+function buildInvHTML(s) {
+  // sales.source marks AU-originated rows (telegram_au, and any future
+  // storefront_au) — everything else is INR. admin.html's own invoice view
+  // hardcodes ₹ too (pre-existing, not fixed here), but since this page
+  // gets sent directly to customers, showing the wrong currency symbol on
+  // an AU invoice would be a visible, confusing mistake worth avoiding here.
+  const sym = /au/i.test(s.source || '') ? 'A$' : '₹';
+  const rows = (s.items || []).map((it, i) => `<tr><td style="padding:6px 8px;">${i + 1}</td><td style="padding:6px 8px;">${it.name}${it.subtype ? ' (' + it.subtype + ')' : ''}<br><small style="color:#888">${it.notes || ''}</small></td><td style="padding:6px 8px;text-align:right;">${sym}${fmt(it.mrp)}</td><td style="padding:6px 8px;text-align:right;">${sym}${fmt(it.salePrice)}</td><td style="padding:6px 8px;text-align:center;">${it.qty}</td><td style="padding:6px 8px;text-align:right;">${sym}${fmt(it.discount || 0)}</td><td style="padding:6px 8px;text-align:right;font-weight:700;">${sym}${fmt(it.amount)}</td></tr>`).join('');
+  const slogan = INV_SLOGANS[Math.floor(Math.random() * INV_SLOGANS.length)];
+  return `<div style="font-family:Georgia,serif;max-width:640px;margin:0 auto;"><div style="background:#E8D9B8;padding:16px 22px;border-radius:8px 8px 0 0;text-align:center;"><img src="logo.svg" alt="Meensha" style="height:72px;"></div><div style="background:#fdf9f2;padding:13px 20px;border:1px solid #e0d5c0;border-top:none;border-radius:0 0 8px 8px;"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:11px;font-size:13px;"><div><strong>Invoice:</strong> ${s.inv}<br><strong>Date:</strong> ${s.date}${s.delivery_mode === 'shipping' ? `<br><strong>Ship to:</strong> ${s.shipping_address || ''}` : ''}</div><div style="text-align:right;"><strong>To:</strong> ${s.customer?.name || ''}<br>${s.customer?.wa || ''}</div></div><table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#1A1208;color:#C9A84C;"><th style="padding:6px 8px;text-align:left;">#</th><th style="padding:6px 8px;text-align:left;">Item</th><th style="padding:6px 8px;text-align:right;">MRP</th><th style="padding:6px 8px;text-align:right;">Sale</th><th style="padding:6px 8px;text-align:center;">Qty</th><th style="padding:6px 8px;text-align:right;">Disc</th><th style="padding:6px 8px;text-align:right;">Amount</th></tr></thead><tbody>${rows}</tbody></table><div style="margin-top:11px;text-align:right;font-size:12px;"><div>Total: <strong style="font-size:15px;color:#8B6914;">${sym}${fmt(s.total)}</strong></div><div style="color:#27ae60;">Paid: ${sym}${fmt(s.paid)}</div>${s.balance > 0 ? `<div style="color:#e74c3c;">Balance: ${sym}${fmt(s.balance)}</div>` : '<div style="color:#27ae60;">✅ Fully Paid</div>'}</div>${s.notes ? `<div style="margin-top:9px;padding:7px;background:#fff;border-radius:5px;border:1px solid #e0d5c0;font-size:11px;color:#666;">${s.notes}</div>` : ''}<div style="margin-top:14px;padding-top:10px;border-top:1px dashed #e0d5c0;text-align:center;font-size:11px;color:#8B6914;font-style:italic;">${slogan}</div><div style="margin-top:6px;text-align:center;font-size:9px;color:#aaa;">meensha.in</div></div></div>`;
+}
+
+async function loadInvoice() {
+  const params = new URLSearchParams(location.search);
+  const inv = (params.get('invoice') || params.get('inv') || '').trim();
+  const wa = (params.get('wa') || '').replace(/\D/g, '');
+  const content = document.getElementById('content');
+  if (!inv || !wa) {
+    content.innerHTML = '<p class="msg">This invoice link is missing information — please use the link sent to you on WhatsApp.</p>';
+    document.querySelector('.print-btn').style.display = 'none';
+    return;
+  }
+  try {
+    const r = await fetch(`${_SB}/rest/v1/sales?inv=eq.${encodeURIComponent(inv)}&select=*`, { headers: { apikey: _SK, Authorization: 'Bearer ' + _SK } });
+    const rows = await r.json();
+    const s = (rows || [])[0];
+    const saleWa = (s?.customer?.wa || '').replace(/\D/g, '');
+    // Match on the last 10 digits so a stored country-code prefix
+    // difference (e.g. with vs without +91) doesn't break a legitimate match.
+    if (!s || saleWa.slice(-10) !== wa.slice(-10)) {
+      content.innerHTML = '<p class="msg">Invoice not found, or the WhatsApp number doesn\'t match this order.</p>';
+      document.querySelector('.print-btn').style.display = 'none';
+      return;
+    }
+    content.innerHTML = buildInvHTML(s);
+  } catch (e) {
+    content.innerHTML = '<p class="msg">Could not load your invoice right now — please try again shortly.</p>';
+    document.querySelector('.print-btn').style.display = 'none';
+  }
+}
+loadInvoice();
+</script>
+</body>
+</html>
