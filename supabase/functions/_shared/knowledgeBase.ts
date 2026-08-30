@@ -7,7 +7,7 @@
 // deno-lint-ignore no-explicit-any
 type SB = any;
 
-export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending";
+export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending" | "visit_stats";
 
 export interface LookupDef {
   name: LookupName;
@@ -31,6 +31,7 @@ export const LOOKUP_CATALOG_FULL: LookupDef[] = [
   { name: "tech_health", description: "Live tech-stack status: website, Supabase, Razorpay, GitHub, with response times and a few key stats", params: {} },
   { name: "pnl_summary", description: "Profit and loss for a period: revenue minus purchases (COGS) minus overheads", params: { period: "'today' | 'week' | 'month'" } },
   { name: "returns_pending", description: "Faulty/defective items flagged and awaiting return to the vendor", params: {} },
+  { name: "visit_stats", description: "Storefront visitor counts (page loads) for today and this week", params: {} },
 ];
 
 function periodStart(period: string): string {
@@ -153,6 +154,18 @@ async function pnlSummary(supabase: SB, params: { period?: string }): Promise<st
   return `Since ${from}: Revenue ₹${revenue.toLocaleString("en-IN")}, Purchases ₹${cogs.toLocaleString("en-IN")}, Overheads ₹${oh.toLocaleString("en-IN")} → P&L ₹${pnl.toLocaleString("en-IN")}`;
 }
 
+async function visitStats(supabase: SB): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
+  const weekAgo = periodStart("week");
+  const [{ count: todayCount }, { count: weekCount }, { count: todayHome }, { count: todayAbout }] = await Promise.all([
+    supabase.from("page_views").select("id", { count: "exact", head: true }).gte("created_at", today),
+    supabase.from("page_views").select("id", { count: "exact", head: true }).gte("created_at", weekAgo),
+    supabase.from("page_views").select("id", { count: "exact", head: true }).gte("created_at", today).eq("page", "home"),
+    supabase.from("page_views").select("id", { count: "exact", head: true }).gte("created_at", today).eq("page", "about"),
+  ]);
+  return `Today: ${todayCount ?? 0} page loads (${todayHome ?? 0} home, ${todayAbout ?? 0} our-story). This week: ${weekCount ?? 0}.`;
+}
+
 export async function runLookup(supabase: SB, name: LookupName, params: Record<string, string>): Promise<string> {
   switch (name) {
     case "item_lookup": return itemLookup(supabase, params);
@@ -161,6 +174,7 @@ export async function runLookup(supabase: SB, name: LookupName, params: Record<s
     case "tech_health": return techHealth(supabase);
     case "pnl_summary": return pnlSummary(supabase, params);
     case "returns_pending": return returnsPending(supabase);
+    case "visit_stats": return visitStats(supabase);
     default: return "Unknown lookup.";
   }
 }

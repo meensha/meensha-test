@@ -799,6 +799,8 @@
   }
   updateCurrencyBtn();
   updateCartBadge();
+  // Minimal internal visitor counter — same as index.html, write-only, reported in the daily digest.
+  fetch(`${_SB}/rest/v1/page_views`, { method: 'POST', headers: { 'apikey': _SK, 'Authorization': 'Bearer ' + _SK, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: JSON.stringify({ page: 'about' }) }).catch(() => {});
 
   // Ticker content is admin-managed (index.html's Connections tab,
   // settings.ticker_messages) — read the same way index.html does, so the

@@ -18,9 +18,12 @@ Deno.serve(async (_req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const report = await runLookup(supabase, "tech_health", {});
+  const [report, visits] = await Promise.all([
+    runLookup(supabase, "tech_health", {}),
+    runLookup(supabase, "visit_stats", {}),
+  ]);
   const anyIssue = report.includes("🔴") || report.includes("⚠️");
-  const text = `${anyIssue ? "⚠️ Meensha Daily Health Check" : "✅ Meensha Daily Health Check — all clear"}\n\n${report}`;
+  const text = `${anyIssue ? "⚠️ Meensha Daily Health Check" : "✅ Meensha Daily Health Check — all clear"}\n\n${report}\n\n👀 ${visits}`;
 
   try {
     const monitorToken = Deno.env.get("TELEGRAM_MONITOR_BOT_TOKEN");

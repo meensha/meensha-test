@@ -2161,6 +2161,10 @@ loadShop().then(() => {
   if (location.hash === '#open-account') openAccountModal();
 });
 restoreCustomerSession();
+// Minimal internal visitor counter — write-only, no reading back from the
+// browser, reported in the daily MeenshaMonitor digest. Fire-and-forget,
+// never blocks or errors the page if it fails.
+spPost('page_views', { page: 'home' }).catch(() => {});
 </script>
 </body>
 </html>
