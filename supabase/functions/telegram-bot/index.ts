@@ -120,6 +120,8 @@ Deno.serve(async (req: Request) => {
     await handleInventoryText(supabase, chatId, state, data, text);
   } else if (text && state === "maint_note_text") {
     await handleMaintenanceText(supabase, chatId, text);
+  } else if (text && state === "iglink_caption_text") {
+    await handleIglinkCaptionText(supabase, chatId, data, text);
   } else if (text) {
     await handleTextInput(supabase, chatId, state, data, text);
   }
@@ -240,11 +242,14 @@ async function handleMaintenanceText(supabase: SB, chatId: number, text: string)
 // ═══════════════════════════════════════════════
 // MAINTENANCE → INSTA LINK
 // ═══════════════════════════════════════════════
-// A single-item variant of Kiosk's Razorpay checkout: pick one SKU + one
-// physical unit, generate a stand-alone payment link with no known customer
-// yet, for pasting straight into an Instagram post/bio-link tool. Reuses
-// create-payment-link exactly like sendRazorpayLink does, tagged
-// source:"instagram" so razorpay-webhook notifies this chat once it's paid.
+// Pick one SKU, type the caption text for the post, get back a storefront
+// link (meensha.in/index.html?buy=<sku_id>) that auto-adds that item to
+// the shopper's cart and opens the cart drawer the moment they tap it — so
+// they land straight in the normal buy/checkout flow. No payment link is
+// created ahead of time (there's no known buyer yet); this is purely a
+// deep link, same as sharing any other page URL. Paste the caption text +
+// link straight into Instagram.
+const STOREFRONT_URL = "https://meensha.in";
 const IGLINK_BACK_ROW = [{ text: "◀ Back to maintenance", callback_data: "iglink:cancel" }];
 
 async function showIglinkItemPicker(supabase: SB, chatId: number, data: SessionData) {
@@ -298,62 +303,26 @@ async function showIglinkItemPicker(supabase: SB, chatId: number, data: SessionD
   await tgSend(chatId, header, { inline_keyboard: buttons });
 }
 
-async function showIglinkUnitPicker(supabase: SB, chatId: number, skuId: string) {
-  const { data: units } = await supabase
-    .from("inventory_units")
-    .select("id, unit_code")
-    .eq("sku_id", skuId)
-    .eq("status", "available");
-  const buttons = (units ?? []).map((u: { id: string; unit_code: string }) => [
-    { text: u.unit_code, callback_data: `iglink:unit:${u.id}` },
-  ]);
-  buttons.push(IGLINK_BACK_ROW);
-  await tgSend(chatId, "Pick the specific piece to link:", { inline_keyboard: buttons });
-}
-
-async function showIglinkConfirm(chatId: number, data: SessionData) {
+async function askIglinkCaption(supabase: SB, chatId: number, data: SessionData) {
   await tgSend(
     chatId,
-    `Generate Insta link for:\n\n${data.pendingItem.name} (${data.pendingItem.unit_code}) — ₹${data.pendingItem.price}`,
-    {
-      inline_keyboard: [
-        [{ text: "✅ Generate link", callback_data: "iglink:confirm" }],
-        IGLINK_BACK_ROW,
-      ],
-    },
+    `"${data.pendingSku.name}" — ₹${data.pendingSku.price}\n\n` +
+      `Type the caption text for this Insta post — I'll pair it with the shop link:`,
   );
+  await saveSession(supabase, chatId, "iglink_caption_text", data);
 }
 
-async function sendIglinkPaymentLink(supabase: SB, chatId: number, data: SessionData) {
-  const item = data.pendingItem;
-  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/create-payment-link`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-    },
-    body: JSON.stringify({
-      items: [{ name: item.name }],
-      total: item.price,
-      customer: { name: "Instagram Customer", wa: "0000000000" },
-      unit_ids: [item.unit_id],
-      currency: "INR",
-      coupon: null,
-      source: "instagram",
-      telegram_chat_id: chatId,
-    }),
-  });
-  const linkData = await res.json();
-  if (!res.ok || !linkData.short_url) {
-    await tgSend(chatId, `Couldn't create the Insta link: ${linkData?.error ?? "unknown error"} — try again.`);
-    await showIglinkConfirm(chatId, data);
+async function handleIglinkCaptionText(supabase: SB, chatId: number, data: SessionData, text: string) {
+  const caption = text.trim();
+  if (!caption) {
+    await tgSend(chatId, "Caption can't be empty — type the text you want:");
     return;
   }
+  const link = `${STOREFRONT_URL}/index.html?buy=${data.pendingSku.id}`;
   await tgSend(
     chatId,
-    `🔗 Insta link ready — ₹${item.price}\n${linkData.short_url}\n\n` +
-      `Suggested caption:\n"${item.name} — ₹${item.price}. Shop now: ${linkData.short_url}"\n\n` +
-      `You'll get a message here the moment it's paid.`,
+    `🔗 Ready to post — copy this straight into Instagram:\n\n${caption}\n${link}\n\n` +
+      `Tapping it adds "${data.pendingSku.name}" to the shopper's cart and opens checkout right away.`,
   );
   await showMaintenanceMenu(chatId);
   await saveSession(supabase, chatId, "idle", {});
@@ -391,33 +360,7 @@ async function handleIglink(supabase: SB, chatId: number, data: SessionData, cal
       return;
     }
     data.pendingSku = { id: sku.id, name: sku.name, price: sku.sale_price };
-    await showIglinkUnitPicker(supabase, chatId, skuId);
-    await saveSession(supabase, chatId, "iglink_pick_unit", data);
-    return;
-  }
-  if (callbackData.startsWith("iglink:unit:")) {
-    const unitId = callbackData.split(":")[2];
-    const { data: unit } = await supabase
-      .from("inventory_units")
-      .select("id, unit_code")
-      .eq("id", unitId)
-      .single();
-    if (!unit) {
-      await showIglinkUnitPicker(supabase, chatId, data.pendingSku.id);
-      return;
-    }
-    data.pendingItem = {
-      unit_id: unit.id,
-      unit_code: unit.unit_code,
-      name: data.pendingSku.name,
-      price: data.pendingSku.price,
-    };
-    await showIglinkConfirm(chatId, data);
-    await saveSession(supabase, chatId, "iglink_confirm", data);
-    return;
-  }
-  if (callbackData === "iglink:confirm") {
-    await sendIglinkPaymentLink(supabase, chatId, data);
+    await askIglinkCaption(supabase, chatId, data);
     return;
   }
 }

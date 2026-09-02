@@ -1245,6 +1245,18 @@ async function loadShop() {
   renderEvents();
   renderInstagramTiles();
   renderReviews();
+
+  // Insta Link deep link: ?buy=<sku_id> auto-adds that item to cart and
+  // opens the cart drawer, so a shopper tapping a link from an Instagram
+  // caption/bio lands straight in the normal buy flow for that item.
+  const buySkuId = new URLSearchParams(location.search).get('buy');
+  if (buySkuId) {
+    if (cart.some(c => c.skuId === buySkuId)) openCart();
+    else {
+      const sku = spSkus.find(s => s.id === buySkuId);
+      if (sku && sku.avail > 0) await addToCart(buySkuId);
+    }
+  }
 }
 
 // Ticker messages come from settings.ticker_messages (admin-managed, see

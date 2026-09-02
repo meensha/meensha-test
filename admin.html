@@ -3246,38 +3246,20 @@ function renderInv(){
   });
 }
 function toggleAllInvSel(cb){document.querySelectorAll('.i-sel').forEach(el=>el.checked=cb.checked);}
-// Same create-payment-link Edge Function the storefront cart and the
-// Shalini bot's Insta Link mode both use — no real customer yet, so a
-// placeholder is sent; Razorpay collects the real buyer's details at
-// checkout.
+// Deep link into the storefront's own cart flow — meensha.in/index.html?buy=<sku_id>
+// auto-adds that item to the shopper's cart and opens checkout the moment
+// they tap it (see index.html's loadShop()). No payment link is created
+// ahead of time; this is just a URL, same as the Shalini bot's Insta Link mode.
 async function genInstaLink(skuId){
   const s=skus.find(x=>x.id===skuId);if(!s)return;
-  const avail=units.filter(u=>u.sku_id===skuId&&u.status==='available');
-  if(!avail.length){toast('No available units for this item','var(--red)');return;}
-  let unit=avail[0];
-  if(avail.length>1){
-    const codes=avail.map(u=>u.unit_code).join(', ');
-    const pick=prompt(`Pick a unit code for the Insta link:\n${codes}`,avail[0].unit_code);
-    if(pick===null)return;
-    const found=avail.find(u=>u.unit_code===pick.trim());
-    if(!found){toast('Unit code not found','var(--red)');return;}
-    unit=found;
-  }
-  if(!confirm(`Generate Insta checkout link for ${s.name} (${unit.unit_code}) — ₹${s.sale_price}?`))return;
-  try{
-    const res=await fetch(`${SB}/functions/v1/create-payment-link`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '+SK},
-      body:JSON.stringify({items:[{name:s.name}],total:s.sale_price,customer:{name:'Instagram Customer',wa:'0000000000'},unit_ids:[unit.id],currency:'INR',source:'instagram'})
-    });
-    const data=await res.json();
-    if(!res.ok||!data.short_url)throw new Error(data.error||'Could not create link');
-    const caption=`${s.name} — ₹${s.sale_price}. Shop now: ${data.short_url}`;
-    navigator.clipboard.writeText(caption).then(
-      ()=>toast('✅ Insta link copied to clipboard: '+data.short_url,'#27ae60'),
-      ()=>toast('✅ Link created: '+data.short_url,'#27ae60')
-    );
-  }catch(e){toast('Error: '+e.message,'var(--red)');}
+  if(skuAvail(s.id)<=0){toast('No available units for this item','var(--red)');return;}
+  const caption=prompt(`Caption text for this Insta post (for "${s.name}" — ₹${s.sale_price}):`,'');
+  if(caption===null)return;
+  const link=`https://meensha.in/index.html?buy=${s.id}`;
+  navigator.clipboard.writeText(`${caption}\n${link}`).then(
+    ()=>toast('✅ Copied to clipboard: '+link,'#27ae60'),
+    ()=>toast('Link: '+link,'#27ae60')
+  );
 }
 async function toggleMarket(skuId,field,val){
   await sbUpd('inventory_skus','?id=eq.'+skuId,{[field]:val,updated_at:new Date().toISOString()});
