@@ -140,11 +140,11 @@ Deno.serve(async (req: Request) => {
 // ═══════════════════════════════════════════════
 // TELEGRAM HELPERS
 // ═══════════════════════════════════════════════
-async function tgSend(chatId: number, text: string, replyMarkup?: unknown) {
+async function tgSend(chatId: number, text: string, replyMarkup?: unknown, parseMode?: string) {
   await fetch(`${TG_API}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, reply_markup: replyMarkup }),
+    body: JSON.stringify({ chat_id: chatId, text, reply_markup: replyMarkup, parse_mode: parseMode }),
   });
 }
 
@@ -312,6 +312,10 @@ async function askIglinkCaption(supabase: SB, chatId: number, data: SessionData)
   await saveSession(supabase, chatId, "iglink_caption_text", data);
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 async function handleIglinkCaptionText(supabase: SB, chatId: number, data: SessionData, text: string) {
   const caption = text.trim();
   if (!caption) {
@@ -321,8 +325,12 @@ async function handleIglinkCaptionText(supabase: SB, chatId: number, data: Sessi
   const link = `${STOREFRONT_URL}/index.html?buy=${data.pendingSku.id}`;
   await tgSend(
     chatId,
-    `🔗 Ready to post — copy this straight into Instagram:\n\n${caption}\n${link}\n\n` +
-      `Tapping it adds "${data.pendingSku.name}" to the shopper's cart and opens checkout right away.`,
+    `🔗 <a href="${link}">${escapeHtml(caption)}</a>\n\n` +
+      `Tapping it adds "${escapeHtml(data.pendingSku.name)}" to the shopper's cart and opens checkout right away.\n\n` +
+      `Instagram captions/bio can't hold a real clickable link — paste that raw URL below into a Story "Link" sticker ` +
+      `(you can rename the sticker's own display text there) or your bio-link field:\n${link}`,
+    undefined,
+    "HTML",
   );
   await showMaintenanceMenu(chatId);
   await saveSession(supabase, chatId, "idle", {});
