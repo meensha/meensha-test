@@ -11,8 +11,9 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
       a. Bot shows the matching items as a numbered list (1, 2, 3, 4...).
       b. Staff type which ones to send — multiple allowed (e.g. "1,3,4"), each selected item becomes its own individual message later.
       c. Bot asks for the customer's name (for personalizing the message text).
-      d. For each selected item, bot sends staff a ready copy-paste unit: item photo + price + a personalized greeting using the customer's name + a buy link (`?buy=<sku_id>`, which already auto-adds to cart — "straight to cart").
-      e. The generated message text itself must be clean copy-paste — no wrapper/instructional text like "here's the message to copy" around it, just the raw text ready to forward.
+      d. Bot asks whether to include the price in the message or not (staff choice, applies to all selected items in that batch).
+      e. For each selected item, bot sends staff a ready copy-paste unit: item photo + price (if chosen) + a personalized greeting using the customer's name + a buy link (`?buy=<sku_id>`, which already auto-adds to cart — "straight to cart").
+      f. The generated message text itself must be clean copy-paste — no wrapper/instructional text like "here's the message to copy" around it, just the raw text ready to forward.
   - Both options reachable from the same "Share links/photos" entry point in the kiosk item-picker.
 
 - [ ] Admin login page (admin.html): clicking the Meensha logo should link back to the main site (index.html), not do nothing/stay put.
