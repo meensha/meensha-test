@@ -1294,7 +1294,7 @@ async function loadShop() {
   // Shareable shop link: ?shop=<term> opens the shop page pre-filtered to
   // that search term (URLSearchParams already URL-decodes it), same spirit
   // as ?buy= above — lets a customer land straight on matching results
-  // from a link forwarded by staff (see kiosk mode's "Share this search").
+  // from a link forwarded by staff (see kiosk mode's "Share links/photos").
   const shopTerm = new URLSearchParams(location.search).get('shop');
   if (shopTerm) {
     document.getElementById('shop-page').style.display = 'block';

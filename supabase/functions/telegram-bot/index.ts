@@ -783,13 +783,24 @@ async function handleKiosk(
       return;
     }
     // Staff already typed a search term matching what a customer asked
-    // about on WhatsApp — hand them ready-to-forward text with a deep link
-    // into the storefront's shop page (see index.html's ?shop= handling)
-    // pre-filtered to that same term. No customer WA number is known yet at
-    // this point in the flow (still mid-search, before a cart/customer
-    // exists), so this is plain text for staff to copy/forward manually
-    // rather than a wa.me link like the rest of this file builds.
-    if (callbackData === "kiosk:sharesearch") {
+    // about on WhatsApp — offer either the plain filtered shop link, or
+    // individual ready-to-forward WhatsApp messages per item (see the
+    // kiosk_share_menu state below).
+    if (callbackData === "kiosk:sharemenu") {
+      await tgSend(chatId, "Share how?", {
+        inline_keyboard: [
+          [{ text: "🔗 Send website filtered link", callback_data: "kiosk:sharemenu:link" }],
+          [{ text: "💬 Send WhatsApp messages", callback_data: "kiosk:sharemenu:wa" }],
+          [{ text: "◀ Back to items", callback_data: "kiosk:backtoitems" }],
+        ],
+      });
+      await saveSession(supabase, chatId, "kiosk_share_menu", data);
+      return;
+    }
+  }
+
+  if (state === "kiosk_share_menu") {
+    if (callbackData === "kiosk:sharemenu:link") {
       if (data.search_query) {
         const link = `https://meensha.in/index.html?shop=${encodeURIComponent(data.search_query)}`;
         const shareText = `Sure, check out the entire range from here: ${link}\n\nFor something else you can fill in the request form and we'll get it for you soon.`;
@@ -799,6 +810,21 @@ async function handleKiosk(
       await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
+    if (callbackData === "kiosk:sharemenu:wa") {
+      await startShareWaFlow(supabase, chatId, data);
+      return;
+    }
+  }
+
+  if (state === "kiosk_share_price_choice" && callbackData.startsWith("kiosk:shareprice:")) {
+    const includePrice = callbackData === "kiosk:shareprice:yes";
+    await sendShareWaMessages(chatId, data, includePrice);
+    data.shareSkus = undefined;
+    data.shareSelectedSkus = undefined;
+    data.shareCustomerName = undefined;
+    await showItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "kiosk_pick_item", data);
+    return;
   }
 
   if (state === "kiosk_pick_unit" && callbackData.startsWith("kiosk:unit:")) {
@@ -1040,7 +1066,7 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
   if (searchQ) {
     buttons.push([
       { text: "✖ Clear search", callback_data: "kiosk:clearsearch" },
-      { text: "🔗 Share this search", callback_data: "kiosk:sharesearch" },
+      { text: "📤 Share links/photos", callback_data: "kiosk:sharemenu" },
     ]);
   }
   buttons.push(CANCEL_ROW);
@@ -1056,6 +1082,78 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
   }
 
   await tgSend(chatId, header, { inline_keyboard: buttons });
+}
+
+// "Share links/photos" → "Send WhatsApp messages" — same matching-items
+// query as showItemPicker, but a numbered plain-text list instead of
+// buttons, since staff pick multiple at once by typing e.g. "1,3,4"
+// (handleTextInput's kiosk_share_wa_pick case) rather than tapping one.
+async function startShareWaFlow(supabase: SB, chatId: number, data: SessionData) {
+  const searchQ: string | undefined = data.search_query;
+  const query = supabase.from("inventory_skus").select("id, name, sale_price, photos");
+  const { data: skus } = searchQ
+    ? await query.or(
+      `name.ilike.%${searchQ}%,display_material.ilike.%${searchQ}%,display_variant.ilike.%${searchQ}%`,
+    )
+    : await query;
+  const { data: units } = await supabase
+    .from("inventory_units")
+    .select("sku_id")
+    .eq("status", "available");
+  const availCount: Record<string, number> = {};
+  (units ?? []).forEach((u: { sku_id: string }) => {
+    availCount[u.sku_id] = (availCount[u.sku_id] ?? 0) + 1;
+  });
+  const inStock = (skus ?? []).filter((s: { id: string }) => (availCount[s.id] ?? 0) > 0);
+
+  if (!inStock.length) {
+    await tgSend(chatId, "No matching items in stock to share.");
+    await showItemPicker(supabase, chatId, data);
+    await saveSession(supabase, chatId, "kiosk_pick_item", data);
+    return;
+  }
+
+  data.shareSkus = inStock.map((s: { id: string; name: string; sale_price: number; photos?: string[] }) => ({
+    id: s.id,
+    name: s.name,
+    price: s.sale_price,
+    photo: s.photos?.[0] ?? null,
+  }));
+
+  const lines = data.shareSkus.map(
+    (s: { name: string; price: number }, i: number) => `${i + 1}. ${s.name} — ₹${s.price}`,
+  );
+  await tgSend(
+    chatId,
+    `Reply with the numbers of the items to send (e.g. 1,3,4):\n\n${lines.join("\n")}`,
+    { inline_keyboard: [CANCEL_ROW] },
+  );
+  await saveSession(supabase, chatId, "kiosk_share_wa_pick", data);
+}
+
+// Sends each selected item as its own ready-to-forward unit — photo (when
+// the SKU has one) with the greeting/price/buy-link as the caption, or
+// plain text when it doesn't. No "copy/forward this" wrapper around it per
+// item, matching the item spec — each message is meant to be forwarded to
+// the customer on WhatsApp exactly as staff receive it here.
+async function sendShareWaMessages(chatId: number, data: SessionData, includePrice: boolean) {
+  const items: { id: string; name: string; price: number; photo: string | null }[] = data.shareSelectedSkus ?? [];
+  const name = data.shareCustomerName || "there";
+  for (const item of items) {
+    const link = `${STOREFRONT_URL}/index.html?buy=${item.id}`;
+    const priceLine = includePrice ? ` — ₹${item.price}` : "";
+    const message =
+      `Hi ${name}! Here's the "${item.name}"${priceLine} you asked about — tap here to add it straight to your cart: ${link}`;
+    if (item.photo) {
+      await tgSendPhoto(chatId, item.photo, message);
+    } else {
+      await tgSend(chatId, message);
+    }
+  }
+  await tgSend(
+    chatId,
+    `✅ Sent ${items.length} message${items.length === 1 ? "" : "s"} above — forward each to ${name} on WhatsApp.`,
+  );
 }
 
 async function showUnitPicker(supabase: SB, chatId: number, skuId: string, data: SessionData, remaining?: number) {
@@ -1149,6 +1247,47 @@ async function handleTextInput(
     data.page = 0;
     await showItemPicker(supabase, chatId, data);
     await saveSession(supabase, chatId, "kiosk_pick_item", data);
+    return;
+  }
+
+  if (state === "kiosk_share_wa_pick") {
+    const items: { id: string; name: string; price: number; photo: string | null }[] = data.shareSkus ?? [];
+    const seen = new Set<number>();
+    const indices: number[] = [];
+    for (const part of text.split(/[,\s]+/)) {
+      const n = parseInt(part.trim(), 10);
+      if (!isNaN(n) && n >= 1 && n <= items.length && !seen.has(n)) {
+        seen.add(n);
+        indices.push(n);
+      }
+    }
+    if (!indices.length) {
+      await tgSend(chatId, "Enter one or more numbers from the list above (e.g. 1,3,4).");
+      return;
+    }
+    data.shareSelectedSkus = indices.map((n) => items[n - 1]);
+    await tgSend(chatId, "Customer's name (for the message)?", { inline_keyboard: [CANCEL_ROW] });
+    await saveSession(supabase, chatId, "kiosk_share_customer_name", data);
+    return;
+  }
+
+  if (state === "kiosk_share_customer_name") {
+    const name = text.trim();
+    if (!name) {
+      await tgSend(chatId, "Customer's name (for the message)?");
+      return;
+    }
+    data.shareCustomerName = name;
+    await tgSend(chatId, "Include the price in the message?", {
+      inline_keyboard: [
+        [
+          { text: "Yes, include price", callback_data: "kiosk:shareprice:yes" },
+          { text: "No price", callback_data: "kiosk:shareprice:no" },
+        ],
+        CANCEL_ROW,
+      ],
+    });
+    await saveSession(supabase, chatId, "kiosk_share_price_choice", data);
     return;
   }
 
