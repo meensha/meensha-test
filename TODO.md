@@ -16,7 +16,6 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
       f. The generated message text itself must be clean copy-paste — no wrapper/instructional text like "here's the message to copy" around it, just the raw text ready to forward.
   - Both options reachable from the same "Share links/photos" entry point in the kiosk item-picker.
 
-- [ ] Admin login page (admin.html): clicking the Meensha logo should link back to the main site (index.html), not do nothing/stay put.
 - [ ] Admin login attempts: log IP + location per attempt.
   - Full history always available in admin.html's tech-stack/health section (not time-limited).
   - Telegram daily report to MeenshaMonitor only shows activity since the last report (last 24h) — not full history, and not sent to Shalini's chat.
@@ -40,6 +39,7 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-09-13: Admin login page — Meensha logo now links back to index.html (was a dead image, staff had no way back to the main site from the login screen).
 - 2026-09-13: Dynamic shop categories + live search + kiosk "Share this search" link; fixed deep-link scroll target and mobile category/grid overlap.
 - 2026-09-13: Daily health digest now also flags SKUs with no photos, sent to Shalini's chat too (was monitor-only).
 - 2026-09-12: AU stock-intake pending-cost tracking; fixed a serious region-awareness bug in the real (previously-dead-code-shadowed) approval function.
