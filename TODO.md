@@ -27,7 +27,7 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
   - Phase 2: blog section + content calendar (ongoing, not started).
   - Phase 3: Instagram content drafts delivered to Shalini via bot for manual posting (ongoing, not started).
   - Needs: a supervisor → worker → QA → reporting-manager agent pipeline, each terminating after its task; daily morning-brief progress reporting; all actions recorded to syncthing/obsidian/gitea (and blog posts published) each phase. **The 4-hourly TODO-worker cloud routine (below) is the first piece of this — currently blocked on connecting GitHub to claude.ai.**
-- [x] ~~Connect GitHub + create "Meensha TODO worker" routine~~ — **live 2026-09-13**: `trig_01CSksr3xMEajpixfNFjgj3g`, every 4 hours, meensha-test2 (staging) only, reports to Shalini + MeenshaMonitor via `agent-report`, daily rollup on the 00:00–03:59 UTC run. https://claude.ai/code/routines/trig_01CSksr3xMEajpixfNFjgj3g
+- [x] ~~Connect GitHub + create "Meensha TODO worker" routine~~ — **live 2026-09-13**: `trig_01CSksr3xMEajpixfNFjgj3g`, meensha-test2 (staging) only, reports to Shalini + MeenshaMonitor via `agent-report`. Fires at 08:30, 12:30, 16:30, 20:30, 00:30, 04:30 IST — daily rollup on the 08:30 IST run. https://claude.ai/code/routines/trig_01CSksr3xMEajpixfNFjgj3g
 
 ## Formatting notes for daily digests (apply next time touched)
 
