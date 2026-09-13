@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /invoice.html
+
+Sitemap: https://meensha.in/sitemap.xml
