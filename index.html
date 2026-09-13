@@ -1281,7 +1281,14 @@ async function loadShop() {
     // above the grid and pushes it far down, so scrolling to #shop alone
     // lands on a long category list with the real results still off-screen,
     // looking like the link didn't actually filter anything.
-    setTimeout(() => (document.getElementById('sp-grid') || document.getElementById('shop')).scrollIntoView({behavior:'smooth', block:'start'}), 80);
+    const scrollToResults = () => (document.getElementById('sp-grid') || document.getElementById('shop')).scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(scrollToResults, 80);
+    // Images loading further up the page (Instagram tiles, reviews, etc.)
+    // can shift page height after the first scroll fires, landing short of
+    // the actual results — re-scroll once everything has finished loading
+    // to correct for that.
+    if (document.readyState === 'complete') setTimeout(scrollToResults, 400);
+    else window.addEventListener('load', () => setTimeout(scrollToResults, 200), { once: true });
   }
 }
 
