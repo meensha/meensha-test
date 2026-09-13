@@ -16,9 +16,6 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
       f. The generated message text itself must be clean copy-paste — no wrapper/instructional text like "here's the message to copy" around it, just the raw text ready to forward.
   - Both options reachable from the same "Share links/photos" entry point in the kiosk item-picker.
 
-- [ ] Admin login attempts: log IP + location per attempt.
-  - Full history always available in admin.html's tech-stack/health section (not time-limited).
-  - Telegram daily report to MeenshaMonitor only shows activity since the last report (last 24h) — not full history, and not sent to Shalini's chat.
 - [ ] Instagram tiles on the storefront: the left-most tile should always show the actual latest post from Meensha's Instagram account (currently — confirm current behavior before building; may need Instagram Graph API access to pull real posts).
 - [ ] SEO + Instagram growth initiative (large, multi-phase — see proposal in session transcript 2026-09-13):
   - Phase 0: Google Search Console setup — **still needs Dheeraj** to verify domain ownership (blocking any real traffic-number reporting; not something Claude can do alone).
@@ -39,6 +36,7 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-09-13: Admin login attempts now log real IP + geolocation per attempt (new `log-auth-attempt` Edge Function; admin.html's Auth Log card already had unbounded history, now with IP/Location columns) and a new `auth-log-digest` cron posts a rolling since-last-report summary to MeenshaMonitor only, never Shalini's chat. **Needs manual deploy**: `supabase functions deploy log-auth-attempt`, `supabase functions deploy auth-log-digest --no-verify-jwt`, then run `setup/add_auth_log_location.sql` (adds columns, schedules the cron).
 - 2026-09-13: Admin login page — Meensha logo now links back to index.html (was a dead image, staff had no way back to the main site from the login screen).
 - 2026-09-13: Dynamic shop categories + live search + kiosk "Share this search" link; fixed deep-link scroll target and mobile category/grid overlap.
 - 2026-09-13: Daily health digest now also flags SKUs with no photos, sent to Shalini's chat too (was monitor-only).

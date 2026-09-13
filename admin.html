@@ -662,7 +662,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <button class="btn bb sm" onclick="exportAuthLogXL()">📊 Excel</button>
     </div>
     <div class="tw" style="max-height:420px;overflow-y:auto;"><table>
-      <thead><tr><th>When</th><th>Username</th><th>Result</th><th>Reason</th><th>Browser</th><th>IP (best-guess)</th></tr></thead>
+      <thead><tr><th>When</th><th>Username</th><th>Result</th><th>Reason</th><th>Browser</th><th>IP</th><th>Location</th></tr></thead>
       <tbody id="AL-BODY"></tbody>
     </table></div>
   </div>
@@ -1250,12 +1250,17 @@ function clearFails(u){setLockState(u,{fails:[],lockedUntil:0});}
 
 async function logAuthAttempt(username,success,reason){
   try{
-    await sbIns('auth_log',{
-      username:(username||'').toLowerCase(),
-      success:!!success,
-      reason:reason||'',
-      ip_guess:'', // real IP not available from client; filled by Edge Fn server-side if ever needed
-      user_agent:(navigator.userAgent||'').slice(0,200)
+    // Posts to an Edge Function (not a direct table insert) so the real
+    // client IP + a geolocation lookup can be captured server-side — a
+    // browser can't see its own public IP.
+    await fetch(`${SB}/functions/v1/log-auth-attempt`,{
+      method:'POST',headers:HDR(),
+      body:JSON.stringify({
+        username:(username||'').toLowerCase(),
+        success:!!success,
+        reason:reason||'',
+        user_agent:(navigator.userAgent||'').slice(0,200)
+      })
     });
   }catch{}
   // Fire-and-forget suspicious-activity check for failures
@@ -3198,7 +3203,7 @@ async function renderAuthLog(){
   if(fst!=='')q+=`&success=eq.${fst}`;
   let rows=[];
   try{rows=await sbQ('auth_log',q);}catch{}
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--gy);padding:18px;font-style:italic;">No entries.</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--gy);padding:18px;font-style:italic;">No entries.</td></tr>';return;}
   tbody.innerHTML=rows.map(r=>{
     const dt=(r.created_at||'').replace('T',' ').slice(0,19);
     const ua=(r.user_agent||'').match(/(Chrome|Firefox|Safari|Edge|Opera)[^\s]*/);
@@ -3208,7 +3213,8 @@ async function renderAuthLog(){
       <td>${r.success?'<span class="bx bg2">OK</span>':'<span class="bx br2">FAIL</span>'}</td>
       <td style="font-size:11px;">${sanitise(r.reason||'')}</td>
       <td style="font-size:11px;">${sanitise(ua?ua[0]:'—')}</td>
-      <td style="font-family:monospace;font-size:10px;color:var(--gy);">${sanitise(r.ip_guess||'—')}</td>
+      <td style="font-family:monospace;font-size:10px;color:var(--gy);">${sanitise(r.ip_address||'—')}</td>
+      <td style="font-size:11px;color:var(--gy);">${sanitise(r.location||'—')}</td>
     </tr>`;
   }).join('');
 }
@@ -3218,7 +3224,7 @@ function exportAuthLogXL(){
     if(!rows.length){toast('Nothing to export','var(--red)');return;}
     const out=rows.map(r=>({
       When:r.created_at,Username:r.username,Success:r.success,
-      Reason:r.reason,'User Agent':r.user_agent,'IP (guess)':r.ip_guess
+      Reason:r.reason,'User Agent':r.user_agent,IP:r.ip_address,Location:r.location
     }));
     const ws=XLSX.utils.json_to_sheet(out);
     const wb=XLSX.utils.book_new();
