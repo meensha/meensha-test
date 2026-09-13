@@ -22,11 +22,12 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
   - Telegram daily report to MeenshaMonitor only shows activity since the last report (last 24h) — not full history, and not sent to Shalini's chat.
 - [ ] Instagram tiles on the storefront: the left-most tile should always show the actual latest post from Meensha's Instagram account (currently — confirm current behavior before building; may need Instagram Graph API access to pull real posts).
 - [ ] SEO + Instagram growth initiative (large, multi-phase — see proposal in session transcript 2026-09-13):
-  - Phase 0: Google Search Console setup (needs Dheeraj to verify domain ownership — blocking, not something Claude can do alone).
-  - Phase 1: technical SEO (sitemap.xml, robots.txt, meta descriptions, Open Graph tags, Product/LocalBusiness structured data) — safe to build once approved.
-  - Phase 2: blog section + content calendar (ongoing).
-  - Phase 3: Instagram content drafts delivered to Shalini via bot for manual posting (ongoing).
-  - Needs: a supervisor → worker → QA → reporting-manager agent pipeline, each terminating after its task; daily morning-brief progress reporting; all actions recorded to syncthing/obsidian/gitea (and blog posts published) each phase.
+  - Phase 0: Google Search Console setup — **still needs Dheeraj** to verify domain ownership (blocking any real traffic-number reporting; not something Claude can do alone).
+  - ~~Phase 1: technical SEO~~ — **done 2026-09-13**, see below.
+  - Phase 2: blog section + content calendar (ongoing, not started).
+  - Phase 3: Instagram content drafts delivered to Shalini via bot for manual posting (ongoing, not started).
+  - Needs: a supervisor → worker → QA → reporting-manager agent pipeline, each terminating after its task; daily morning-brief progress reporting; all actions recorded to syncthing/obsidian/gitea (and blog posts published) each phase. **The 4-hourly TODO-worker cloud routine (below) is the first piece of this — currently blocked on connecting GitHub to claude.ai.**
+- [ ] Connect GitHub to claude.ai (https://claude.ai/code/onboarding?magic=github-app-setup), then create the "Meensha TODO worker" scheduled routine — every 4 hours, meensha-test2 (staging) repo only, picks one safe queued item, implements + commits + pushes to test2, reports to Shalini + MeenshaMonitor via the new `agent-report` Edge Function, daily rollup on the 00:00–03:59 UTC run. Full routine config already drafted in this session — just needs GitHub connected to actually create it.
 
 ## Formatting notes for daily digests (apply next time touched)
 
