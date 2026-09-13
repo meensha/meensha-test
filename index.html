@@ -584,6 +584,9 @@ footer {
 .sp-noimg { width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:rgba(201,168,76,.18); }
 .sp-noimg span { font-size:26px; }
 .sp-noimg p { font-family:'Cinzel',serif;font-size:8px;letter-spacing:.18em;text-transform:uppercase; }
+.sp-badge { position:absolute;left:8px;font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;text-transform:uppercase;padding:4px 9px;z-index:2; }
+.sp-badge-new { top:8px;background:var(--gold-light);color:var(--dark); }
+.sp-badge-trend { top:32px;background:#c13584;color:#fff; }
 .sp-sold-ov { position:absolute;inset:0;background:rgba(14,10,4,.78);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;text-align:center;padding:14px; }
 .sp-sold-ov p { font-family:'Cinzel',serif;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(247,243,236,.55); }
 .sp-sold-ov button { font-family:'Cinzel',serif;font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--gold-light);background:none;border:1px solid rgba(201,168,76,.3);padding:5px 13px;cursor:pointer;transition:border-color .3s; }
@@ -1546,6 +1549,8 @@ function renderShopGrid() {
     const mrp2 = isAud ? 0 : it.mrp;
     const sym = isAud ? 'A$' : '₹';
     const fmtP = isAud ? (n => Number(n||0).toLocaleString('en-AU')) : fmtR;
+    const isNew = it.created_at && (Date.now() - new Date(it.created_at).getTime()) < 14*24*60*60*1000;
+    const badgeHtml = (isNew ? '<span class="sp-badge sp-badge-new">New</span>' : '') + (it.trending ? '<span class="sp-badge sp-badge-trend">Trending</span>' : '');
     const nm = it.name + (it.display_variant ? ' ('+it.display_variant+')' : '');
     const wam = encodeURIComponent('Hi Meensha! Interested in: '+nm+' — '+it.sku_code+'\nCould you share details? 🙏');
     const som = encodeURIComponent('Hi Meensha! '+nm+' shows as Sold Out — please notify me! 🙏');
@@ -1556,6 +1561,7 @@ function renderShopGrid() {
     return `<div class="sp-card${sold?' sp-sold':''}">
       <div class="sp-img">
         ${ph.length ? `<img src="${ph[0]}" alt="${it.name}">` : `<div class="sp-noimg"><span>🧵</span><p>${it.display_material||'Handloom'}</p></div>`}
+        ${badgeHtml}
         ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="openRequestModal('${it.id}','${nm.replace(/'/g,"\\'")}')">Notify Me</button></div>` : ''}
       </div>
       <div class="sp-info">

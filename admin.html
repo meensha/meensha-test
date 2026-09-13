@@ -372,7 +372,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <button class="btn bwa sm" onclick="printTags()">🏷️ Print Tags</button>
     <button class="btn bgn sm" onclick="showTab('stock',document.getElementById('tb-stock'))">➕ Add Stock</button>
   </div>
-  <div class="tw"><table><thead><tr><th><input type="checkbox" id="I-SELALL" onchange="toggleAllInvSel(this)" style="accent-color:var(--gdk);width:15px;height:15px;"></th><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Market</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
+  <div class="tw"><table><thead><tr><th><input type="checkbox" id="I-SELALL" onchange="toggleAllInvSel(this)" style="accent-color:var(--gdk);width:15px;height:15px;"></th><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Market</th><th>Trending</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
 </div>
 
 <!-- ═══ ADD STOCK ═══ -->
@@ -3257,6 +3257,16 @@ async function saveTicker(){
 function skuAvail(skuId){return units.filter(u=>u.sku_id===skuId&&u.status==='available').length;}
 function skuSold(skuId){return units.filter(u=>u.sku_id===skuId&&u.status==='sold').length;}
 function skuTotal(skuId){return units.filter(u=>u.sku_id===skuId).length;}
+// Sales-velocity signal for the "suggested trending" nudge below — counts
+// units of this SKU sold in the last `days` days (inventory_units.updated_at
+// flips to now() when a unit's status becomes 'sold', see the sale RPC).
+// A suggestion only, staff's manual Trending toggle is always authoritative.
+// TODO: once Instagram Graph API (Insights) access is set up, blend a
+// view-count signal in here too — see TODO.md's SEO/Instagram section.
+function skuSoldRecent(skuId,days){
+  const since=Date.now()-days*24*60*60*1000;
+  return units.filter(u=>u.sku_id===skuId&&u.status==='sold'&&new Date(u.updated_at).getTime()>=since).length;
+}
 function populateFabFilter(){
   const fabs=[...new Set(skus.map(s=>s.display_material||s.material).filter(Boolean))].sort();
   const el=document.getElementById('I-FAB');if(!el)return;
@@ -3306,8 +3316,10 @@ function renderInv(){
     const badge=av<=0?'<span class="bx br2">Sold Out</span>':av<=2?'<span class="bx ba">Low</span>':'<span class="bx bg2">Available</span>';
     const inOn=s.india_available!==false,auOn=!!s.au_available;
     const mkt=`<button class="btn xs ${inOn?'bg':'bgy'}" style="opacity:${inOn?1:.4};" onclick="toggleMarket('${s.id}','india_available',${!inOn})" title="India catalogue">🇮🇳</button> <button class="btn xs ${auOn?'bg':'bgy'}" style="opacity:${auOn?1:.4};" onclick="toggleMarket('${s.id}','au_available',${!auOn})" title="Australia catalogue">🇦🇺</button>`;
+    const trendOn=!!s.trending,recentSold=skuSoldRecent(s.id,14),suggestTrend=!trendOn&&recentSold>=3;
+    const trend=`<button class="btn xs ${trendOn?'bg':'bgy'}" style="opacity:${trendOn?1:.4};" onclick="toggleMarket('${s.id}','trending',${!trendOn})" title="Trending on storefront">🔥</button>${suggestTrend?` <button class="btn xs" style="background:#f59e0b;color:#fff;" title="${recentSold} sold in the last 14 days — mark as Trending?" onclick="toggleMarket('${s.id}','trending',true)">💡</button>`:''}`;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><input type="checkbox" class="i-sel" value="${s.id}" style="accent-color:var(--gdk);width:15px;height:15px;"></td><td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;">${av>0?`<button class="btn xs" style="background:#c13584;color:#fff;" title="Generate Instagram checkout link" onclick="genInstaLink('${s.id}')">🔗</button>`:''}<button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
+    tr.innerHTML=`<td><input type="checkbox" class="i-sel" value="${s.id}" style="accent-color:var(--gdk);width:15px;height:15px;"></td><td style="font-family:monospace;font-size:11px;"><strong>${sanitise(s.sku_code)}</strong></td><td>${sanitise(s.name)}</td><td><span class="bx bb2">${sanitise(s.display_material||'—')}</span></td><td style="color:var(--gy);">${sanitise(s.display_variant||'—')}</td><td><strong>${av}</strong>/${tot}</td><td>₹${fmt(s.cost)}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc}%</td><td style="font-weight:700;color:var(--gdk);">₹${fmt(s.sale_price)}</td><td>${s.sale_price_aud?'A$'+fmt(s.sale_price_aud):'—'}</td><td>${badge}</td><td>${mkt}</td><td>${trend}</td><td><button class="btn bgy xs" onclick="openSkuPhGallery('${s.id}')">📷 ${(s.photos||[]).length}</button></td><td style="display:flex;gap:3px;">${av>0?`<button class="btn xs" style="background:#c13584;color:#fff;" title="Generate Instagram checkout link" onclick="genInstaLink('${s.id}')">🔗</button>`:''}<button class="btn bb xs" onclick="editItem('${s.id}')">✏️</button>${(CU.role==='owner'||CU.role==='super_admin')?`<button class="btn br xs" onclick="delItem('${s.id}')">🗑️</button>`:''}</td>`;
     tb.appendChild(tr);
   });
 }
