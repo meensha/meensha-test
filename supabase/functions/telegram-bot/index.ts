@@ -782,6 +782,23 @@ async function handleKiosk(
       await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
+    // Staff already typed a search term matching what a customer asked
+    // about on WhatsApp — hand them ready-to-forward text with a deep link
+    // into the storefront's shop page (see index.html's ?shop= handling)
+    // pre-filtered to that same term. No customer WA number is known yet at
+    // this point in the flow (still mid-search, before a cart/customer
+    // exists), so this is plain text for staff to copy/forward manually
+    // rather than a wa.me link like the rest of this file builds.
+    if (callbackData === "kiosk:sharesearch") {
+      if (data.search_query) {
+        const link = `https://meensha.in/index.html?shop=${encodeURIComponent(data.search_query)}`;
+        const shareText = `Sure, check out the entire range from here: ${link}\n\nFor something else you can fill in the request form and we'll get it for you soon.`;
+        await tgSend(chatId, `📋 Copy/forward this to the customer:\n\n${shareText}`);
+      }
+      await showItemPicker(supabase, chatId, data);
+      await saveSession(supabase, chatId, "kiosk_pick_item", data);
+      return;
+    }
   }
 
   if (state === "kiosk_pick_unit" && callbackData.startsWith("kiosk:unit:")) {
@@ -1020,7 +1037,12 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
     navRow.push({ text: "Next ▶", callback_data: `kiosk:page:${page + 1}` });
   }
   if (navRow.length) buttons.push(navRow);
-  if (searchQ) buttons.push([{ text: "✖ Clear search", callback_data: "kiosk:clearsearch" }]);
+  if (searchQ) {
+    buttons.push([
+      { text: "✖ Clear search", callback_data: "kiosk:clearsearch" },
+      { text: "🔗 Share this search", callback_data: "kiosk:sharesearch" },
+    ]);
+  }
   buttons.push(CANCEL_ROW);
 
   let header = searchQ

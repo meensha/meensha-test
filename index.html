@@ -854,18 +854,11 @@ footer {
     <p id="sp-count" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;color:var(--gold-light);opacity:.55;text-transform:uppercase;margin-bottom:20px;"></p>
     <div style="display:grid;grid-template-columns:180px 1fr;gap:36px;">
       <div style="position:sticky;top:155px;height:fit-content;">
+        <p style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-light);opacity:.7;margin-bottom:8px;">Search</p>
+        <input type="text" id="sp-search" placeholder="Search sarees…" oninput="onShopSearch(this.value)" style="width:100%;box-sizing:border-box;background:rgba(232,213,163,.06);border:1px solid rgba(232,213,163,.25);color:var(--cream);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;padding:8px 10px;margin-bottom:20px;outline:none;">
         <p style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-light);opacity:.7;margin-bottom:13px;">Browse By</p>
         <ul style="list-style:none;" id="sp-cats">
           <li><button class="sp-cb on" data-cat="all" onclick="filterShop('all',this)">All Collections</button></li>
-          <li><button class="sp-cb" data-cat="Ikkat" onclick="filterShop('Ikkat',this)">Ikkat / Ikat</button></li>
-          <li><button class="sp-cb" data-cat="Patola" onclick="filterShop('Patola',this)">Patola</button></li>
-          <li><button class="sp-cb" data-cat="Tussar" onclick="filterShop('Tussar',this)">Tussar Silk</button></li>
-          <li><button class="sp-cb" data-cat="Ajrak" onclick="filterShop('Ajrak',this)">Ajrak</button></li>
-          <li><button class="sp-cb" data-cat="Gharchola" onclick="filterShop('Gharchola',this)">Gharchola</button></li>
-          <li><button class="sp-cb" data-cat="Cotton" onclick="filterShop('Cotton',this)">Cotton Weaves</button></li>
-          <li><button class="sp-cb" data-cat="Modal" onclick="filterShop('Modal',this)">Modal</button></li>
-          <li><button class="sp-cb" data-cat="Kota" onclick="filterShop('Kota',this)">Kota Doria</button></li>
-          <li><button class="sp-cb" data-cat="Silk" onclick="filterShop('Silk',this)">Silk Sarees</button></li>
         </ul>
         <div style="margin-top:16px;display:flex;align-items:center;gap:8px;">
           <input type="checkbox" id="sp-show-sold" onchange="renderShopGrid()" style="accent-color:var(--gold);width:14px;height:14px;">
@@ -1213,6 +1206,7 @@ function toggleCurrency() {
   currency = currency === 'AU' ? 'IN' : 'AU';
   localStorage.setItem('msh_currency', currency);
   updateCurrencyBtn();
+  renderShopCategories();
   renderShopGrid();
   renderCart();
   updateCategoryAvailability();
@@ -1251,6 +1245,7 @@ async function loadShop() {
   reconcileCart();
   updateCurrencyBtn();
   updateCartBadge();
+  renderShopCategories();
   renderShopGrid();
   updateCategoryAvailability();
   renderHomeCollectionGrid();
@@ -1268,6 +1263,20 @@ async function loadShop() {
       const sku = spSkus.find(s => s.id === buySkuId);
       if (sku && sku.avail > 0) await addToCart(buySkuId);
     }
+  }
+
+  // Shareable shop link: ?shop=<term> opens the shop page pre-filtered to
+  // that search term (URLSearchParams already URL-decodes it), same spirit
+  // as ?buy= above — lets a customer land straight on matching results
+  // from a link forwarded by staff (see kiosk mode's "Share this search").
+  const shopTerm = new URLSearchParams(location.search).get('shop');
+  if (shopTerm) {
+    document.getElementById('shop-page').style.display = 'block';
+    document.getElementById('shop-cta').style.display = 'none';
+    const si = document.getElementById('sp-search');
+    if (si) si.value = shopTerm;
+    onShopSearch(shopTerm);
+    setTimeout(() => document.getElementById('shop').scrollIntoView({behavior:'smooth'}), 80);
   }
 }
 
@@ -1379,47 +1388,62 @@ function reconcileCart() {
   if (cart.length !== before) saveCart();
 }
 
+// Category = first word of the item name (e.g. "Kalamkari Nellore" ->
+// "Kalamkari", "Pen Kalamkari" -> "Pen") — real names are structured
+// technique/style first, descriptor after, so this tracks actual inventory
+// far better than a hand-maintained keyword list ever did.
 function matchF(it, f) {
-  if (f === 'all') return true;
-  const s = [it.name, it.display_variant||'', it.display_material||'', it.pattern||''].join(' ').toLowerCase();
-  if (f === 'Ikkat') return s.includes('ikkat')||s.includes('ikat')||s.includes('pochampally');
-  if (f === 'Patola') return s.includes('patola');
-  if (f === 'Tussar') return s.includes('tussar');
-  if (f === 'Ajrak') return s.includes('ajrak');
-  if (f === 'Gharchola') return s.includes('gharchl')||s.includes('gharchola');
-  if (f === 'Cotton') return (it.display_material||'')==='Cotton' && !s.includes('ajrak');
-  if (f === 'Modal') return s.includes('modal');
-  if (f === 'Kota') return s.includes('kota');
-  if (f === 'Silk') return ['Silk','Tussar Silk','Cotton Silk','Modal Silk'].includes(it.display_material) && !s.includes('tussar') && !s.includes('modal') && !s.includes('patola');
-  return false;
+  return f === 'all' ? true : (it.name||'').trim().split(/\s+/)[0].toLowerCase() === f.toLowerCase();
 }
 
-// Homepage preview grid — main categories (same set the shop's own sidebar
-// filters by), each shown with a real photo pulled from current stock in
-// that category, no prices. Clicking a category jumps into the full shop
-// pre-filtered to it. Categories with zero current stock are skipped
-// entirely (same "don't lead into an empty aisle" logic as the sidebar's
-// fade-and-disable behavior).
-const HOME_CATEGORIES = [
-  {key:'Ikkat', label:'Ikkat / Ikat'},
-  {key:'Patola', label:'Patola'},
-  {key:'Tussar', label:'Tussar Silk'},
-  {key:'Ajrak', label:'Ajrak'},
-  {key:'Gharchola', label:'Gharchola'},
-  {key:'Cotton', label:'Cotton Weaves'},
-  {key:'Modal', label:'Modal'},
-  {key:'Kota', label:'Kota Doria'},
-  {key:'Silk', label:'Silk Sarees'}
-];
+// Distinct first-words across current in-stock items (this market,
+// avail>0), title-cased and deduped case-insensitively, most-common first
+// so the sidebar leads with the categories a shopper is most likely to
+// find something in.
+function getShopCategories() {
+  const marketField = currency === 'AU' ? 'au_available' : 'india_available';
+  const counts = {};
+  spSkus.forEach(it => {
+    if (!it[marketField] || it.avail <= 0) return;
+    const w = (it.name||'').trim().split(/\s+/)[0];
+    if (!w) return;
+    const key = w.toLowerCase();
+    if (!counts[key]) counts[key] = { label: w.charAt(0).toUpperCase()+w.slice(1).toLowerCase(), count: 0 };
+    counts[key].count++;
+  });
+  return Object.values(counts).sort((a,b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+// Rebuilds the shop sidebar's category buttons from current stock. Called
+// whenever spSkus/currency changes (loadShop, toggleCurrency) — never
+// mid-keystroke while searching, since categories reflect what's in stock,
+// not the search term.
+function renderShopCategories() {
+  const ul = document.getElementById('sp-cats');
+  if (!ul) return;
+  const cats = getShopCategories();
+  if (spF !== 'all' && !cats.some(c => c.label.toLowerCase() === spF.toLowerCase())) spF = 'all';
+  ul.innerHTML = '<li><button class="sp-cb' + (spF==='all'?' on':'') + '" data-cat="all" onclick="filterShop(\'all\',this)">All Collections</button></li>' +
+    cats.map(c => `<li><button class="sp-cb${spF.toLowerCase()===c.label.toLowerCase()?' on':''}" data-cat="${c.label}" onclick="filterShop('${c.label.replace(/'/g,"\\'")}',this)">${c.label}</button></li>`).join('');
+}
+
+// Homepage preview grid — top categories by current stock (same dynamic
+// set the shop's own sidebar filters by, so it can't drift out of sync
+// with it the way the old hardcoded list did), each shown with a real
+// photo pulled from current stock in that category, no prices. Clicking a
+// category jumps into the full shop pre-filtered to it. Categories with
+// zero current stock never appear at all, since they're built fresh from
+// what's in stock right now.
+const HOME_CATEGORIES_LIMIT = 9;
 function renderHomeCollectionGrid() {
   const g = document.getElementById('home-collection-grid');
   if (!g) return;
   const marketField = currency === 'AU' ? 'au_available' : 'india_available';
-  const cards = HOME_CATEGORIES.map(cat => {
-    const matches = spSkus.filter(it => it[marketField] && it.avail > 0 && matchF(it, cat.key));
+  const cards = getShopCategories().slice(0, HOME_CATEGORIES_LIMIT).map(cat => {
+    const matches = spSkus.filter(it => it[marketField] && it.avail > 0 && matchF(it, cat.label));
     if (!matches.length) return null;
     const withPhoto = matches.find(it => (it.photos||[]).length) || matches[0];
-    return { ...cat, photo: (withPhoto.photos||[])[0] || '' };
+    return { key: cat.label, label: cat.label, photo: (withPhoto.photos||[])[0] || '' };
   }).filter(Boolean);
   if (!cards.length) { g.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(247,243,236,.3);font-style:italic;">New pieces coming soon — message us on WhatsApp!</p>'; return; }
   g.innerHTML = cards.map(c => `<div class="hcg-card" onclick="openShopWithFilter('${c.key}')">
@@ -1439,12 +1463,37 @@ function openShopWithFilter(catKey) {
   if (!spSkus.length) loadShop().then(go); else go();
 }
 
+// Live text search over name/variant/material/pattern — combined with the
+// category filter in matchF, but see onShopSearch() for how the two
+// interact when both are active at once.
+function matchSearch(it, q) {
+  if (!q) return true;
+  const s = [it.name, it.display_variant||'', it.display_material||'', it.pattern||''].join(' ').toLowerCase();
+  return s.includes(q.trim().toLowerCase());
+}
+let spSearch = '';
+// A shopper typing a specific search term doesn't expect it silently
+// scoped to whatever category button happened to be active (which could
+// hide matches and look like "no results" for no visible reason) — so
+// typing a non-empty term drops back to "All Collections" and searches
+// globally. Clearing the box leaves "All Collections" selected too.
+function onShopSearch(val) {
+  spSearch = val;
+  if (val.trim() && spF !== 'all') {
+    spF = 'all';
+    document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
+    document.querySelector('.sp-cb[data-cat="all"]')?.classList.add('on');
+    const t = document.getElementById('sp-title');
+    if (t) t.textContent = 'All Collections';
+  }
+  renderShopGrid();
+}
 function renderShopGrid() {
   const showSO = document.getElementById('sp-show-sold')?.checked;
   const g = document.getElementById('sp-grid');
   if (!g) return;
   const marketField = currency === 'AU' ? 'au_available' : 'india_available';
-  const inMarket = spSkus.filter(it => it[marketField] && matchF(it, spF));
+  const inMarket = spSkus.filter(it => it[marketField] && matchF(it, spF) && matchSearch(it, spSearch));
   const fl = inMarket.filter(it => showSO || it.avail > 0);
   const av = fl.filter(it => it.avail > 0).length;
   const cnt = document.getElementById('sp-count');
@@ -2153,7 +2202,12 @@ function filterShop(f, btn) {
   spF = f;
   document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
   if (btn) btn.classList.add('on');
-  const titles = {'all':'All Collections','Ikkat':'Ikkat & Ikat','Patola':'Patola Silk','Tussar':'Tussar Silk','Ajrak':'Ajrak','Gharchola':'Gharchola','Cotton':'Cotton Weaves','Modal':'Modal','Kota':'Kota Doria','Silk':'Silk Sarees'};
+  // Picking a category is a deliberate re-scope — clear any leftover search
+  // term so it can't silently suppress items within the newly-picked category.
+  spSearch = '';
+  const si = document.getElementById('sp-search');
+  if (si) si.value = '';
+  const titles = {'all':'All Collections'};
   const t = document.getElementById('sp-title');
   if (t) t.textContent = titles[f] || f;
   renderShopGrid();
