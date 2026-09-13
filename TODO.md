@@ -4,21 +4,6 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Queued (not started)
 
-- [ ] Kiosk share feature — rename to "Share links/photos", full spec (supersedes the earlier rough version above):
-  - Two top-level options when staff tap it:
-    1. **Send website filtered link** — the existing plain `?shop=<term>` link (already built).
-    2. **Send individual WhatsApp messages (photo + price + personalized message)** — new flow:
-      a. Bot shows the matching items as a numbered list (1, 2, 3, 4...).
-      b. Staff type which ones to send — multiple allowed (e.g. "1,3,4"), each selected item becomes its own individual message later.
-      c. Bot asks for the customer's name (for personalizing the message text).
-      d. Bot asks whether to include the price in the message or not (staff choice, applies to all selected items in that batch).
-      e. For each selected item, bot sends staff a ready copy-paste unit: item photo + price (if chosen) + a personalized greeting using the customer's name + a buy link (`?buy=<sku_id>`, which already auto-adds to cart — "straight to cart").
-      f. The generated message text itself must be clean copy-paste — no wrapper/instructional text like "here's the message to copy" around it, just the raw text ready to forward.
-  - Both options reachable from the same "Share links/photos" entry point in the kiosk item-picker.
-
-- [ ] Admin login attempts: log IP + location per attempt.
-  - Full history always available in admin.html's tech-stack/health section (not time-limited).
-  - Telegram daily report to MeenshaMonitor only shows activity since the last report (last 24h) — not full history, and not sent to Shalini's chat.
 - [ ] Instagram tiles on the storefront: the left-most tile should always show the actual latest post from Meensha's Instagram account (currently — confirm current behavior before building; may need Instagram Graph API access to pull real posts).
 - [ ] SEO + Instagram growth initiative (large, multi-phase — see proposal in session transcript 2026-09-13):
   - ~~Phase 0: Google Search Console setup~~ — **done 2026-09-13**: domain property `meensha.in` verified (DNS via GoDaddy), sitemap.xml submitted. Performance data (impressions/clicks/position) expected to populate within 2-4 days.
@@ -49,6 +34,8 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 - 2026-09-13: "NEW" (added to `inventory_skus` within 14 days, via `created_at`) and "Trending" product image badges on the storefront shop grid (`index.html`'s `renderShopGrid`). Trending is a staff-set flag (new `inventory_skus.trending` column, migration `20260913140000`) toggled in admin.html's Inventory tab, with a suggestion nudge (💡) when a SKU has ≥3 units sold in the last 14 days (computed from existing `inventory_units` sold/updated_at data) — staff can accept or ignore; the toggle is always the final word. Instagram view-count half of the suggestion signal not built (see Queued above — blocked on Meta API access).
 - 2026-09-13: Confirmed the `?shop=`/`?buy=` deep links already pass through extra UTM params (`utm_source`, `utm_medium`, etc.) safely — both use `URLSearchParams(location.search).get(...)`, which ignores unrelated keys. No code change needed.
+- 2026-09-13: Kiosk "Share links/photos" (renamed from "Share this search") now offers two options: the existing filtered `?shop=` link, or a new flow that sends individual WhatsApp-ready messages per selected item (numbered list → multi-select → customer name → include-price choice → each item as its own photo+price+greeting+`?buy=` link, no wrapper text) — `supabase/functions/telegram-bot/index.ts`. **Needs manual deploy**: `supabase functions deploy telegram-bot`.
+- 2026-09-13: Admin login attempts now log real IP + geolocation per attempt (new `log-auth-attempt` Edge Function; admin.html's Auth Log card already had unbounded history, now with IP/Location columns) and a new `auth-log-digest` cron posts a rolling since-last-report summary to MeenshaMonitor only, never Shalini's chat. **Needs manual deploy**: `supabase functions deploy log-auth-attempt`, `supabase functions deploy auth-log-digest --no-verify-jwt`, then run `setup/add_auth_log_location.sql` (adds columns, schedules the cron).
 - 2026-09-13: Admin login page — Meensha logo now links back to index.html (was a dead image, staff had no way back to the main site from the login screen).
 - 2026-09-13: Dynamic shop categories + live search + kiosk "Share this search" link; fixed deep-link scroll target and mobile category/grid overlap.
 - 2026-09-13: Daily health digest now also flags SKUs with no photos, sent to Shalini's chat too (was monitor-only).
