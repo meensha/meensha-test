@@ -5,7 +5,9 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 ## Queued (not started)
 
 - [ ] Admin login page (admin.html): clicking the Meensha logo should link back to the main site (index.html), not do nothing/stay put.
-- [ ] Admin login attempts: log IP + location per attempt, surfaced in admin.html's tech-stack/health section (not the Telegram daily report).
+- [ ] Admin login attempts: log IP + location per attempt.
+  - Full history always available in admin.html's tech-stack/health section (not time-limited).
+  - Telegram daily report to MeenshaMonitor only shows activity since the last report (last 24h) — not full history, and not sent to Shalini's chat.
 - [ ] Instagram tiles on the storefront: the left-most tile should always show the actual latest post from Meensha's Instagram account (currently — confirm current behavior before building; may need Instagram Graph API access to pull real posts).
 - [ ] SEO + Instagram growth initiative (large, multi-phase — see proposal in session transcript 2026-09-13):
   - Phase 0: Google Search Console setup (needs Dheeraj to verify domain ownership — blocking, not something Claude can do alone).
