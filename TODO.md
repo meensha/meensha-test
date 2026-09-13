@@ -4,6 +4,10 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Queued (not started)
 
+- [ ] Kiosk "Share this search" should offer 2 options, not just the plain link:
+  1. A copy-pasteable WhatsApp-ready message set: an intro line ("Here are the Kalamkari sarees you asked for..."), then one message per matching item with photo + price + a direct buy link (`?buy=<sku_id>`) for that specific saree — sent as individual messages (e.g. bot sends staff one Telegram photo-message per item, same pattern as the UPI QR send, for staff to forward each one).
+  2. The existing single link straight to the live filtered website view (already built).
+
 - [ ] Admin login page (admin.html): clicking the Meensha logo should link back to the main site (index.html), not do nothing/stay put.
 - [ ] Admin login attempts: log IP + location per attempt.
   - Full history always available in admin.html's tech-stack/health section (not time-limited).
