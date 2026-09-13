@@ -575,7 +575,7 @@ footer {
 .sp-cart-btn { display:flex;align-items:center;justify-content:center;gap:6px;background:var(--gold);color:var(--dark);border:none;padding:8px 12px;font-family:'Cinzel',serif;font-size:8px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;width:100%;margin-top:9px;text-decoration:none;transition:background .3s; }
 .sp-cart-btn:hover { background:var(--gold-light); }
 .sp-cart-btn:disabled { opacity:.4;cursor:not-allowed; }
-@media(max-width:700px){#shop-page>div>div:last-child{grid-template-columns:1fr!important;} #sp-grid{grid-template-columns:1fr 1fr!important;}}
+@media(max-width:700px){#shop-page>div>div:last-child{display:block!important;} #shop-page>div>div:last-child>div:first-child{position:static!important;height:auto!important;margin-bottom:24px;} #sp-grid{grid-template-columns:1fr 1fr!important;}}
 
 /* ── CART DRAWER ── */
 /* ── Cart expiry notice: heritage-luxury reservation reminder, not a discount banner ── */
