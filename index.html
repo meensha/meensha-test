@@ -1276,7 +1276,12 @@ async function loadShop() {
     const si = document.getElementById('sp-search');
     if (si) si.value = shopTerm;
     onShopSearch(shopTerm);
-    setTimeout(() => document.getElementById('shop').scrollIntoView({behavior:'smooth'}), 80);
+    // Scroll to the actual results grid, not just the shop section — on
+    // mobile the category sidebar (now dynamic, often 20+ items) stacks
+    // above the grid and pushes it far down, so scrolling to #shop alone
+    // lands on a long category list with the real results still off-screen,
+    // looking like the link didn't actually filter anything.
+    setTimeout(() => (document.getElementById('sp-grid') || document.getElementById('shop')).scrollIntoView({behavior:'smooth', block:'start'}), 80);
   }
 }
 
