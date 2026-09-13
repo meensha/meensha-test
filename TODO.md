@@ -4,9 +4,16 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Queued (not started)
 
-- [ ] Kiosk "Share this search" should offer 2 options, not just the plain link:
-  1. A copy-pasteable WhatsApp-ready message set: an intro line ("Here are the Kalamkari sarees you asked for..."), then one message per matching item with photo + price + a direct buy link (`?buy=<sku_id>`) for that specific saree — sent as individual messages (e.g. bot sends staff one Telegram photo-message per item, same pattern as the UPI QR send, for staff to forward each one).
-  2. The existing single link straight to the live filtered website view (already built).
+- [ ] Kiosk share feature — rename to "Share links/photos", full spec (supersedes the earlier rough version above):
+  - Two top-level options when staff tap it:
+    1. **Send website filtered link** — the existing plain `?shop=<term>` link (already built).
+    2. **Send individual WhatsApp messages (photo + price + personalized message)** — new flow:
+      a. Bot shows the matching items as a numbered list (1, 2, 3, 4...).
+      b. Staff type which ones to send — multiple allowed (e.g. "1,3,4"), each selected item becomes its own individual message later.
+      c. Bot asks for the customer's name (for personalizing the message text).
+      d. For each selected item, bot sends staff a ready copy-paste unit: item photo + price + a personalized greeting using the customer's name + a buy link (`?buy=<sku_id>`, which already auto-adds to cart — "straight to cart").
+      e. The generated message text itself must be clean copy-paste — no wrapper/instructional text like "here's the message to copy" around it, just the raw text ready to forward.
+  - Both options reachable from the same "Share links/photos" entry point in the kiosk item-picker.
 
 - [ ] Admin login page (admin.html): clicking the Meensha logo should link back to the main site (index.html), not do nothing/stay put.
 - [ ] Admin login attempts: log IP + location per attempt.
