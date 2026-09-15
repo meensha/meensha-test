@@ -267,7 +267,8 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <div class="fg">
         <div class="fi"><label>🇮🇳 India WhatsApp # <span style="font-weight:400;color:var(--gy);">(digits only, with country code)</span></label><input id="SET-WAIN" placeholder="918709525218"></div>
         <div class="fi"><label>🇦🇺 Australia WhatsApp # <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input id="SET-WAAU" placeholder="61..."></div>
-        <div class="fi"><label>AUD Multiplier</label><input type="number" step="0.01" id="SET-MULT" placeholder="1.8" oninput="previewMult()"></div>
+        <div class="fi"><label>AUD Multiplier <span style="font-weight:400;color:var(--gy);">(retail pricing markup, not a currency rate)</span></label><input type="number" step="0.01" id="SET-MULT" placeholder="1.8" oninput="previewMult()"></div>
+        <div class="fi"><label>AUD → INR Rate <span style="font-weight:400;color:var(--gy);">(for P&L only — actual exchange rate)</span></label><input type="number" step="0.01" id="SET-FXRATE" placeholder="55"></div>
       </div>
       <div id="SET-MULT-PREVIEW" style="font-size:11px;color:var(--gy);margin-bottom:8px;"></div>
       <button class="btn bgn sm" onclick="saveGeneralSettings()">💾 Save Settings</button>
@@ -1215,7 +1216,7 @@ async function uploadFile(bucket,file){
 // ═══════════════════════════════════════════════
 let CU=null,inv=[],sales=[],purch=[],ohs=[],revs=[],users=[],reqs=[],popups=[],igPosts=[];
 let vendors=[],skus=[],units=[],issues=[],vidRequests=[],shorthands={patterns:{},materials:{},variants:{}};
-let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,niCatImg=null,evTmpPh=[],igTmpPh=null,niTmpPh=[];
+let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,niCatImg=null,evTmpPh=[],igTmpPh=null,niTmpPh=[],audToInrRate=55;
 let editVendorId=null,editIssueId=null,currentVendorDetail=null;
 const fmt=n=>Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2});
 const sp=(m,d)=>Math.round(m*(1-d/100));
@@ -1491,12 +1492,13 @@ async function saveSetting(key,value){
   if(ex&&ex.length)await sbUpd('settings','?key=eq.'+key,{value});else await sbIns('settings',{key,value});
 }
 async function loadGeneralSettings(){
-  const rows=await sbQ('settings','?key=in.(wa_num_in,wa_num_au,aud_multiplier)');
+  const rows=await sbQ('settings','?key=in.(wa_num_in,wa_num_au,aud_multiplier,aud_to_inr_rate)');
   const byKey={};(rows||[]).forEach(r=>byKey[r.key]=r.value);
-  const waIn=document.getElementById('SET-WAIN'),waAu=document.getElementById('SET-WAAU'),mult=document.getElementById('SET-MULT');
+  const waIn=document.getElementById('SET-WAIN'),waAu=document.getElementById('SET-WAAU'),mult=document.getElementById('SET-MULT'),fx=document.getElementById('SET-FXRATE');
   if(waIn)waIn.value=byKey.wa_num_in||'';
   if(waAu)waAu.value=byKey.wa_num_au||'';
   if(mult)mult.value=byKey.aud_multiplier||'1.8';
+  if(fx)fx.value=byKey.aud_to_inr_rate||'55';
   previewMult();
 }
 function previewMult(){
@@ -1508,14 +1510,19 @@ async function saveGeneralSettings(){
   const waIn=document.getElementById('SET-WAIN').value.replace(/[^0-9]/g,'');
   const waAu=document.getElementById('SET-WAAU').value.replace(/[^0-9]/g,'');
   const mult=parseFloat(document.getElementById('SET-MULT').value);
+  const fx=parseFloat(document.getElementById('SET-FXRATE').value);
   if(!waIn||waIn.length<10){toast('India WhatsApp number looks invalid','var(--red)');return;}
   if(!mult||mult<=0){toast('AUD multiplier must be a positive number','var(--red)');return;}
+  if(!fx||fx<=0){toast('AUD → INR rate must be a positive number','var(--red)');return;}
   await Promise.all([
     saveSetting('wa_num_in',waIn),
     saveSetting('wa_num_au',waAu),
-    saveSetting('aud_multiplier',String(mult))
+    saveSetting('aud_multiplier',String(mult)),
+    saveSetting('aud_to_inr_rate',String(fx))
   ]);
+  audToInrRate=fx;
   toast('✅ Settings saved','#27ae60');
+  renderPnL();
 }
 async function loadShipTracking(){
   const rows=await sbQ('settings','?key=in.(shipping_tracking_enabled,shipping_tracking_url)');
@@ -1837,6 +1844,8 @@ async function loadAll(){
     }catch{}
     const sets=await sbQ('settings','?key=eq.inv_counter');
     if(sets&&sets.length)invCtr=parseInt(sets[0].value)||1000;
+    const fxSet=await sbQ('settings','?key=eq.aud_to_inr_rate');
+    if(fxSet&&fxSet.length)audToInrRate=parseFloat(fxSet[0].value)||55;
     populateSIVendors();
     const gk=await getGeminiKey();
     const gkEl=document.getElementById('SI-GEMKEY');if(gkEl&&gk)gkEl.placeholder='Key saved ✓ (paste to replace)';
@@ -1900,8 +1909,10 @@ async function markReturnSent(id){
 async function renderHome(){
   renderReturnsPending();
   renderNotes();
-  const rev=sales.reduce((a,s)=>a+(s.total||0),0);
-  const bal=sales.reduce((a,s)=>a+(s.balance||0),0);
+  // AU bot sales are recorded in AUD — convert to INR (real FX rate, not the
+  // AUD Multiplier pricing markup) before summing, same as renderPnL().
+  const rev=sales.reduce((a,s)=>a+(s.source==='telegram_au'?(s.total||0)*audToInrRate:(s.total||0)),0);
+  const bal=sales.reduce((a,s)=>a+(s.source==='telegram_au'?(s.balance||0)*audToInrRate:(s.balance||0)),0);
   const avail=inv.reduce((a,i)=>a+(i.qty||0)-(i.sold||0),0);
   const costs=ohs.reduce((a,o)=>a+(o.total||0),0)+purch.reduce((a,p)=>a+(p.total||0),0);
   const profit=rev-costs;
@@ -4056,7 +4067,13 @@ async function markDelivered(id){if(!confirm('Mark delivered?'))return;await sbU
 // P&L
 // ═══════════════════════════════════════════════
 function renderPnL(){
-  const rev=sales.reduce((a,s)=>a+(s.total||0),0);const stockCost=purch.reduce((a,p)=>a+(p.total||0),0);const grossP=rev-stockCost;
+  // AU bot sales (source:'telegram_au') are recorded in AUD; every other
+  // source (storefront/manual/India bot) is already INR. Purchases are
+  // always INR (vendors are India-based) — convert AU revenue to INR here
+  // using the real AUD→INR rate (Settings), NOT the AUD Multiplier (that's
+  // a retail pricing markup, not a currency rate — using it here would
+  // silently misstate profit).
+  const rev=sales.reduce((a,s)=>a+(s.source==='telegram_au'?(s.total||0)*audToInrRate:(s.total||0)),0);const stockCost=purch.reduce((a,p)=>a+(p.total||0),0);const grossP=rev-stockCost;
   const ohByCat={};const ohByTag={};ohs.filter(o=>o.cat!=='Stock Purchase').forEach(o=>{ohByCat[o.cat]=(ohByCat[o.cat]||0)+(o.total||0);(o.tags||[]).forEach(tg=>{ohByTag[tg]=(ohByTag[tg]||0)+(o.total||0);});});const totOH=Object.values(ohByCat).reduce((a,v)=>a+v,0);const netP=grossP-totOH;
   // Investment totals from purchases + overheads
   const sPaid=ohs.reduce((a,o)=>a+(o.shalini||0),0)+purch.reduce((a,p)=>a+(p.payment?.shalini||0),0);
