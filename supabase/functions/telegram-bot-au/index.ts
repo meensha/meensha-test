@@ -154,6 +154,21 @@ async function handleVoucherText(supabase: any, chatId: number, state: string, d
     return;
   }
   if (state === "voucher_days") {
+    const { data: auSkus } = await supabase.from("inventory_skus").select("id").eq("au_available", true);
+    const auSkuIds = (auSkus ?? []).map((s: { id: string }) => s.id);
+    let hasStock = false;
+    if (auSkuIds.length) {
+      const { count } = await supabase.from("inventory_units").select("id", { count: "exact", head: true })
+        .eq("status", "available").in("sku_id", auSkuIds);
+      hasStock = (count ?? 0) > 0;
+    }
+    if (!hasStock) {
+      await tgSend(chatId, "❌ Invalid — currently there is no stock in the inventory on AUS site. Add inventory before creating vouchers.");
+      await logActivity(supabase, "au", chatId, "voucher_blocked_no_stock", data.v_code);
+      await showVouchersMenu(chatId);
+      await saveSession(supabase, chatId, "idle", {});
+      return;
+    }
     const days = t ? parseInt(t, 10) || 7 : 7;
     const { data: coupon, error } = await supabase.rpc("admin_create_coupon", {
       p_code: data.v_code, p_customer_name: data.v_name, p_customer_wa: data.v_wa,

@@ -553,6 +553,14 @@ async function handleVoucherText(supabase: SB, chatId: number, state: string, da
     return;
   }
   if (state === "voucher_days") {
+    const { count } = await supabase.from("inventory_units").select("id", { count: "exact", head: true }).eq("status", "available");
+    if (!count) {
+      await tgSend(chatId, "❌ Invalid — currently there is no stock in the inventory on India site. Add inventory before creating vouchers.");
+      await logActivity(supabase, "india", chatId, "voucher_blocked_no_stock", data.v_code);
+      await showMaintenanceMenu(chatId);
+      await saveSession(supabase, chatId, "idle", {});
+      return;
+    }
     const days = t ? parseInt(t, 10) || 7 : 7;
     const { data: coupon, error } = await supabase.rpc("admin_create_coupon", {
       p_code: data.v_code,
