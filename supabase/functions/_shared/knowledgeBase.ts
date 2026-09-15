@@ -7,7 +7,7 @@
 // deno-lint-ignore no-explicit-any
 type SB = any;
 
-export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending" | "visit_stats";
+export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending" | "visit_stats" | "chat_transcript";
 
 export interface LookupDef {
   name: LookupName;
@@ -32,6 +32,7 @@ export const LOOKUP_CATALOG_FULL: LookupDef[] = [
   { name: "pnl_summary", description: "Profit and loss for a period: revenue minus purchases (COGS) minus overheads", params: { period: "'today' | 'week' | 'month'" } },
   { name: "returns_pending", description: "Faulty/defective items flagged and awaiting return to the vendor", params: {} },
   { name: "visit_stats", description: "Storefront visitor counts (page loads) for today and this week", params: {} },
+  { name: "chat_transcript", description: "Recent conversation transcript (both directions) between a named staff member and their bot — logging started 2026-09-15, nothing from before that exists", params: { who: "staff member's name or partial name, e.g. 'Meenakshi' or 'Shalini'", limit: "how many recent messages, default 20" } },
 ];
 
 function periodStart(period: string): string {
@@ -142,16 +143,55 @@ async function returnsPending(supabase: SB): Promise<string> {
 async function pnlSummary(supabase: SB, params: { period?: string }): Promise<string> {
   const period = params.period || "week";
   const from = periodStart(period);
-  const [{ data: sales }, { data: purchases }, { data: overheads }] = await Promise.all([
-    supabase.from("sales").select("total").gte("date", from),
+  const [{ data: sales }, { data: purchases }, { data: overheads }, { data: fxRow }] = await Promise.all([
+    supabase.from("sales").select("total,source").gte("date", from),
     supabase.from("purchases").select("total").gte("date", from),
     supabase.from("overheads").select("total").gte("date", from),
+    supabase.from("settings").select("value").eq("key", "aud_to_inr_rate").maybeSingle(),
   ]);
-  const revenue = (sales || []).reduce((a: number, r: any) => a + Number(r.total || 0), 0);
+  // AU sales are recorded in AUD; convert to INR before summing (same real
+  // FX rate admin.html's P&L uses — NOT the AUD Multiplier pricing markup,
+  // which would misstate this). Purchases/overheads are always INR already.
+  const audToInrRate = parseFloat(fxRow?.value) || 55;
+  const revenue = (sales || []).reduce((a: number, r: any) => a + (r.source === "telegram_au" ? Number(r.total || 0) * audToInrRate : Number(r.total || 0)), 0);
   const cogs = (purchases || []).reduce((a: number, r: any) => a + Number(r.total || 0), 0);
   const oh = (overheads || []).reduce((a: number, r: any) => a + Number(r.total || 0), 0);
   const pnl = revenue - cogs - oh;
   return `Since ${from}: Revenue ₹${revenue.toLocaleString("en-IN")}, Purchases ₹${cogs.toLocaleString("en-IN")}, Overheads ₹${oh.toLocaleString("en-IN")} → P&L ₹${pnl.toLocaleString("en-IN")}`;
+}
+
+// MeenshaMonitor-only: recent message-by-message transcript for a named
+// staff member, across whichever bot they use. Logging (bot_message_log)
+// only started 2026-09-15 — nothing from before that exists to show.
+async function chatTranscript(supabase: SB, params: { who?: string; limit?: string }): Promise<string> {
+  const who = (params.who || "").trim();
+  if (!who) return "No staff name given.";
+  const limit = Math.min(parseInt(params.limit || "20", 10) || 20, 100);
+
+  const [{ data: india }, { data: au }] = await Promise.all([
+    supabase.from("telegram_allowed_users").select("chat_id,label").ilike("label", `%${who}%`),
+    supabase.from("telegram_allowed_users_au").select("chat_id,label").ilike("label", `%${who}%`),
+  ]);
+  const matches = [
+    ...(india || []).map((r: any) => ({ ...r, bot: "india" })),
+    ...(au || []).map((r: any) => ({ ...r, bot: "au" })),
+  ];
+  if (!matches.length) return `No staff member matching "${who}" found on either bot.`;
+  if (matches.length > 1) return `Multiple matches for "${who}": ${matches.map((m: any) => `${m.label} (${m.bot})`).join(", ")} — ask again with a more specific name.`;
+
+  const { chat_id, label, bot } = matches[0];
+  const { data: rows } = await supabase
+    .from("bot_message_log")
+    .select("direction,text,created_at")
+    .eq("chat_id", chat_id)
+    .order("seq", { ascending: false })
+    .limit(limit);
+  if (!rows?.length) return `No logged messages for ${label} yet (message logging only started 2026-09-15).`;
+
+  const lines = rows.reverse().map((r: any) =>
+    `${r.direction === "in" ? "👤" : "🤖"} [${(r.created_at || "").slice(11, 16)}] ${r.text}`
+  );
+  return `Transcript — ${label} (${bot} bot), last ${rows.length} message(s):\n\n${lines.join("\n")}`;
 }
 
 async function visitStats(supabase: SB): Promise<string> {
@@ -175,6 +215,7 @@ export async function runLookup(supabase: SB, name: LookupName, params: Record<s
     case "pnl_summary": return pnlSummary(supabase, params);
     case "returns_pending": return returnsPending(supabase);
     case "visit_stats": return visitStats(supabase);
+    case "chat_transcript": return chatTranscript(supabase, params);
     default: return "Unknown lookup.";
   }
 }

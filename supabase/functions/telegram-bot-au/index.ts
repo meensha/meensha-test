@@ -27,6 +27,16 @@ const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const SB_URL = Deno.env.get("SUPABASE_URL")!;
 const SB_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// Module-scope client so tgSend/tgSendPhoto (no supabase param) can log
+// outbound messages — see logMessage(). Feeds MeenshaMonitor's on-demand
+// "show me X's chat" lookup (chat_transcript in knowledgeBase.ts).
+const logClient = createClient(SB_URL, SB_SERVICE_KEY);
+async function logMessage(chatId: number | string, direction: "in" | "out", text: string) {
+  try {
+    await logClient.from("bot_message_log").insert({ bot: "au", chat_id: String(chatId), direction, text });
+  } catch { /* best-effort */ }
+}
+
 function fmtAud(n: number) {
   return `A$${(n ?? 0).toFixed(2)}`;
 }
@@ -63,6 +73,7 @@ async function tgSend(chatId: number | string, text: string, keyboard?: any) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: "Markdown", reply_markup: keyboard }),
   });
+  await logMessage(chatId, "out", text);
 }
 
 
@@ -72,6 +83,7 @@ async function tgSendPhoto(chatId: number | string, photoUrl: string, caption: s
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, photo: photoUrl, caption, parse_mode: "Markdown", reply_markup: keyboard }),
   });
+  await logMessage(chatId, "out", caption ? `[photo] ${caption}` : "[photo]");
 }
 
 async function saveSession(supabase: any, chatId: number, state: string, data: object) {
@@ -642,6 +654,8 @@ Deno.serve(async (req: Request) => {
   const text = update.message?.text;
   const callbackData = update.callback_query?.data;
   const photo = update.message?.photo;
+
+  await logMessage(chatId, "in", text ?? callbackData ?? (photo?.length ? "[photo]" : "[unrecognized]"));
 
   if (text === "/start") {
     await showTopMenu(chatId);

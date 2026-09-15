@@ -16,6 +16,23 @@ import { logActivity } from "../_shared/activityLog.ts";
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+// Module-scope client so tgSend/tgSendPhoto (defined below, no supabase
+// param) can log outbound messages without threading a client through
+// every call site — see logMessage().
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+
+// Best-effort transcript log (both directions) — feeds MeenshaMonitor's
+// on-demand "show me X's chat" lookup (chat_transcript in knowledgeBase.ts).
+// Never blocks or fails the bot itself.
+async function logMessage(chatId: number | string, direction: "in" | "out", text: string) {
+  try {
+    await supabase.from("bot_message_log").insert({ bot: "india", chat_id: String(chatId), direction, text });
+  } catch { /* best-effort */ }
+}
+
 // deno-lint-ignore no-explicit-any
 type SB = any;
 // deno-lint-ignore no-explicit-any
@@ -46,11 +63,6 @@ Deno.serve(async (req: Request) => {
   if (secret !== Deno.env.get("TELEGRAM_WEBHOOK_SECRET")) {
     return new Response("Forbidden", { status: 403 });
   }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
 
   const update = await req.json();
   const msg = update.message ?? update.callback_query?.message;
@@ -87,6 +99,8 @@ Deno.serve(async (req: Request) => {
   const text: string | undefined = update.message?.text;
   const callbackData: string | undefined = update.callback_query?.data;
   const photo: { file_id: string }[] | undefined = update.message?.photo;
+
+  await logMessage(chatId, "in", text ?? callbackData ?? (photo?.length ? "[photo]" : "[unrecognized]"));
 
   if (text === "/start") {
     await showTopMenu(chatId);
@@ -159,9 +173,11 @@ async function tgSend(chatId: number, text: string, replyMarkup?: unknown, parse
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text, reply_markup: replyMarkup, parse_mode: parseMode }),
   });
+  await logMessage(chatId, "out", text);
 }
 
 async function tgSendPhoto(chatId: number, photoUrl: string, caption?: string) {
+  await logMessage(chatId, "out", caption ? `[photo] ${caption}` : "[photo]");
   await fetch(`${TG_API}/sendPhoto`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

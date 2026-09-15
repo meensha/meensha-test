@@ -413,6 +413,14 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <a href="https://aistudio.google.com/apikey" target="_blank" style="font-size:10px;color:var(--gy);">Get a free key →</a>
     </div>
   </div>
+  <div class="card" style="padding:10px 14px;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:11px;font-weight:700;color:var(--gdk);white-space:nowrap;">🔑 OpenRouter Key <span style="font-weight:400;color:var(--gy);">(bot Q&A only — tried first, Gemini above is the fallback)</span></label>
+      <input type="password" id="SI-ORKEY" placeholder="Paste key to use OpenRouter for bot Q&A..." style="flex:1;min-width:200px;padding:5px 8px;border:1px solid var(--bd);border-radius:4px;font-size:11px;">
+      <button class="btn bgy xs" onclick="saveOpenrouterKey()">Save</button>
+      <a href="https://openrouter.ai/keys" target="_blank" style="font-size:10px;color:var(--gy);">Get a key →</a>
+    </div>
+  </div>
   <div class="card">
     <div class="ct">📸 Scan Invoice <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:6px;">Optional — upload a photo, review the AI's guesses, then add rows below. Nothing is saved until you click Save Purchase.</span></div>
     <div class="pz" id="INVSCAN-ZONE" onclick="document.getElementById('INVSCAN-FILE').click()" style="padding:14px;">
@@ -1849,6 +1857,8 @@ async function loadAll(){
     populateSIVendors();
     const gk=await getGeminiKey();
     const gkEl=document.getElementById('SI-GEMKEY');if(gkEl&&gk)gkEl.placeholder='Key saved ✓ (paste to replace)';
+    const orRows=await sbQ('settings','?key=eq.openrouter_key');
+    const orEl=document.getElementById('SI-ORKEY');if(orEl&&orRows&&orRows.length)orEl.placeholder='Key saved ✓ (paste to replace)';
     // Load Edge Function URL for email sender (used by rachnakar password reset + suspicious activity alerts)
     try{
       const ef=await sbQ('settings','?key=eq.edge_email_url');
@@ -3523,6 +3533,12 @@ async function saveGeminiKey(){
   const ex=await sbQ('settings','?key=eq.gemini_key');
   if(ex&&ex.length)await sbUpd('settings','?key=eq.gemini_key',{value:val});else await sbIns('settings',{key:'gemini_key',value:val});
   geminiKeyCache=val;toast('✅ Gemini key saved','#27ae60');
+}
+async function saveOpenrouterKey(){
+  const val=document.getElementById('SI-ORKEY').value.trim();if(!val)return;
+  const ex=await sbQ('settings','?key=eq.openrouter_key');
+  if(ex&&ex.length)await sbUpd('settings','?key=eq.openrouter_key',{value:val});else await sbIns('settings',{key:'openrouter_key',value:val});
+  toast('✅ OpenRouter key saved — bot Q&A will use it first, Gemini as fallback','#27ae60');
 }
 async function callGeminiSearch(query){
   const key=await getGeminiKey();
