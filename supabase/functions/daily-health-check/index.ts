@@ -35,11 +35,11 @@ Deno.serve(async (_req: Request) => {
     .or("india_available.eq.true,au_available.eq.true");
   const missingPhotos = (noPhotoSkus ?? []).filter((s: { photos: unknown[] }) => !s.photos || s.photos.length === 0);
   const photosLine = missingPhotos.length
-    ? `📷 ${missingPhotos.length} item(s) with no photo: ${missingPhotos.slice(0, 10).map((s: { name: string; display_variant?: string }) => s.name + (s.display_variant ? ` (${s.display_variant})` : "")).join(", ")}${missingPhotos.length > 10 ? `, +${missingPhotos.length - 10} more` : ""}`
+    ? `📷 ${missingPhotos.length} item(s) with no photo:\n${missingPhotos.slice(0, 10).map((s: { name: string; display_variant?: string }) => `• ${s.name}${s.display_variant ? ` (${s.display_variant})` : ""}`).join("\n")}${missingPhotos.length > 10 ? `\n+${missingPhotos.length - 10} more` : ""}`
     : "📷 Every item has at least one photo ✅";
 
   const anyIssue = report.includes("🔴") || report.includes("⚠️") || missingPhotos.length > 0;
-  const text = `${anyIssue ? "⚠️ Meensha Daily Health Check" : "✅ Meensha Daily Health Check — all clear"}\n\n${report}\n\n${photosLine}\n\n👀 ${visits}`;
+  const text = `${anyIssue ? "📋 Meensha Daily Health Check" : "✅ Meensha Daily Health Check — all clear"}\n\n${report}\n\n${photosLine}\n\n👀 ${visits}`;
 
   try {
     const monitorToken = Deno.env.get("TELEGRAM_MONITOR_BOT_TOKEN");

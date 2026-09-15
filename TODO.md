@@ -19,12 +19,7 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
   - Needs: a supervisor → worker → QA → reporting-manager agent pipeline, each terminating after its task; daily morning-brief progress reporting; all actions recorded to syncthing/obsidian/gitea (and blog posts published) each phase. **The 4-hourly TODO-worker cloud routine (below) is the first piece of this — currently blocked on connecting GitHub to claude.ai.**
 - [x] ~~Connect GitHub + create "Meensha TODO worker" routine~~ — **live 2026-09-13**: `trig_01CSksr3xMEajpixfNFjgj3g`, meensha-test2 (staging) only, reports to Shalini + MeenshaMonitor via `agent-report`. Fires at 08:30, 12:30, 16:30, 20:30, 00:30, 04:30 IST — daily rollup on the 08:30 IST run. https://claude.ai/code/routines/trig_01CSksr3xMEajpixfNFjgj3g
 
-## Formatting notes for daily digests (apply next time touched)
-
-- Don't use ⚠️ for the daily report — use a notepad/clipboard-style icon instead.
-- List each flagged item on its own line, not comma-joined, for readability.
-
-- [ ] sitemap.xml currently only lists 3 static pages (home, about, register) — no individual shop/product pages or the (future, Artisans-section-only) CSR posts. Worth expanding once that content exists, or sooner if product-page indexing matters.
+- [ ] sitemap.xml still has no entries for the (future, Artisans-section-only) CSR/weaver-upliftment posts — add once that content exists.
 
 ## Data quality (not a code bug, needs a decision)
 
@@ -32,6 +27,8 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-09-15: sitemap.xml now lists the 15 saree-type shop category pages (`?shop=<term>`) from the clean keyword list mined in Phase 2 (Ajrakh, Bandhani, Batik, Chiffon, Dola, Georgette, Kalamkari, Katan, Khaddi, Kota Doria, Madhubani, Mangalgiri, Modal, Mothra, Muga) — confirmed `?shop=` does a substring search (`matchSearch()` in index.html) so these terms will actually surface matching SKUs. Per-SKU product-page entries deliberately left out — no stable per-product URL exists yet (`?buy=<sku_id>` just adds to cart) and the SKU set changes too often for a static sitemap entry per item.
+- 2026-09-14: Applied the daily-digest formatting notes to `daily-health-check`'s Telegram message: swapped the ⚠️ header icon for 📋 (was overloaded — ⚠️ is also used to detect warning content inside the report body), and changed the no-photo item list from comma-joined to one bullet per line.
 - 2026-09-13: New "Content Drafts" tab in admin.html — fetches raw `.md` files listed in a hardcoded `DRAFT_FILES` array (currently `docs/MEDIUM_POST_02_draft.md`, `docs/ARTISANS_BLOG_DRAFT_01.md`), renders them with a small dependency-free markdown-to-HTML helper (`mdToHtml`), and gives each a Copy-to-clipboard button so Dheeraj can review/copy-paste into Medium or the Artisans section without digging through the repo. Confirmed `docs/*.md` is actually served at the live meensha.in URL (no Jekyll conversion — `curl -I https://meensha.in/docs/README.md` returns `200 text/markdown`), so the same relative-fetch pattern works in production. To add a future draft: just append `{file:'docs/...', label:'...'}` to `DRAFT_FILES`.
 - 2026-09-13: "NEW" (added to `inventory_skus` within 14 days, via `created_at`) and "Trending" product image badges on the storefront shop grid (`index.html`'s `renderShopGrid`). Trending is a staff-set flag (new `inventory_skus.trending` column, migration `20260913140000`) toggled in admin.html's Inventory tab, with a suggestion nudge (💡) when a SKU has ≥3 units sold in the last 14 days (computed from existing `inventory_units` sold/updated_at data) — staff can accept or ignore; the toggle is always the final word. Instagram view-count half of the suggestion signal not built (see Queued above — blocked on Meta API access).
 - 2026-09-13: Confirmed the `?shop=`/`?buy=` deep links already pass through extra UTM params (`utm_source`, `utm_medium`, etc.) safely — both use `URLSearchParams(location.search).get(...)`, which ignores unrelated keys. No code change needed.
