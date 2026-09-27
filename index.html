@@ -1252,6 +1252,31 @@ function updateCurrencyBtn() {
   });
 }
 
+// Static <head> tags (title/description/canonical/OG/twitter) all point at
+// the bare homepage — fine for direct visits, but every ?shop=<term>
+// category URL in sitemap.xml was inheriting those same identical tags,
+// so Google's crawler saw 15+ "different" URLs all self-canonicalizing to
+// the homepage and correctly refused to index them as separate pages
+// (GSC: "Alternative page with proper canonical tag"). Updating these via
+// JS on page load is a weaker signal than server-rendering would be, but
+// it's the only option on a static single-page site, and it's strictly
+// better than the previous state of actively telling Google to ignore
+// these pages.
+function updateMetaForShopTerm(term) {
+  const url = `https://meensha.in/?shop=${encodeURIComponent(term)}`;
+  const title = `${term} Sarees — Meensha | Heritage Indian Weaves`;
+  const desc = `Shop ${term} sarees at Meensha — authentic handloom weaves sourced weaver-direct. Fair, direct trade with the artisans who weave them. Shop online or on WhatsApp, India and Australia.`;
+  document.title = title;
+  const setMeta = (selector, attr, value) => { const el = document.querySelector(selector); if (el) el.setAttribute(attr, value); };
+  setMeta('meta[name="description"]', 'content', desc);
+  setMeta('link[rel="canonical"]', 'href', url);
+  setMeta('meta[property="og:title"]', 'content', title);
+  setMeta('meta[property="og:description"]', 'content', desc);
+  setMeta('meta[property="og:url"]', 'content', url);
+  setMeta('meta[name="twitter:title"]', 'content', title);
+  setMeta('meta[name="twitter:description"]', 'content', desc);
+}
+
 async function loadShop() {
   await detectCurrency();
   try { await spPostRPC('release_expired_reservations'); } catch(e) {}
@@ -1305,6 +1330,7 @@ async function loadShop() {
     const si = document.getElementById('sp-search');
     if (si) si.value = shopTerm;
     onShopSearch(shopTerm);
+    updateMetaForShopTerm(shopTerm);
     // Scroll to the actual results grid, not just the shop section — on
     // mobile the category sidebar (now dynamic, often 20+ items) stacks
     // above the grid and pushes it far down, so scrolling to #shop alone
