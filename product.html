@@ -75,7 +75,7 @@
 
     const ld = {
       '@context': 'https://schema.org', '@type': 'Product', name: nm, sku: it.sku_code,
-      description: desc, image: photos, brand: { '@type': 'Brand', name: 'Meensha' },
+      description: desc, image: photos.length ? photos : ['https://meensha.in/og-image.jpg'], brand: { '@type': 'Brand', name: 'Meensha' },
       material: it.display_material || undefined,
       offers: { '@type': 'Offer', url, priceCurrency: cur, price: price.toFixed(2),
         availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',

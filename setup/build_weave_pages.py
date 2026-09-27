@@ -176,6 +176,15 @@ def index_page():
         f'<a class="wv-card" href="{s}/"><h2>{ESC(n)}</h2><p>{ESC(p[0])}</p></a>'
         for s, n, t, r, p in WEAVES)
     url = f"{SITE}/sarees/"
+    ld = [
+        {"@context": "https://schema.org", "@type": "CollectionPage",
+         "name": "Sarees by Weave", "url": url,
+         "isPartOf": {"@type": "WebSite", "name": "Meensha", "url": SITE + "/"}},
+        {"@context": "https://schema.org", "@type": "BreadcrumbList",
+         "itemListElement": [
+             {"@type": "ListItem", "position": 1, "name": "Home", "item": SITE + "/"},
+             {"@type": "ListItem", "position": 2, "name": "Sarees", "item": url}]},
+    ]
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -190,6 +199,7 @@ def index_page():
 <link rel="icon" type="image/svg+xml" href="../logo.svg">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="weave.css">
+<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>
 </head>
 <body>
 <header class="wv-nav">
