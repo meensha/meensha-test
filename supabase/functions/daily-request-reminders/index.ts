@@ -1,5 +1,5 @@
 // Daily nag for every "Request a Saree" row still open (status new or
-// contacted) — sent to the relevant region's staff bot + MeenshaMonitor,
+// contacted) — sent to the relevant region's owner bot + MeenshaMonitor,
 // same broadcast helper and same Reply/Done/Not-Done buttons as the
 // initial notification. Meant to be called once a day by a pg_cron job
 // (see setup/add_saree_requests_cron.sql), same pattern as

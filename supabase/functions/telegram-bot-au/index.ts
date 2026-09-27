@@ -1,4 +1,4 @@
-// Meensha Australia staff bot (@meenshaozbot).
+// Meensha Australia owner bot (@meenshaozbot).
 // Separate Edge Function from the India bot (supabase/functions/telegram-bot/) —
 // own token, own webhook secret, own auth/session tables (telegram_allowed_users_au,
 // telegram_sessions_au). Region is always 'australia' — no region-select step
@@ -11,7 +11,7 @@
 //   - Kiosk mode: photo-based search results (not plain text), quantity via
 //     auto-picked units (reserve_unit/claim_unit), full checkout with coupon
 //     support (validate_coupon/consume_coupon, region-checked), manual
-//     payment confirmation (staff witnesses in-person payment directly).
+//     payment confirmation (owner witnesses in-person payment directly).
 //   - Stock Intake: DRAFT-first, not direct write — submit_stock_intake_draft
 //     RPC, real inventory only created once approved on the web dashboard.
 //   - Reports: lightweight, AU-scoped only (this bot's own region) — the
@@ -329,7 +329,7 @@ async function kioskConfirmQty(supabase: any, chatId: number, data: any, qty: nu
     await tgSend(chatId, `Only ${units.length} available — try a smaller number.`);
     return;
   }
-  // Reserve immediately so a second staff member using this bot concurrently
+  // Reserve immediately so a second person using this bot concurrently
   // can't also sell the same physical piece mid-checkout.
   const chosen = units.slice(0, qty);
   for (const u of chosen) await supabase.rpc("reserve_unit", { p_unit_id: u.id, p_minutes: 15 });

@@ -1,8 +1,8 @@
 // Daily 10am IST digest of faulty items pending return to a vendor.
 // Same pattern as daily-health-check (reuse the shared lookup, best-effort
 // Telegram send, triggered by pg_cron — see setup/add_returns_pending_digest_cron.sql),
-// but a different audience: this goes to India staff (telegram-bot, every
-// active chat_id) as well as MeenshaMonitor, not just the owner — Shalini is
+// but a different audience: this goes to Shalini's bot (telegram-bot, every
+// active chat_id) as well as MeenshaMonitor, not just Monitor — Shalini is
 // the one who'd actually act on returning something to a vendor.
 //
 // Required secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_MONITOR_BOT_TOKEN.

@@ -1378,7 +1378,7 @@ async function handleEmailResetLandingIfAny(){
   setTimeout(()=>{document.getElementById('MO-EMTOK').classList.remove('hi');},500);
 }
 function doLogout(){sessionStorage.removeItem('MSN_USER');window.location.href='index.html';}
-// Routes each staff bot's own guide by username — falls back to the India
+// Routes each owner's bot guide by username — falls back to the India
 // guide for anyone else (owner/admin accounts reviewing either bot).
 function openHelpGuide(){
   const file=CU.username==='meenakshi'?'help-meenakshi.html':'help-shalini.html';
@@ -3362,7 +3362,7 @@ function skuTotal(skuId){return units.filter(u=>u.sku_id===skuId).length;}
 // Sales-velocity signal for the "suggested trending" nudge below — counts
 // units of this SKU sold in the last `days` days (inventory_units.updated_at
 // flips to now() when a unit's status becomes 'sold', see the sale RPC).
-// A suggestion only, staff's manual Trending toggle is always authoritative.
+// A suggestion only, the owner's manual Trending toggle is always authoritative.
 // TODO: once Instagram Graph API (Insights) access is set up, blend a
 // view-count signal in here too — see TODO.md's SEO/Instagram section.
 function skuSoldRecent(skuId,days){

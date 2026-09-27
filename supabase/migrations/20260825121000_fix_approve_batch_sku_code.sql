@@ -1,4 +1,4 @@
--- Fix: admin.html's normal Stock Intake entry has staff type a structured
+-- Fix: admin.html's normal Stock Intake entry has the owner type a structured
 -- SKU Code by hand (see saveSIEntryInner in admin.html); the bot's item
 -- entry never collects one (name/material/variant/cost/qty/mrp/photos only),
 -- and inventory_skus.sku_code is NOT NULL. Auto-generate a unique code

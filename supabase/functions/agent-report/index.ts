@@ -3,7 +3,7 @@
 // meensha-test's test2 branch, working through TODO.md). Unlike this
 // repo's various one-off send-*-message utilities (deployed, used once,
 // deleted), this one is meant to stay deployed since the routine calls it
-// on every run. Relays a plain-text status to both the India bot's staff
+// on every run. Relays a plain-text status to both the India bot's owner
 // chat and MeenshaMonitor.
 //
 // Deployed with the DEFAULT verify_jwt (true) — unlike Telegram/Razorpay

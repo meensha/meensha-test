@@ -1,4 +1,4 @@
--- Australia staff bot (@meenshaozbot) — separate Edge Function, separate bot
+-- Australia owner bot (@meenshaozbot) — separate Edge Function, separate bot
 -- token, separate auth/session tables from the existing India/Shalini bot.
 -- Deliberately NOT sharing telegram_allowed_users/telegram_sessions with the
 -- existing bot: chat_id is the person's own Telegram ID, not bot-scoped, so

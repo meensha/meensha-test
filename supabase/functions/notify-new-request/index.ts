@@ -1,6 +1,6 @@
 // Called by the storefront right after submit_saree_request succeeds
 // (fire-and-forget from index.html, same pattern as create-payment-link).
-// Broadcasts the new request to the right region's staff bot + Monitor.
+// Broadcasts the new request to the right region's owner bot + Monitor.
 //
 // Required secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_TOKEN_AU,
 // TELEGRAM_MONITOR_BOT_TOKEN (all already set for the existing bots).

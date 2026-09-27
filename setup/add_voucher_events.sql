@@ -1,4 +1,4 @@
--- Event-scoped visitor voucher registration: staff creates an "event"
+-- Event-scoped visitor voucher registration: the owner creates an "event"
 -- (discount config + region + validity), gets a shareable registration
 -- link, and each visitor who fills it in on that link gets their own
 -- unique one-time coupon tied to that event. Extends the existing
@@ -89,7 +89,7 @@ END;
 $$;
 GRANT EXECUTE ON FUNCTION register_event_visitor(uuid, text, text) TO anon, authenticated;
 
--- Staff-facing: create a new event (from admin.html or either Telegram
+-- Owner-facing: create a new event (from admin.html or either Telegram
 -- bot), returns its id so a caller can build the shareable registration link.
 CREATE OR REPLACE FUNCTION admin_create_voucher_event(
   p_title text, p_region text, p_discount_type text, p_discount_value numeric,

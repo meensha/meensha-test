@@ -18,7 +18,7 @@ ALTER TABLE requests ADD COLUMN IF NOT EXISTS dismissed_at timestamptz;
 ALTER TABLE requests ADD COLUMN IF NOT EXISTS dismissed_notes text;
 
 -- status real values in practice: 'new' (default, unchanged) -> 'contacted'
--- (staff replied to the customer) -> 'done' (item received/delivered) or
+-- (owner replied to the customer) -> 'done' (item received/delivered) or
 -- 'not_done' (couldn't be sourced). Plain text column, no CHECK constraint
 -- added, to match this project's existing convention on this table.
 

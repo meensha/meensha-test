@@ -1,5 +1,5 @@
 // Builds and sends a "Request a Saree" notification (new-request alert or
-// daily reminder) to the right region's staff bot allowlist AND
+// daily reminder) to the right region's owner bot allowlist AND
 // MeenshaMonitor. Self-contained (own fetch calls, own tokens) so it can be
 // called from notify-new-request and daily-request-reminders without
 // importing a bot's Deno.serve entrypoint file.

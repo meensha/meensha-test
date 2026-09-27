@@ -507,11 +507,11 @@ async function handleMaintenanceText(supabase: SB, chatId: number, text: string)
   await saveSession(supabase, chatId, "idle", {});
 }
 
-// Staff upload a static UPI QR image here — always overwrites the same
+// Owner uploads a static UPI QR image here — always overwrites the same
 // fixed object name (there's only ever one active QR), stored in the
 // `qr-codes` bucket and saved into settings.upi_qr_code_url (same
 // key/value pattern as event_photo_submission_enabled above). Kiosk
-// checkout's "UPI Direct" mode reads this back to send the QR to staff
+// checkout's "UPI Direct" mode reads this back to send the QR to the owner
 // alongside the WhatsApp draft (see sendUpiQr).
 async function handleMaintenanceQrPhoto(supabase: SB, chatId: number, photoSizes: { file_id: string }[]) {
   const largest = photoSizes[photoSizes.length - 1];
@@ -838,7 +838,7 @@ async function handleEventformText(supabase: SB, chatId: number, state: string, 
 
 // Manual on/off switch for public event-photo submission (event-photos.html
 // on the storefront). Explicit here always wins over the event's own
-// date_from/date_to window (see add_event_photo RPC) — lets staff shut it
+// date_from/date_to window (see add_event_photo RPC) — lets the owner shut it
 // off early or open it outside the scheduled dates without editing the
 // event itself.
 async function handleEventPhotoToggle(supabase: SB, chatId: number, callbackData: string) {
@@ -937,7 +937,7 @@ async function handleKiosk(
       await saveSession(supabase, chatId, "kiosk_pick_item", data);
       return;
     }
-    // Staff already typed a search term matching what a customer asked
+    // Owner already typed a search term matching what a customer asked
     // about on WhatsApp — offer either the plain filtered shop link, or
     // individual ready-to-forward WhatsApp messages per item (see the
     // kiosk_share_menu state below).
@@ -1158,7 +1158,7 @@ async function handleKiosk(
     data.amount = orderTotal(data);
     await finalizeSale(supabase, chatId, data);
     // Kiosk mode is persistent — loop back to picking the next item instead
-    // of dropping to idle, so staff can ring up sale after sale without
+    // of dropping to idle, so the owner can ring up sale after sale without
     // re-tapping "Kiosk mode" each time. "✕ Cancel sale" (present on every
     // kiosk screen) is the way out to the top menu.
     data = { cart: [], page: 0 };
@@ -1172,7 +1172,7 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
   const query = supabase
     .from("inventory_skus")
     .select("id, name, mrp, sale_price, display_variant, display_material, au_available");
-  // A search query (typed by staff, see handleTextInput's kiosk_pick_item
+  // A search query (typed by the owner, see handleTextInput's kiosk_pick_item
   // case) filters by name/material/variant — same fields the storefront and
   // the AU bot's kioskSearch already search across, kept consistent.
   const searchQ: string | undefined = data.search_query;
@@ -1241,7 +1241,7 @@ async function showItemPicker(supabase: SB, chatId: number, data: SessionData) {
 
 // "Share links/photos" → "Send WhatsApp messages" — same matching-items
 // query as showItemPicker, but a numbered plain-text list instead of
-// buttons, since staff pick multiple at once by typing e.g. "1,3,4"
+// buttons, since the owner picks multiple at once by typing e.g. "1,3,4"
 // (handleTextInput's kiosk_share_wa_pick case) rather than tapping one.
 async function startShareWaFlow(supabase: SB, chatId: number, data: SessionData) {
   const searchQ: string | undefined = data.search_query;
@@ -1290,7 +1290,7 @@ async function startShareWaFlow(supabase: SB, chatId: number, data: SessionData)
 // the SKU has one) with the greeting/price/buy-link as the caption, or
 // plain text when it doesn't. No "copy/forward this" wrapper around it per
 // item, matching the item spec — each message is meant to be forwarded to
-// the customer on WhatsApp exactly as staff receive it here.
+// the customer on WhatsApp exactly as the owner receives it here.
 async function sendShareWaMessages(chatId: number, data: SessionData, includePrice: boolean) {
   const items: { id: string; name: string; price: number; photo: string | null }[] = data.shareSelectedSkus ?? [];
   const name = data.shareCustomerName || "there";
@@ -1332,7 +1332,7 @@ async function showUnitPicker(supabase: SB, chatId: number, skuId: string, data:
 type CartLine = { unit_id: string; unit_code: string; sku_id: string; name: string; price: number };
 
 // Groups the cart's individual physical pieces by SKU for display/editing —
-// staff picked specific unit_codes to get here, but thinks of the cart in
+// the owner picked specific unit_codes to get here, but thinks of the cart in
 // terms of "2 of this item," not by piece. Tapping a group opens
 // showCartItemMenu (change qty / delete / no change), not a direct delete.
 function groupCartBySku(cart: CartLine[]): { sku_id: string; name: string; qty: number; subtotal: number }[] {
@@ -1594,7 +1594,7 @@ function validateCoupon(coupon: any): boolean {
   return true;
 }
 
-// Every discount — coupon code or a staff-typed custom amount — attributes
+// Every discount — coupon code or an owner-typed custom amount — attributes
 // to exactly one item, the highest-priced one in the cart: a percent-off
 // coupon gives the biggest rupee value against the pricier item, and this
 // removes an interactive "which item?" question entirely. Shared so a
@@ -1814,7 +1814,7 @@ async function sendRazorpayLink(supabase: SB, chatId: number, data: SessionData)
 }
 
 // UPI Direct: no payment API, no automatic confirmation — same
-// one-tap-by-a-human pattern as everywhere else in this file. Staff get the
+// one-tap-by-a-human pattern as everywhere else in this file. Owner gets the
 // static QR image (set via Maintenance → 🔳 Set UPI QR code) as a Telegram
 // photo plus a wa.me draft showing the final amount (orderTotal already
 // includes any discount), and forward both to the customer themselves.
@@ -2392,7 +2392,7 @@ async function handleInventoryPhoto(supabase: SB, chatId: number, data: SessionD
 
 // No search grounding (unlike admin.html's callGeminiSearch) — a plain
 // estimate from the model's general knowledge is enough for a "starting
-// suggestion, editable" prompt; staff always type the real value next.
+// suggestion, editable" prompt; the owner always types the real value next.
 async function suggestMrp(
   supabase: SB,
   name: string,

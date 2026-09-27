@@ -1,5 +1,5 @@
 // Daily tech-stack health digest, posted to MeenshaMonitor (@meenshabot),
-// the India bot's staff chat (Shalini), AND the AU bot's staff chats
+// the India bot's owner chat (Shalini), AND the AU bot's owner chats
 // (Meenakshi) — the missing-photos section used to skip Meenakshi entirely
 // even though it already included AU-available items she's responsible for.
 // Reuses the same tech_health lookup the bot's natural-language Q&A uses

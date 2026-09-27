@@ -1,9 +1,9 @@
--- Storage bucket for the UPI QR code image staff upload via the Telegram
+-- Storage bucket for the UPI QR code image the owner uploads via the Telegram
 -- bot's Maintenance menu (telegram-bot/index.ts, maint:setqr). Public bucket
 -- so the storefront (index.html) and the bot's own sendPhoto call can both
 -- read it back by URL, same pattern as the item-photos bucket
 -- (create_storage_bucket.sql). Only one object ever lives here — a fixed
--- name (upi-qr.jpg) that gets overwritten each time staff set a new QR.
+-- name (upi-qr.jpg) that gets overwritten each time the owner sets a new QR.
 
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('qr-codes', 'qr-codes', true)

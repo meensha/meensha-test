@@ -32,7 +32,7 @@ export const LOOKUP_CATALOG_FULL: LookupDef[] = [
   { name: "pnl_summary", description: "Profit and loss for a period: revenue minus purchases (COGS) minus overheads", params: { period: "'today' | 'week' | 'month'" } },
   { name: "returns_pending", description: "Faulty/defective items flagged and awaiting return to the vendor", params: {} },
   { name: "visit_stats", description: "Storefront visitor counts (page loads) for today and this week", params: {} },
-  { name: "chat_transcript", description: "Recent conversation transcript (both directions) between a named staff member and their bot — logging started 2026-09-15, nothing from before that exists", params: { who: "staff member's name or partial name, e.g. 'Meenakshi' or 'Shalini'", limit: "how many recent messages, default 20" } },
+  { name: "chat_transcript", description: "Recent conversation transcript (both directions) between a named owner and their bot — logging started 2026-09-15, nothing from before that exists", params: { who: "owner's name or partial name, e.g. 'Meenakshi' or 'Shalini'", limit: "how many recent messages, default 20" } },
 ];
 
 function periodStart(period: string): string {
@@ -161,11 +161,11 @@ async function pnlSummary(supabase: SB, params: { period?: string }): Promise<st
 }
 
 // MeenshaMonitor-only: recent message-by-message transcript for a named
-// staff member, across whichever bot they use. Logging (bot_message_log)
+// owner, across whichever bot they use. Logging (bot_message_log)
 // only started 2026-09-15 — nothing from before that exists to show.
 async function chatTranscript(supabase: SB, params: { who?: string; limit?: string }): Promise<string> {
   const who = (params.who || "").trim();
-  if (!who) return "No staff name given.";
+  if (!who) return "No owner name given.";
   const limit = Math.min(parseInt(params.limit || "20", 10) || 20, 100);
 
   const [{ data: india }, { data: au }] = await Promise.all([
@@ -176,7 +176,7 @@ async function chatTranscript(supabase: SB, params: { who?: string; limit?: stri
     ...(india || []).map((r: any) => ({ ...r, bot: "india" })),
     ...(au || []).map((r: any) => ({ ...r, bot: "au" })),
   ];
-  if (!matches.length) return `No staff member matching "${who}" found on either bot.`;
+  if (!matches.length) return `No owner matching "${who}" found on either bot.`;
   if (matches.length > 1) return `Multiple matches for "${who}": ${matches.map((m: any) => `${m.label} (${m.bot})`).join(", ")} — ask again with a more specific name.`;
 
   const { chat_id, label, bot } = matches[0];

@@ -1,4 +1,4 @@
--- Free-standing quick notes staff leave via the Telegram bot's Maintenance
+-- Free-standing quick notes the owner leaves via the Telegram bot's Maintenance
 -- > Note option — not attached to any sale/vendor/item, just a timestamped
 -- remark that shows up on the admin.html dashboard as a running log.
 CREATE TABLE IF NOT EXISTS bot_notes (

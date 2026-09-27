@@ -1322,7 +1322,7 @@ async function loadShop() {
   // Shareable shop link: ?shop=<term> opens the shop page pre-filtered to
   // that search term (URLSearchParams already URL-decodes it), same spirit
   // as ?buy= above — lets a customer land straight on matching results
-  // from a link forwarded by staff (see kiosk mode's "Share links/photos").
+  // from a link forwarded by the owner (see kiosk mode's "Share links/photos").
   const shopTerm = new URLSearchParams(location.search).get('shop');
   if (shopTerm) {
     document.getElementById('shop-page').style.display = 'block';
@@ -1785,7 +1785,7 @@ function renderCart() {
   const showRzp = !isAud && razorpayEnabled;
   if (rzpBtn) rzpBtn.style.display = (showRzp && cart.length) ? 'flex' : 'none';
   // Static UPI QR view — only for the WhatsApp checkout path (India), and
-  // only once staff have uploaded one via the bot's Maintenance menu.
+  // only once the owner has uploaded one via the bot's Maintenance menu.
   const qrBtn = document.getElementById('cart-upi-qr');
   if (qrBtn) qrBtn.style.display = (!isAud && upiQrUrl && cart.length) ? 'flex' : 'none';
   if (cart.length) {

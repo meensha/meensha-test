@@ -3,7 +3,7 @@
 // IS NULL means "pending", not free (see setup/fix_stock_intake_pending_cost.sql).
 // Same pattern as returns-pending-digest (skip sending entirely when
 // there's nothing pending, triggered by pg_cron — see
-// setup/add_pending_cost_digest_cron.sql), same audience: India staff
+// setup/add_pending_cost_digest_cron.sql), same audience: the India owner
 // (telegram-bot, every active chat_id) — Shalini is the one who can fill
 // these in from the Telegram Maintenance menu or from the web admin panel.
 //

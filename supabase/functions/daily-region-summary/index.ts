@@ -1,4 +1,4 @@
-// Daily 9am-local summary for each region's own staff bot (India/Shalini,
+// Daily 9am-local summary for each region's own owner bot (India/Shalini,
 // Australia/Meenakshi) — website/sales-logic health, stock count,
 // fulfilments pending, and yesterday/last-week sales, in that region's own
 // currency and scoped ONLY to that region's own data (never the other
