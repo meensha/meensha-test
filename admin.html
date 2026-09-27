@@ -1190,6 +1190,8 @@ const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',
 // SUPABASE HELPERS
 // ═══════════════════════════════════════════════
 const HDR=()=>({'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'return=representation'});
+// admin_* RPCs and set_user_password check this session token server-side (issued by login()).
+const AHDR=()=>({...HDR(),'x-admin-session':CU?.session_token||''});
 async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:HDR()});if(!r.ok)return[];return await r.json();}catch{return[];}}
 async function sbIns(table,data){try{const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:HDR(),body:JSON.stringify(data)});return r.ok?(await r.json()):null;}catch{return null;}}
 async function sbUpd(table,q,data){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'PATCH',headers:HDR(),body:JSON.stringify(data)});return r.ok;}catch{return false;}}
@@ -1430,7 +1432,7 @@ async function saveRzpEnabled(){
 // ═══════════════════════════════════════════════
 async function renderTelegramUsers(){
   const body=document.getElementById('TG-USERS-BODY');if(!body)return;
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_telegram_users`,{method:'POST',headers:HDR(),body:'{}'});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_telegram_users`,{method:'POST',headers:AHDR(),body:'{}'});
   const rows=r.ok?(await r.json()):[];
   body.innerHTML=rows.map(u=>`<tr>
     <td>${sanitise(u.label||'—')}</td>
@@ -1444,7 +1446,7 @@ async function addTelegramUser(){
   const chatId=document.getElementById('TG-NEW-CHATID').value.trim();
   const label=document.getElementById('TG-NEW-LABEL').value.trim();
   if(!chatId){toast('Enter a chat ID','var(--red)');return;}
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_add_telegram_user`,{method:'POST',headers:HDR(),body:JSON.stringify({p_chat_id:chatId,p_label:label})});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_add_telegram_user`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_chat_id:chatId,p_label:label})});
   if(!r.ok){toast('Could not add — chat ID may already be on the list','var(--red)');return;}
   toast('✅ Bot access approved','#27ae60');
   document.getElementById('TG-NEW-CHATID').value='';
@@ -1452,18 +1454,18 @@ async function addTelegramUser(){
   renderTelegramUsers();
 }
 async function toggleTelegramUser(id,active){
-  await fetch(`${SB}/rest/v1/rpc/admin_set_telegram_user_active`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id,p_active:active})});
+  await fetch(`${SB}/rest/v1/rpc/admin_set_telegram_user_active`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id,p_active:active})});
   toast(active?'Access enabled':'Access revoked','#27ae60');
 }
 async function deleteTelegramUser(id){
   if(!confirm('Remove this chat ID from bot access?'))return;
-  await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
+  await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id})});
   toast('Removed','#27ae60');
   renderTelegramUsers();
 }
 async function renderTelegramUsersAu(){
   const body=document.getElementById('TGAU-USERS-BODY');if(!body)return;
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_telegram_users_au`,{method:'POST',headers:HDR(),body:'{}'});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_telegram_users_au`,{method:'POST',headers:AHDR(),body:'{}'});
   const rows=r.ok?(await r.json()):[];
   body.innerHTML=rows.map(u=>`<tr>
     <td>${sanitise(u.label||'—')}</td>
@@ -1477,7 +1479,7 @@ async function addTelegramUserAu(){
   const chatId=document.getElementById('TGAU-NEW-CHATID').value.trim();
   const label=document.getElementById('TGAU-NEW-LABEL').value.trim();
   if(!chatId){toast('Enter a chat ID','var(--red)');return;}
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_add_telegram_user_au`,{method:'POST',headers:HDR(),body:JSON.stringify({p_chat_id:chatId,p_label:label})});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_add_telegram_user_au`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_chat_id:chatId,p_label:label})});
   if(!r.ok){toast('Could not add — chat ID may already be on the list','var(--red)');return;}
   toast('✅ Bot access approved','#27ae60');
   document.getElementById('TGAU-NEW-CHATID').value='';
@@ -1485,12 +1487,12 @@ async function addTelegramUserAu(){
   renderTelegramUsersAu();
 }
 async function toggleTelegramUserAu(id,active){
-  await fetch(`${SB}/rest/v1/rpc/admin_set_telegram_user_au_active`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id,p_active:active})});
+  await fetch(`${SB}/rest/v1/rpc/admin_set_telegram_user_au_active`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id,p_active:active})});
   toast(active?'Access enabled':'Access revoked','#27ae60');
 }
 async function deleteTelegramUserAu(id){
   if(!confirm('Remove this chat ID from bot access?'))return;
-  await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user_au`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
+  await fetch(`${SB}/rest/v1/rpc/admin_delete_telegram_user_au`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id})});
   toast('Removed','#27ae60');
   renderTelegramUsersAu();
 }
@@ -1682,8 +1684,8 @@ async function loadPendingSetupBadges(){
   const ib=document.getElementById('SET-IG-BADGE');
   if(!ib)return;
   const [tokenSet,acctSet]=await Promise.all([
-    fetch(`${SB}/rest/v1/rpc/admin_secret_is_set`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_access_token'})}).then(r=>r.json()).catch(()=>false),
-    fetch(`${SB}/rest/v1/rpc/admin_secret_is_set`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_business_account_id'})}).then(r=>r.json()).catch(()=>false),
+    fetch(`${SB}/rest/v1/rpc/admin_secret_is_set`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_key:'instagram_access_token'})}).then(r=>r.json()).catch(()=>false),
+    fetch(`${SB}/rest/v1/rpc/admin_secret_is_set`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_key:'instagram_business_account_id'})}).then(r=>r.json()).catch(()=>false),
   ]);
   if(tokenSet&&acctSet){ib.textContent='configured ✅';ib.className='bx bg2';}
   else{ib.textContent='action needed';ib.className='bx br2';}
@@ -1697,8 +1699,8 @@ async function saveInstagramSecrets(){
   msg.textContent='Saving…';msg.style.color='var(--gy)';
   try{
     await Promise.all([
-      fetch(`${SB}/rest/v1/rpc/admin_set_secret`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_access_token',p_value:token})}),
-      fetch(`${SB}/rest/v1/rpc/admin_set_secret`,{method:'POST',headers:HDR(),body:JSON.stringify({p_key:'instagram_business_account_id',p_value:acctId})}),
+      fetch(`${SB}/rest/v1/rpc/admin_set_secret`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_key:'instagram_access_token',p_value:token})}),
+      fetch(`${SB}/rest/v1/rpc/admin_set_secret`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_key:'instagram_business_account_id',p_value:acctId})}),
     ]);
     document.getElementById('SET-IG-TOKEN').value='';
     document.getElementById('SET-IG-ACCTID').value='';
@@ -1732,7 +1734,7 @@ async function createCoupon(){
   if(wa && wa.length<10){toast('Enter a valid WhatsApp number, or leave it blank','var(--red)');return;}
   if(type==='flat'&&region==='all'){toast('Flat discounts need a single region (India or Australia)','var(--red)');return;}
   if(type==='percent'&&val>100){toast('Percent discount can\'t exceed 100','var(--red)');return;}
-  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until,p_category_filter:catFilter})});
+  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until,p_category_filter:catFilter})});
   if(!rr.ok){toast('Could not create coupon — code may already exist','var(--red)');return;}
   toast('✅ Coupon created','#27ae60');
   document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-CATFILTER').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';
@@ -1753,7 +1755,7 @@ async function createEventForm(){
   const daysStr=prompt('Voucher valid for how many days after each visitor registers?','7');
   const days=parseInt(daysStr,10)||7;
   try{
-    const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_voucher_event`,{method:'POST',headers:HDR(),body:JSON.stringify({p_title:title.trim(),p_region:region.trim().toLowerCase(),p_discount_type:type.trim().toLowerCase(),p_discount_value:val,p_valid_days:days,p_created_by:CU.username||'admin'})});
+    const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_voucher_event`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_title:title.trim(),p_region:region.trim().toLowerCase(),p_discount_type:type.trim().toLowerCase(),p_discount_value:val,p_valid_days:days,p_created_by:CU.username||'admin'})});
     const ev=await rr.json();
     if(!rr.ok||!ev?.id)throw new Error('Could not create event');
     const link=`https://meensha.in/register.html?event=${ev.id}`;
@@ -1765,7 +1767,7 @@ async function createEventForm(){
 }
 async function renderCoupons(){
   const body=document.getElementById('CP-BODY');if(!body)return;
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_coupons`,{method:'POST',headers:HDR(),body:'{}'});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_coupons`,{method:'POST',headers:AHDR(),body:'{}'});
   coupons=r.ok?(await r.json()):[];
   const regionLbl={india:'🇮🇳 India',australia:'🇦🇺 Australia',all:'🌏 Both'};
   body.innerHTML=coupons.map(c=>{
@@ -1785,12 +1787,12 @@ async function renderCoupons(){
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--gy);">No coupons yet</td></tr>';
 }
 async function toggleCouponActive(id,active){
-  await fetch(`${SB}/rest/v1/rpc/admin_set_coupon_active`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id,p_active:active})});
+  await fetch(`${SB}/rest/v1/rpc/admin_set_coupon_active`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id,p_active:active})});
   toast(active?'Coupon activated':'Coupon paused','#27ae60');
 }
 async function deleteCoupon(id){
   if(!confirm('Delete this coupon?'))return;
-  await fetch(`${SB}/rest/v1/rpc/admin_delete_coupon`,{method:'POST',headers:HDR(),body:JSON.stringify({p_id:id})});
+  await fetch(`${SB}/rest/v1/rpc/admin_delete_coupon`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id})});
   toast('Coupon deleted','#27ae60');
   renderCoupons();
 }
@@ -2222,7 +2224,7 @@ function renderIssueCard(i,showActions){
 async function renderApprovals(){
   const el=document.getElementById('APPR-LIST');if(!el)return;
   el.innerHTML='<p style="color:var(--gy);font-style:italic;">Loading…</p>';
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_stock_intake_drafts`,{method:'POST',headers:HDR(),body:JSON.stringify({p_status:'pending'})});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_stock_intake_drafts`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_status:'pending'})});
   const rows=r.ok?(await r.json()):[];
   if(!rows.length){el.innerHTML='<p style="color:var(--gy);font-style:italic;">Nothing pending approval ✅</p>';return;}
   const byBatch={};rows.forEach(d=>{(byBatch[d.batch_id]=byBatch[d.batch_id]||[]).push(d);});
@@ -2257,7 +2259,7 @@ async function renderApprovals(){
 
 async function approvePurchaseBatch(batchId){
   if(!confirm('Approve this batch? This creates the purchase and live inventory (defective lines go to Returns Pending, not stock).'))return;
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_approve_purchase_batch`,{method:'POST',headers:HDR(),body:JSON.stringify({p_batch_id:batchId,p_reviewed_by:CU.display_name||'admin'})});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_approve_purchase_batch`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_batch_id:batchId,p_reviewed_by:CU.display_name||'admin'})});
   if(!r.ok){toast('Approve failed: '+(await r.text()).slice(0,100),'var(--red)');return;}
   toast('✅ Purchase approved — inventory is live','#27ae60');
   purch=await sbQ('purchases','?order=created_at.desc');skus=await sbQ('inventory_skus','?order=sku_code');units=await sbQ('inventory_units','?order=unit_code');
@@ -2267,7 +2269,7 @@ async function approvePurchaseBatch(batchId){
 async function rejectPurchaseBatch(batchId){
   const reason=prompt('Reason for rejecting this batch?');
   if(reason===null)return;
-  const r=await fetch(`${SB}/rest/v1/rpc/admin_reject_purchase_batch`,{method:'POST',headers:HDR(),body:JSON.stringify({p_batch_id:batchId,p_reason:reason,p_reviewed_by:CU.display_name||'admin'})});
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_reject_purchase_batch`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_batch_id:batchId,p_reason:reason,p_reviewed_by:CU.display_name||'admin'})});
   if(!r.ok){toast('Reject failed: '+(await r.text()).slice(0,100),'var(--red)');return;}
   toast('Batch rejected','var(--orn)');
   renderApprovals();
@@ -2979,7 +2981,7 @@ async function saveNewPassword(){
     password_updated_via:forcedPwChange?'rachnakar_reset':'self'
   };
   try{
-    await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:CU.id,p_new_password:nw})});
+    await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_user_id:CU.id,p_new_password:nw})});
     await sbUpd('users',`?id=eq.${CU.id}`,body);
     CU.must_change_password=false;
     sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
@@ -3168,7 +3170,7 @@ async function generateResetForUser(reqId,username){
   try{
     const target=users.find(x=>x.username===username);
     if(!target){toast('User not found','var(--red)');return;}
-    await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:target.id,p_new_password:newPw})});
+    await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_user_id:target.id,p_new_password:newPw})});
     await sbUpd('users',`?username=eq.${encodeURIComponent(username)}`,{must_change_password:true,last_password_change:new Date().toISOString(),password_updated_via:'rachnakar_reset'});
     await sbUpd('password_reset_requests',`?id=eq.${reqId}`,{status:'fulfilled',fulfilled_by:CU?.username||'',fulfilled_at:new Date().toISOString(),generated_pw:newPw});
     // Show modal
@@ -4155,7 +4157,7 @@ function renderUsers(){
 let editUsrId=null;
 function openUsrModal(){editUsrId=null;document.getElementById('USR-TITLE').textContent='➕ Add User';['U-UN','U-PW','U-NM','U-WA','U-EM'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('U-RL').value='sales';document.getElementById('U-AC').value='true';document.getElementById('MO-USR').classList.remove('hi');}
 function editUsr(id){const u=users.find(x=>x.id===id);if(!u)return;editUsrId=id;document.getElementById('USR-TITLE').textContent='✏️ Edit User';document.getElementById('U-UN').value=u.username;document.getElementById('U-PW').value='';document.getElementById('U-NM').value=u.display_name||'';document.getElementById('U-RL').value=u.role;document.getElementById('U-WA').value=u.wa||'';const em=document.getElementById('U-EM');if(em)em.value=u.email||'';document.getElementById('U-AC').value=String(u.active);document.getElementById('MO-USR').classList.remove('hi');}
-async function saveUsr(){const un=document.getElementById('U-UN').value.trim(),nm=document.getElementById('U-NM').value.trim();if(!un||!nm){toast('Username and name required','var(--red)');return;}const data={username:un,display_name:nm,role:document.getElementById('U-RL').value,wa:document.getElementById('U-WA').value,active:document.getElementById('U-AC').value==='true'};const pw=document.getElementById('U-PW').value;try{let uid=editUsrId;if(editUsrId){await sbUpd('users',`?id=eq.${editUsrId}`,data);}else{const ins=await sbIns('users',data);if(!ins||!ins.length){toast('Error creating user','var(--red)');return;}uid=ins[0].id;}if(pw)await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_user_id:uid,p_new_password:pw})});users=await sbQ('users','?order=created_at');renderUsers();closeMo('MO-USR');toast('✅ User saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
+async function saveUsr(){const un=document.getElementById('U-UN').value.trim(),nm=document.getElementById('U-NM').value.trim();if(!un||!nm){toast('Username and name required','var(--red)');return;}const data={username:un,display_name:nm,role:document.getElementById('U-RL').value,wa:document.getElementById('U-WA').value,active:document.getElementById('U-AC').value==='true'};const pw=document.getElementById('U-PW').value;try{let uid=editUsrId;if(editUsrId){await sbUpd('users',`?id=eq.${editUsrId}`,data);}else{const ins=await sbIns('users',data);if(!ins||!ins.length){toast('Error creating user','var(--red)');return;}uid=ins[0].id;}if(pw)await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_user_id:uid,p_new_password:pw})});users=await sbQ('users','?order=created_at');renderUsers();closeMo('MO-USR');toast('✅ User saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}}
 async function delUsr(id){if(!confirm('Delete user?'))return;await sbDel('users',`?id=eq.${id}`);users=users.filter(u=>u.id!==id);renderUsers();toast('Deleted','var(--red)');}
 
 // ═══════════════════════════════════════════════
@@ -4472,7 +4474,8 @@ window.onload=()=>{
   ['SI-DT','SI-PDT','SA-DT','OH-DT','OV-DT'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
   document.getElementById('SA-INV').value='MSH-'+(invCtr+1);
   const stored=sessionStorage.getItem('MSN_USER');
-  if(stored){CU=JSON.parse(stored);document.getElementById('LOV').classList.add('hi');initApp();}
+  // Sessions from before session tokens existed must log in again.
+  if(stored&&JSON.parse(stored).session_token){CU=JSON.parse(stored);document.getElementById('LOV').classList.add('hi');initApp();}
   addSIRow();addSARow();
 };
 </script>
