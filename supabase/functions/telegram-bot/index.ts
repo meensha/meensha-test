@@ -12,6 +12,45 @@ import { askGemini } from "../_shared/askGemini.ts";
 import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
 import { handleRequestAction } from "../_shared/requestActions.ts";
 import { logActivity } from "../_shared/activityLog.ts";
+import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuSearch.ts";
+
+const MENU_ACTIONS: MenuAction[] = [
+  { keywords: ["kiosk", "sale", "sell", "checkout"], label: "🛍️ Kiosk mode", callback_data: "kiosk:start" },
+  { keywords: ["inventory", "enter inventory", "purchase", "vendor"], label: "➕ Enter inventory", callback_data: "inv:start" },
+  { keywords: ["maintenance"], label: "🔧 Maintenance", callback_data: "maint:menu" },
+  { keywords: ["godown", "warehouse", "reconcile"], label: "📦 Godown check", callback_data: "godown:start" },
+  { keywords: ["history", "sales history", "past sales"], label: "🧾 Sales history", callback_data: "hist:start" },
+  { keywords: ["event photo", "event photos", "photo submission"], label: "📸 Event photo submissions", callback_data: "evphoto:menu" },
+  { keywords: ["note"], label: "📝 Add a note", callback_data: "maint:note" },
+  { keywords: ["au cost", "pending cost", "purchase cost", "cost"], label: "💰 Pending AU costs", callback_data: "maint:aucost" },
+  { keywords: ["photo", "image", "picture"], label: "📷 Add photo to item", callback_data: "maint:addphoto" },
+  { keywords: ["qr", "upi", "payment code"], label: "🔳 Set UPI QR code", callback_data: "maint:setqr" },
+  { keywords: ["insta", "instagram", "insta link"], label: "🔗 Insta link", callback_data: "maint:iglink" },
+  { keywords: ["voucher", "coupon", "discount", "promo", "discount code"], label: "🎟️ Create voucher", callback_data: "maint:voucher" },
+  { keywords: ["event", "event form", "registration form", "event registration"], label: "📋 Create event form", callback_data: "maint:eventform" },
+];
+
+// Checked before the Gemini natural-language fallback wherever free text
+// shows up with no active flow expecting it. Returns true if it handled the
+// message (either a greeting or a keyword match), false to fall through.
+async function tryMenuKeywordSearch(chatId: number, text: string): Promise<boolean> {
+  if (isGreeting(text)) {
+    await tgSend(chatId, "👋 Hi! Type a keyword like \"event\", \"voucher\", or \"photo\" to jump straight to that menu, or tap a button below:", {
+      inline_keyboard: [
+        [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
+        [{ text: "➕ Enter inventory", callback_data: "inv:start" }],
+        [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
+      ],
+    });
+    return true;
+  }
+  const matches = searchMenuActions(MENU_ACTIONS, text);
+  if (!matches.length) return false;
+  await tgSend(chatId, `Here's what I found for "${text}":`, {
+    inline_keyboard: matches.map((m) => [{ text: m.label, callback_data: m.callback_data }]),
+  });
+  return true;
+}
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -102,9 +141,19 @@ Deno.serve(async (req: Request) => {
 
   await logMessage(chatId, "in", text ?? callbackData ?? (photo?.length ? "[photo]" : "[unrecognized]"));
 
-  if (text === "/start") {
-    await showTopMenu(chatId);
-    await saveSession(supabase, chatId, "idle", {});
+  if (text === "/start" || text?.startsWith("/start ")) {
+    // Deep-link payload (t.me/<bot>?start=photo_<sku_id>) — lets a digest
+    // message (e.g. daily-health-check's missing-photos list) link straight
+    // into fixing that one item, instead of just naming it in plain text.
+    const payload = text.includes(" ") ? text.split(" ")[1] : null;
+    if (payload?.startsWith("photo_")) {
+      await startAddPhoto(supabase, chatId, payload.slice("photo_".length));
+    } else if (payload?.startsWith("aucost_")) {
+      await startAucost(supabase, chatId, payload.slice("aucost_".length));
+    } else {
+      await showTopMenu(chatId);
+      await saveSession(supabase, chatId, "idle", {});
+    }
   } else if (callbackData?.startsWith("kiosk:")) {
     await handleKiosk(supabase, chatId, state, data, callbackData);
   } else if (callbackData?.startsWith("inv:")) {
@@ -133,6 +182,12 @@ Deno.serve(async (req: Request) => {
     await handleInventoryPhoto(supabase, chatId, data, photo);
   } else if (photo?.length && state === "maint_qr_photo") {
     await handleMaintenanceQrPhoto(supabase, chatId, photo);
+  } else if (photo?.length && state === "maint_addphoto_upload") {
+    await handleAddPhotoUpload(supabase, chatId, data, photo);
+  } else if (text && state === "maint_addphoto_upload") {
+    await handleAddPhotoText(supabase, chatId, data, text);
+  } else if (text && state === "maint_addphoto_search") {
+    await showAddPhotoPicker(supabase, chatId, text.trim());
   } else if (text && state.startsWith("godown_")) {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text && state.startsWith("inv_")) {
@@ -214,6 +269,7 @@ async function showMaintenanceMenu(chatId: number) {
       [{ text: "📸 Event photo submissions", callback_data: "evphoto:menu" }],
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
       [{ text: "💰 Pending AU costs", callback_data: "maint:aucost" }],
+      [{ text: "📷 Add photo to item", callback_data: "maint:addphoto" }],
       [{ text: "🔳 Set UPI QR code", callback_data: "maint:setqr" }],
       [{ text: "🔗 Insta link", callback_data: "maint:iglink" }],
       [{ text: "🎟️ Create voucher", callback_data: "maint:voucher" }],
@@ -263,20 +319,20 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
     return;
   }
   if (callbackData.startsWith("maint:aucost:pick:")) {
-    const skuId = callbackData.slice("maint:aucost:pick:".length);
-    const { data: sku } = await supabase
-      .from("inventory_skus")
-      .select("id, name, display_variant")
-      .eq("id", skuId)
-      .maybeSingle();
-    if (!sku) {
-      await tgSend(chatId, "That item couldn't be found — it may have already been updated.");
-      await showAucostPicker(supabase, chatId);
-      return;
-    }
-    const label = `${sku.name}${sku.display_variant ? " (" + sku.display_variant + ")" : ""}`;
-    await tgSend(chatId, `Purchase price in INR for "${label}"? (sourcing cost)`);
-    await saveSession(supabase, chatId, "maint_aucost_amount", { skuId: sku.id, skuName: label });
+    await startAucost(supabase, chatId, callbackData.slice("maint:aucost:pick:".length));
+    return;
+  }
+  if (callbackData === "maint:addphoto") {
+    await showAddPhotoPicker(supabase, chatId);
+    return;
+  }
+  if (callbackData === "maint:addphoto:search") {
+    await tgSend(chatId, "Type an item name to search:");
+    await saveSession(supabase, chatId, "maint_addphoto_search", {});
+    return;
+  }
+  if (callbackData.startsWith("maint:addphoto:pick:")) {
+    await startAddPhoto(supabase, chatId, callbackData.slice("maint:addphoto:pick:".length));
     return;
   }
 }
@@ -287,6 +343,24 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
 // AU stock-intake items whose sourcing (INR) cost was skipped at intake time
 // land here as inventory_skus.cost = NULL — "pending", not free. Lets Shalini
 // fill those in from Telegram instead of needing the web admin panel.
+// Also reachable via a deep link (t.me/meenshashalbot?start=aucost_<sku_id>)
+// from pending-cost-digest, jumping straight to one item instead of the picker.
+async function startAucost(supabase: SB, chatId: number, skuId: string) {
+  const { data: sku } = await supabase
+    .from("inventory_skus")
+    .select("id, name, display_variant")
+    .eq("id", skuId)
+    .maybeSingle();
+  if (!sku) {
+    await tgSend(chatId, "That item couldn't be found — it may have already been updated.");
+    await showAucostPicker(supabase, chatId);
+    return;
+  }
+  const label = `${sku.name}${sku.display_variant ? " (" + sku.display_variant + ")" : ""}`;
+  await tgSend(chatId, `Purchase price in INR for "${label}"? (sourcing cost)`);
+  await saveSession(supabase, chatId, "maint_aucost_amount", { skuId: sku.id, skuName: label });
+}
+
 async function showAucostPicker(supabase: SB, chatId: number) {
   const { data: skus } = await supabase
     .from("inventory_skus")
@@ -329,6 +403,94 @@ async function handleMaintenanceAucostText(supabase: SB, chatId: number, data: S
   }
   await supabase.from("inventory_skus").update({ cost: amount, updated_at: new Date().toISOString() }).eq("id", data.skuId);
   await tgSend(chatId, `✅ Purchase cost of ₹${amount} saved for "${data.skuName}".`);
+  await showMaintenanceMenu(chatId);
+  await saveSession(supabase, chatId, "idle", {});
+}
+
+// ═══════════════════════════════════════════════
+// MAINTENANCE → ADD PHOTO TO ITEM
+// ═══════════════════════════════════════════════
+// Adds photo(s) to an already-approved SKU — distinct from Enter Inventory's
+// photo step, which only ever runs on a brand-new item mid-intake. Reachable
+// two ways: browsing via the Maintenance menu (defaults to items with zero
+// photos, same "show me what's pending" pattern as Pending AU costs), or a
+// Telegram deep link (t.me/<bot>?start=photo_<sku_id>) from a digest message
+// (daily-health-check's missing-photos list) that jumps straight to a
+// specific item, skipping the picker entirely.
+async function showAddPhotoPicker(supabase: SB, chatId: number, searchQ?: string) {
+  const query = supabase.from("inventory_skus").select("id, name, display_variant, photos");
+  const { data: skus } = searchQ
+    ? await query.or(`name.ilike.%${searchQ}%,display_variant.ilike.%${searchQ}%`)
+    : await query;
+  const list = (skus ?? []) as { id: string; name: string; display_variant?: string; photos?: string[] }[];
+  const relevant = searchQ ? list : list.filter((s) => !s.photos || s.photos.length === 0);
+  if (!relevant.length) {
+    await tgSend(
+      chatId,
+      searchQ ? `No items matched "${searchQ}".` : "✅ Every item already has at least one photo.",
+      { inline_keyboard: [[{ text: "🔎 Search a different item", callback_data: "maint:addphoto:search" }], [{ text: "◀ Back to maintenance", callback_data: "maint:menu" }]] },
+    );
+    return;
+  }
+  const buttons = relevant.slice(0, 15).map((s) => [{
+    text: `${s.name}${s.display_variant ? " (" + s.display_variant + ")" : ""} — 📷${(s.photos ?? []).length}`,
+    callback_data: `maint:addphoto:pick:${s.id}`,
+  }]);
+  buttons.push([{ text: "🔎 Search a different item", callback_data: "maint:addphoto:search" }]);
+  buttons.push([{ text: "◀ Back to maintenance", callback_data: "maint:menu" }]);
+  const header = searchQ ? `Results for "${searchQ}":` : `📷 ${relevant.length} item(s) with no photo yet:`;
+  await tgSend(chatId, header, { inline_keyboard: buttons });
+}
+
+async function startAddPhoto(supabase: SB, chatId: number, skuId: string) {
+  const { data: sku } = await supabase
+    .from("inventory_skus")
+    .select("id, name, display_variant")
+    .eq("id", skuId)
+    .maybeSingle();
+  if (!sku) {
+    await tgSend(chatId, "That item couldn't be found — it may have been removed.");
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  const label = `${sku.name}${sku.display_variant ? " (" + sku.display_variant + ")" : ""}`;
+  await tgSend(chatId, `Send a photo for "${label}" — as many as you like, then type 'done'.`);
+  await saveSession(supabase, chatId, "maint_addphoto_upload", { skuId: sku.id, skuName: label, addedCount: 0 });
+}
+
+// Appends via the append_sku_photo RPC (one atomic UPDATE) rather than a
+// read-modify-write against a locally cached photos array — two photos
+// sent back-to-back would otherwise race and the second write could
+// silently drop the first (see setup/add_append_sku_photo.sql).
+async function handleAddPhotoUpload(supabase: SB, chatId: number, data: SessionData, photoSizes: { file_id: string }[]) {
+  const largest = photoSizes[photoSizes.length - 1];
+  const result = await uploadTelegramPhoto(largest.file_id);
+  if ("error" in result) {
+    await tgSend(chatId, `Couldn't save that photo — ${result.error}`);
+    return;
+  }
+  const { data: updated, error } = await supabase.rpc("append_sku_photo", { p_sku_id: data.skuId, p_url: result.url });
+  if (error) {
+    await tgSend(chatId, "Couldn't save that photo to the item — try again.");
+    return;
+  }
+  data.addedCount = (data.addedCount ?? 0) + 1;
+  await saveSession(supabase, chatId, "maint_addphoto_upload", data);
+  const total = Array.isArray(updated) ? updated.length : null;
+  await tgSend(chatId, `Photo saved for "${data.skuName}"${total ? ` (${total} total)` : ""}. Send another, or type 'done'.`);
+}
+
+async function handleAddPhotoText(supabase: SB, chatId: number, data: SessionData, text: string) {
+  if (text.trim().toLowerCase() !== "done") {
+    await tgSend(chatId, "Send a photo, or type 'done' when finished.");
+    return;
+  }
+  if (!data.addedCount) {
+    await tgSend(chatId, "No photos were added.");
+  } else {
+    await tgSend(chatId, `✅ ${data.addedCount} photo(s) added to "${data.skuName}".`);
+  }
   await showMaintenanceMenu(chatId);
   await saveSession(supabase, chatId, "idle", {});
 }
@@ -1405,9 +1567,11 @@ async function handleTextInput(
     return;
   }
 
-  // No active flow expecting text input — treat it as a natural-language
-  // question (stock/price/sales lookups, India-scoped only) instead of just
-  // dumping them back to the menu.
+  // No active flow expecting text input. First check it against the menu
+  // keyword search (greeting, or a word like "voucher"/"event"/"photo") —
+  // only fall through to the natural-language Q&A (stock/price/sales
+  // lookups, India-scoped only) if nothing matched.
+  if (await tryMenuKeywordSearch(chatId, text)) return;
   try {
     const answer = await askGemini(supabase, text, LOOKUP_CATALOG_REGIONAL, (sb, name, params) =>
       runLookup(sb, name, { ...params, region: "india" }));

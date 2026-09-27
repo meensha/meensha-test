@@ -30,7 +30,7 @@ Deno.serve(async (_req: Request) => {
 
   const { data: skus } = await supabase
     .from("inventory_skus")
-    .select("name, display_variant, sku_code")
+    .select("id, name, display_variant, sku_code")
     .eq("au_available", true)
     .is("cost", null);
 
@@ -39,10 +39,10 @@ Deno.serve(async (_req: Request) => {
     return new Response(JSON.stringify({ pending: 0, sent: false }), { headers: { "Content-Type": "application/json" } });
   }
 
-  const lines = pending.map((s: { name: string; display_variant?: string; sku_code: string }) =>
-    `• ${s.name}${s.display_variant ? " (" + s.display_variant + ")" : ""} [${s.sku_code}]`
+  const lines = pending.map((s: { id: string; name: string; display_variant?: string; sku_code: string }) =>
+    `• ${s.name}${s.display_variant ? " (" + s.display_variant + ")" : ""} [${s.sku_code}] — https://t.me/meenshashalbot?start=aucost_${s.id}`
   );
-  const text = `💰 Pending AU Purchase Costs (${pending.length})\n\nThese items were sourced for the AU market but still need their INR purchase cost entered — fill in from the Telegram Maintenance menu ("💰 Pending AU costs") or the Inventory tab on the web dashboard:\n\n${lines.join("\n")}`;
+  const text = `💰 Pending AU Purchase Costs (${pending.length})\n\nThese items were sourced for the AU market but still need their INR purchase cost entered — tap a link below to fill it in directly, or use the Inventory tab on the web dashboard:\n\n${lines.join("\n")}`;
 
   const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
   if (botToken) {

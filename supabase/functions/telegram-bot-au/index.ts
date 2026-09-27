@@ -21,6 +21,39 @@ import { askGemini } from "../_shared/askGemini.ts";
 import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
 import { handleRequestAction } from "../_shared/requestActions.ts";
 import { logActivity } from "../_shared/activityLog.ts";
+import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuSearch.ts";
+
+const MENU_ACTIONS_AU: MenuAction[] = [
+  { keywords: ["kiosk", "sale", "sell"], label: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" },
+  { keywords: ["stock intake", "draft", "intake"], label: "📦 Stock intake (draft)", callback_data: "intake:start" },
+  { keywords: ["enter inventory", "vendor", "vendor purchase"], label: "➕ Enter inventory (vendor purchase)", callback_data: "inv:start" },
+  { keywords: ["reports", "report", "sales report", "stock summary"], label: "📊 Reports", callback_data: "reports:start" },
+  { keywords: ["voucher", "coupon", "discount", "promo"], label: "🎟️ Vouchers", callback_data: "vouchers:menu" },
+  { keywords: ["godown", "warehouse", "reconcile"], label: "📦 Godown check", callback_data: "godown:start" },
+  { keywords: ["maintenance"], label: "🔧 Maintenance", callback_data: "maint:menu" },
+  { keywords: ["note"], label: "📝 Add a note", callback_data: "maint:note" },
+  { keywords: ["photo", "image", "picture"], label: "📷 Add photo to item", callback_data: "maint:addphoto" },
+  { keywords: ["event", "event form", "registration"], label: "📋 Create event form", callback_data: "vouchers:eventform" },
+];
+
+async function tryMenuKeywordSearchAu(chatId: number, text: string): Promise<boolean> {
+  if (isGreeting(text)) {
+    await tgSend(chatId, "👋 Hi! Type a keyword like \"event\", \"voucher\", or \"photo\" to jump straight to that menu, or tap a button below:", {
+      inline_keyboard: [
+        [{ text: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" }],
+        [{ text: "📦 Stock intake (draft)", callback_data: "intake:start" }],
+        [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
+      ],
+    });
+    return true;
+  }
+  const matches = searchMenuActions(MENU_ACTIONS_AU, text);
+  if (!matches.length) return false;
+  await tgSend(chatId, `Here's what I found for "${text}":`, {
+    inline_keyboard: matches.map((m) => [{ text: m.label, callback_data: m.callback_data }]),
+  });
+  return true;
+}
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN_AU")!;
 const TG_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
@@ -561,6 +594,7 @@ async function handleTextInput(supabase: any, chatId: number, state: string, dat
       }
       break;
     default:
+      if (await tryMenuKeywordSearchAu(chatId, text)) break;
       try {
         const answer = await askGemini(supabase, text, LOOKUP_CATALOG_REGIONAL, (sb, name, params) =>
           runLookup(sb, name, { ...params, region: "australia" }));
@@ -660,13 +694,22 @@ Deno.serve(async (req: Request) => {
 
   await logMessage(chatId, "in", text ?? callbackData ?? (photo?.length ? "[photo]" : "[unrecognized]"));
 
-  if (text === "/start") {
-    await showTopMenu(chatId);
-    await saveSession(supabase, chatId, "idle", {});
+  if (text === "/start" || text?.startsWith("/start ")) {
+    // Deep-link payload (t.me/<bot>?start=photo_<sku_id>) — lets a digest
+    // message link straight into fixing one item instead of just naming it.
+    const payload = text.includes(" ") ? text.split(" ")[1] : null;
+    if (payload?.startsWith("photo_")) {
+      await startAddPhotoAu(supabase, chatId, payload.slice("photo_".length));
+    } else {
+      await showTopMenu(chatId);
+      await saveSession(supabase, chatId, "idle", {});
+    }
+  } else if (state === "idle" && !callbackData && text !== undefined && !photo && await tryMenuKeywordSearchAu(chatId, text)) {
+    // handled — greeting or a keyword match (e.g. "voucher"/"photo")
   } else if (state === "idle" && !callbackData && text !== undefined && !photo) {
-    // Idle + free text that isn't /start: treat as a natural-language
-    // question (stock/price/sales lookups, AU-scoped only) instead of
-    // just dumping them back to the menu.
+    // Idle + free text that isn't /start and didn't match a menu keyword:
+    // treat as a natural-language question (stock/price/sales lookups,
+    // AU-scoped only) instead of just dumping them back to the menu.
     try {
       const answer = await askGemini(supabase, text, LOOKUP_CATALOG_REGIONAL, (sb, name, params) =>
         runLookup(sb, name, { ...params, region: "australia" }));
@@ -754,6 +797,12 @@ Deno.serve(async (req: Request) => {
     await handleInventoryTextAu(supabase, chatId, state, data, text);
   } else if (text && state === "maint_note_text") {
     await handleMaintenanceTextAu(supabase, chatId, text);
+  } else if (photo?.length && state === "maint_addphoto_upload") {
+    await handleAddPhotoUploadAu(supabase, chatId, data, photo);
+  } else if (text && state === "maint_addphoto_upload") {
+    await handleAddPhotoTextAu(supabase, chatId, data, text);
+  } else if (text && state === "maint_addphoto_search") {
+    await showAddPhotoPickerAu(supabase, chatId, text.trim());
   } else if (photo) {
     await handlePhoto(supabase, chatId, state, data, photo);
   } else {
@@ -1167,6 +1216,7 @@ async function showMaintenanceMenuAu(chatId: number) {
   await tgSend(chatId, "Maintenance:", {
     inline_keyboard: [
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
+      [{ text: "📷 Add photo to item", callback_data: "maint:addphoto" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });
@@ -1187,6 +1237,19 @@ async function handleMaintenanceAu(supabase: any, chatId: number, callbackData: 
     await saveSession(supabase, chatId, "maint_note_text", data);
     return;
   }
+  if (callbackData === "maint:addphoto") {
+    await showAddPhotoPickerAu(supabase, chatId);
+    return;
+  }
+  if (callbackData === "maint:addphoto:search") {
+    await tgSend(chatId, "Type an item name to search:");
+    await saveSession(supabase, chatId, "maint_addphoto_search", {});
+    return;
+  }
+  if (callbackData.startsWith("maint:addphoto:pick:")) {
+    await startAddPhotoAu(supabase, chatId, callbackData.slice("maint:addphoto:pick:".length));
+    return;
+  }
 }
 
 async function handleMaintenanceTextAu(supabase: any, chatId: number, text: string) {
@@ -1197,6 +1260,90 @@ async function handleMaintenanceTextAu(supabase: any, chatId: number, text: stri
   }
   await supabase.from("bot_notes").insert({ text: note, submitted_by: `chat_id_au:${chatId}` });
   await tgSend(chatId, "📝 Note saved — it'll show on the dashboard.");
+  await showMaintenanceMenuAu(chatId);
+  await saveSession(supabase, chatId, "idle", {});
+}
+
+// Adds photo(s) to an already-approved AU-available SKU — distinct from the
+// intake/vendor-purchase flows' photo step, which only ever runs on a
+// brand-new item. Reachable via the Maintenance menu (defaults to items
+// with zero photos) or a deep link (t.me/meenshaozbot?start=photo_<sku_id>)
+// from a digest message, jumping straight to that one item.
+async function showAddPhotoPickerAu(supabase: any, chatId: number, searchQ?: string) {
+  const query = supabase.from("inventory_skus").select("id, name, variant, photos").eq("au_available", true);
+  const { data: skus } = searchQ
+    ? await query.or(`name.ilike.%${searchQ}%,variant.ilike.%${searchQ}%`)
+    : await query;
+  const list = (skus ?? []) as { id: string; name: string; variant?: string; photos?: string[] }[];
+  const relevant = searchQ ? list : list.filter((s) => !s.photos || s.photos.length === 0);
+  if (!relevant.length) {
+    await tgSend(
+      chatId,
+      searchQ ? `No items matched "${searchQ}".` : "✅ Every AU item already has at least one photo.",
+      { inline_keyboard: [[{ text: "🔎 Search a different item", callback_data: "maint:addphoto:search" }], [{ text: "◀ Back to maintenance", callback_data: "maint:menu" }]] },
+    );
+    return;
+  }
+  const buttons = relevant.slice(0, 15).map((s) => [{
+    text: `${s.name}${s.variant ? " (" + s.variant + ")" : ""} — 📷${(s.photos ?? []).length}`,
+    callback_data: `maint:addphoto:pick:${s.id}`,
+  }]);
+  buttons.push([{ text: "🔎 Search a different item", callback_data: "maint:addphoto:search" }]);
+  buttons.push([{ text: "◀ Back to maintenance", callback_data: "maint:menu" }]);
+  const header = searchQ ? `Results for "${searchQ}":` : `📷 ${relevant.length} item(s) with no photo yet:`;
+  await tgSend(chatId, header, { inline_keyboard: buttons });
+}
+
+async function startAddPhotoAu(supabase: any, chatId: number, skuId: string) {
+  const { data: sku } = await supabase
+    .from("inventory_skus")
+    .select("id, name, variant")
+    .eq("id", skuId)
+    .eq("au_available", true)
+    .maybeSingle();
+  if (!sku) {
+    await tgSend(chatId, "That item couldn't be found — it may have been removed, or isn't an AU item.");
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  const label = `${sku.name}${sku.variant ? " (" + sku.variant + ")" : ""}`;
+  await tgSend(chatId, `Send a photo for "${label}" — as many as you like, then type 'done'.`);
+  await saveSession(supabase, chatId, "maint_addphoto_upload", { skuId: sku.id, skuName: label, addedCount: 0 });
+}
+
+// Appends via the append_sku_photo RPC (one atomic UPDATE) rather than a
+// read-modify-write against a locally cached photos array — two photos
+// sent back-to-back would otherwise race and the second write could
+// silently drop the first (see setup/add_append_sku_photo.sql).
+async function handleAddPhotoUploadAu(supabase: any, chatId: number, data: any, photoSizes: any[]) {
+  const largest = photoSizes[photoSizes.length - 1];
+  const result = await uploadTelegramPhotoGodown(largest.file_id);
+  if ("error" in result) {
+    await tgSend(chatId, `Couldn't save that photo — ${result.error}`);
+    return;
+  }
+  const { data: updated, error } = await supabase.rpc("append_sku_photo", { p_sku_id: data.skuId, p_url: result.url });
+  if (error) {
+    await tgSend(chatId, "Couldn't save that photo to the item — try again.");
+    return;
+  }
+  data.addedCount = (data.addedCount ?? 0) + 1;
+  await saveSession(supabase, chatId, "maint_addphoto_upload", data);
+  const total = Array.isArray(updated) ? updated.length : null;
+  await tgSend(chatId, `Photo saved for "${data.skuName}"${total ? ` (${total} total)` : ""}. Send another, or type 'done'.`);
+}
+
+async function handleAddPhotoTextAu(supabase: any, chatId: number, data: any, text: string) {
+  if (text.trim().toLowerCase() !== "done") {
+    await tgSend(chatId, "Send a photo, or type 'done' when finished.");
+    return;
+  }
+  if (!data.addedCount) {
+    await tgSend(chatId, "No photos were added.");
+  } else {
+    await tgSend(chatId, `✅ ${data.addedCount} photo(s) added to "${data.skuName}".`);
+  }
   await showMaintenanceMenuAu(chatId);
   await saveSession(supabase, chatId, "idle", {});
 }
