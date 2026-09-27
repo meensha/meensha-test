@@ -1,0 +1,17 @@
+# Meensha
+
+> Meensha sells handloom and heritage Indian sarees sourced directly from weavers and artisans (Kalamkari, Ajrakh, Kota Doria, Madhubani, Muga silk, Bandhani and more), shipping within India and Australia. Orders online or via WhatsApp (+91 8709525218). Founded by sisters Shalini Bharti (India) and Meenakshi Ranjan (Australia).
+
+## Pages
+- [Home & shop](https://meensha.in/): live catalogue, pop-up events
+- [Sarees by weave](https://meensha.in/sarees/): guide to each weaving tradition with pieces in stock
+- [About the founders](https://meensha.in/about.html)
+
+## Weaves
+- [Ajrakh](https://meensha.in/sarees/ajrakh/)
+- [Bandhani](https://meensha.in/sarees/bandhani/)
+- [Kalamkari](https://meensha.in/sarees/kalamkari/)
+- [Kota Doria](https://meensha.in/sarees/kota-doria/)
+- [Madhubani](https://meensha.in/sarees/madhubani/)
+- [Mangalgiri](https://meensha.in/sarees/mangalgiri/)
+- [Muga Silk](https://meensha.in/sarees/muga-silk/)

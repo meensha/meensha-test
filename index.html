@@ -3,19 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meensha - Heritage Indian Weaves</title>
+<title>Meensha – Handloom Sarees, Weaver-Direct | Kalamkari, Ajrakh, Ikkat</title>
 <meta name="description" content="Authentic handloom sarees sourced weaver-direct — Kalamkari, Ikkat, Ajrakh, Kota Doria, Madhubani and more. Fair, direct trade with the artisans who weave them. Shop online or on WhatsApp, India and Australia.">
 <link rel="canonical" href="https://meensha.in/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Meensha">
-<meta property="og:title" content="Meensha - Heritage Indian Weaves">
+<meta property="og:title" content="Meensha – Handloom Sarees, Weaver-Direct | Kalamkari, Ajrakh, Ikkat">
 <meta property="og:description" content="Authentic handloom sarees sourced weaver-direct — Kalamkari, Ikkat, Ajrakh, Kota Doria, Madhubani and more. Fair, direct trade with the artisans who weave them.">
 <meta property="og:url" content="https://meensha.in/">
-<meta property="og:image" content="https://meensha.in/meensha_logo_eng.png">
+<meta property="og:image" content="https://meensha.in/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Meensha - Heritage Indian Weaves">
+<meta name="twitter:title" content="Meensha – Handloom Sarees, Weaver-Direct | Kalamkari, Ajrakh, Ikkat">
 <meta name="twitter:description" content="Authentic handloom sarees sourced weaver-direct — Kalamkari, Ikkat, Ajrakh, Kota Doria, Madhubani and more.">
-<meta name="twitter:image" content="https://meensha.in/meensha_logo_eng.png">
+<meta name="twitter:image" content="https://meensha.in/og-image.jpg">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -26,12 +28,16 @@
   "logo": "https://meensha.in/meensha_logo_eng.png",
   "image": "https://meensha.in/meensha_logo_eng.png",
   "sameAs": ["https://instagram.com/meensha_fabrics"],
+  "email": "meensha.fabrics@gmail.com",
+  "contactPoint": {"@type": "ContactPoint", "contactType": "customer service", "telephone": "+91-8709525218", "email": "meensha.fabrics@gmail.com", "availableLanguage": ["English", "Hindi"]},
   "priceRange": "₹₹",
   "areaServed": [{"@type": "Country", "name": "India"}, {"@type": "Country", "name": "Australia"}]
 }
 </script>
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="shortcut icon" href="logo.svg">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://eglanmhhcccsuhbxywua.supabase.co" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Noto+Sans+Devanagari:wght@300;400;500&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -166,17 +172,18 @@ nav.scrolled {
     rgba(14,10,4,.5) 0%, rgba(14,10,4,.35) 35%,
     rgba(14,10,4,.65) 75%, rgba(14,10,4,.9) 100%);
 }
-.bg-s1 { background-image:url('indus.png'); background-position:center 40%; }
-.bg-s2 { background-image:url('roman.png'); background-position:center 30%; }
-.bg-s3 { background-image:url('mughal.png'); background-position:center center; }
-.bg-s4 { background-image:url('weavers_of_india.png'); background-position:center center; }
-.bg-s5 { background-image:url('loom_threads.png'); background-position:center center; }
+.bg-s1 { background-image:url('indus.webp'); background-position:center 40%; }
+.bg-s2 { background-image:url('roman.webp'); background-position:center 30%; }
+.bg-s3 { background-image:url('mughal.webp'); background-position:center center; }
+.bg-s4 { background-image:url('weavers_of_india.webp'); background-position:center center; }
+.bg-s5 { background-image:url('loom_threads.webp'); background-position:center center; }
 
 .slide-inner { position:relative; z-index:3; max-width:900px; padding:0 24px; }
 .slide-era {
   font-family:'Cinzel',serif; font-size:16px; letter-spacing:.38em;
   text-transform:uppercase; color:var(--gold-light); margin-bottom:28px; opacity:.9;
 }
+.sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .slide-quote {
   font-size:clamp(26px,4.2vw,56px); font-weight:300; font-style:italic;
   color:var(--cream); line-height:1.38;
@@ -223,7 +230,7 @@ nav.scrolled {
 }
 .mission-loom-bg {
   position:absolute; inset:0;
-  background-image:url('loom_threads.png');
+  background-image:url('loom_threads.webp');
   background-size:cover; background-position:center;
   opacity:.07; filter:grayscale(30%);
 }
@@ -278,6 +285,9 @@ nav.scrolled {
 #catalogue { background:var(--dark); padding:108px 0; }
 .catalogue-inner { max-width:1200px; margin:0 auto; padding:0 24px; }
 .section-head { text-align:center; margin-bottom:68px; }
+.weave-links { display:flex; flex-wrap:wrap; justify-content:center; gap:8px 10px; margin:28px auto 0; max-width:900px; padding:0 16px; font-size:16px; }
+.weave-links span { font-family:'Cinzel',serif; font-size:11px; letter-spacing:.1em; color:rgba(247,243,236,.55); align-self:center; }
+.weave-links a { color:var(--gold-light); border:1px solid var(--gold-dim); border-radius:16px; padding:4px 12px; text-decoration:none; }
 .section-head h2 {
   font-size:clamp(32px,4.8vw,58px); font-weight:300; font-style:italic; color:var(--cream);
 }
@@ -710,12 +720,13 @@ footer {
 
 <!-- ════ HERO SLIDESHOW ════ -->
 <section id="heritage">
+  <h1 class="sr-only">Meensha — Handloom &amp; Heritage Sarees, Sourced Weaver-Direct from Indian Artisans</h1>
 
   <div class="slide active">
     <div class="slide-bg bg-s1"></div>
     <div class="slide-inner">
       <p class="slide-era">3000 BCE — The Indus Valley</p>
-      <h1 class="slide-quote">"Before empires rose or fell,<br>the loom was already <em>singing</em>."</h1>
+      <p class="slide-quote">"Before empires rose or fell,<br>the loom was already <em>singing</em>."</p>
       <p class="slide-attr">— The First Thread</p>
       <p class="slide-caption">Cotton cultivation and weaving documented at Mohenjo-daro — the oldest textile tradition in human history</p>
     </div>
@@ -725,7 +736,7 @@ footer {
     <div class="slide-bg bg-s2"></div>
     <div class="slide-inner">
       <p class="slide-era">100 CE — The Roman Senate</p>
-      <h1 class="slide-quote">"<em>Gold flows east</em> — and returns as cloth<br>so fine it could be woven<br>from moonlight."</h1>
+      <p class="slide-quote">"<em>Gold flows east</em> — and returns as cloth<br>so fine it could be woven<br>from moonlight."</p>
       <p class="slide-attr">— Pliny the Elder, Historia Naturalis</p>
       <p class="slide-caption">Roman senators lamented gold draining eastward for Indian muslin so sheer they said men were "wearing nothing at all"</p>
     </div>
@@ -735,7 +746,7 @@ footer {
     <div class="slide-bg bg-s3"></div>
     <div class="slide-inner">
       <p class="slide-era">17th Century — The Mughal Courts</p>
-      <h1 class="slide-quote">"A weaver's hands hold<br>more art than<br><em>a painter's brush.</em>"</h1>
+      <p class="slide-quote">"A weaver's hands hold<br>more art than<br><em>a painter's brush.</em>"</p>
       <p class="slide-attr">— Court of Emperor Akbar</p>
       <p class="slide-caption">The Mughal emperors maintained royal karkhanas of ten thousand weavers — Banarasi brocades became the language of royalty</p>
     </div>
@@ -745,7 +756,7 @@ footer {
     <div class="slide-bg bg-s4"></div>
     <div class="slide-inner">
       <p class="slide-era">Across Centuries — The Hands That Remember</p>
-      <h1 class="slide-quote">"In every thread<br>is a memory<br><em>no book can hold.</em>"</h1>
+      <p class="slide-quote">"In every thread<br>is a memory<br><em>no book can hold.</em>"</p>
       <p class="slide-attr">— The Weavers of India</p>
       <p class="slide-caption">Knowledge passed not through writing but through watching — father to son, mother to daughter, loom to loom</p>
     </div>
@@ -755,7 +766,7 @@ footer {
     <div class="slide-bg bg-s5"></div>
     <div class="slide-inner">
       <p class="slide-era">Today — The Looms Still Sing</p>
-      <h1 class="slide-quote">"Every thread carries<br>a thousand years of knowing.<br><em>We must not let it fall silent.</em>"</h1>
+      <p class="slide-quote">"Every thread carries<br>a thousand years of knowing.<br><em>We must not let it fall silent.</em>"</p>
       <p class="slide-attr">— Meensha, करघों की विरासत</p>
       <p class="slide-caption">Over 4.5 million handloom weavers in India today — custodians of a living heritage the world once crossed oceans to possess</p>
     </div>
@@ -813,7 +824,7 @@ footer {
     <div class="section-head reveal">
       <span class="section-label">The Collection</span>
       <h2>Threads of a Civilisation</h2>
-      <p>India's most storied weaving traditions — each piece a conversation across centuries</p>
+      <p>Handloom and heritage sarees from India's most storied weaving traditions, bought directly from the artisans who make them. Each piece is a conversation across centuries.</p>
       <div class="gold-orn"><span>discover</span></div>
     </div>
 
@@ -825,6 +836,7 @@ footer {
     <div style="text-align:center;margin-top:36px;">
       <a href="#shop-page" onclick="openShop('all');return false;" class="nav-btn-s" style="display:inline-flex;">View Full Collection →</a>
     </div>
+    <div class="weave-links" role="navigation" aria-label="Shop by weave"><span>Shop by weave:</span><a href="sarees/ajrakh/">Ajrakh</a><a href="sarees/bandhani/">Bandhani</a><a href="sarees/kalamkari/">Kalamkari</a><a href="sarees/kota-doria/">Kota Doria</a><a href="sarees/madhubani/">Madhubani</a><a href="sarees/mangalgiri/">Mangalgiri</a><a href="sarees/muga-silk/">Muga Silk</a><a href="sarees/mothra/">Mothra</a><a href="sarees/batik/">Batik</a><a href="sarees/khaddi-georgette/">Khaddi Georgette</a><a href="sarees/">All weaves →</a></div>
     <div style="text-align:center;margin-top:18px;">
       <a href="#" onclick="openRequestModal();return false;" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-decoration:underline;">Looking for something else? Tell us →</a>
     </div>
@@ -925,7 +937,7 @@ footer {
 <section id="weavers">
   <div class="weavers-inner">
     <div class="weavers-visual reveal-l">
-      <img src="weaver_woman.png" alt="Weaver at her loom">
+      <img src="weaver_woman.webp" alt="Weaver at her loom">
       <div class="weavers-corner-tl"></div>
       <div class="weavers-corner"></div>
     </div>
@@ -965,7 +977,7 @@ footer {
   <div class="footer-grid">
     <div class="footer-brand">
       <!-- CHANGE 2: Footer logo = pre-rendered animated coin-rotation -->
-      <img src="meensha_rotating_logo.gif" alt="Meensha">
+      <img src="meensha_rotating_logo.webp" alt="Meensha">
       <p>करघों की विरासत<br>Heritage Weaves of India<br><br>Preserving the living art of the Indian loom, one thread at a time.</p>
     </div>
     <div class="footer-col">
@@ -992,7 +1004,7 @@ footer {
   </div>
   <div class="footer-bottom">
     <!-- CHANGE 5: Updated trademark line -->
-    <p>© 2026 Meensha™ · All rights reserved · Trademark pending · <a href="admin.html" style="color:rgba(247,243,236,.1);text-decoration:none;font-size:9px;transition:color .3s;" onmouseover="this.style.color='rgba(201,168,76,.4)'" onmouseout="this.style.color='rgba(247,243,236,.1)'">admin</a></p>
+    <p>© 2026 Meensha™ · All rights reserved · Trademark pending · <a href="admin.html" rel="nofollow" style="color:rgba(247,243,236,.1);text-decoration:none;font-size:9px;transition:color .3s;" onmouseover="this.style.color='rgba(201,168,76,.4)'" onmouseout="this.style.color='rgba(247,243,236,.1)'">admin</a></p>
     <!-- CHANGE 3: Footer text crossfade Hindi/English -->
     <div class="footer-text-rotate">
       <span class="footer-hindi">मीनशा — करघों की विरासत</span>
@@ -1397,6 +1409,17 @@ async function renderEvents() {
   try { popups = await spFetch('popups', '?order=display_order,created_at.desc'); } catch(e) { return; }
   const upcoming = popups.filter(e => e.status === 'upcoming');
   const past = popups.filter(e => e.status !== 'upcoming');
+  // Event rich results need a real ISO start date — only events with
+  // date_from set qualify (the free-text `dates` field can't be parsed).
+  const evLd = upcoming.filter(e => e.date_from).map(e => ({
+    '@context': 'https://schema.org', '@type': 'Event', name: e.title || 'Meensha Pop-Up Store',
+    startDate: e.date_from, endDate: e.date_to || e.date_from,
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode', eventStatus: 'https://schema.org/EventScheduled',
+    location: { '@type': 'Place', name: e.location || 'Bengaluru', address: e.location || 'Bengaluru, India' },
+    organizer: { '@type': 'Organization', name: 'Meensha', url: 'https://meensha.in/' },
+    description: e.writeup || 'Meensha pop-up store — handloom and heritage sarees, weaver-direct.'
+  }));
+  if (evLd.length) { const s = document.createElement('script'); s.type = 'application/ld+json'; s.textContent = JSON.stringify(evLd); document.head.appendChild(s); }
   const upEl = document.getElementById('events-upcoming');
   if (upEl) upEl.innerHTML = upcoming.length ? upcoming.map(eventRowHtml).join('') : '<p style="color:rgba(232,213,163,.4);font-style:italic;">No upcoming events right now — check back soon.</p>';
   const pastWrap = document.getElementById('events-past-wrap');
@@ -1586,12 +1609,12 @@ function renderShopGrid() {
     if (isAud && it.india_available && it.sale_price) crossNote = `<div class="sp-cross">Also available in India — ₹${fmtR(it.sale_price)}</div>`;
     return `<div class="sp-card${sold?' sp-sold':''}">
       <div class="sp-img">
-        ${ph.length ? `<img src="${ph[0]}" alt="${it.name}">` : `<div class="sp-noimg"><span>🧵</span><p>${it.display_material||'Handloom'}</p></div>`}
+        ${ph.length ? `<a href="product.html?id=${it.id}" style="display:block;width:100%;height:100%;"><img src="${ph[0]}" alt="${(nm + (it.display_material ? ' – ' + it.display_material : '')).replace(/"/g,'&quot;')}" loading="lazy" decoding="async"></a>` : `<div class="sp-noimg"><span>🧵</span><p>${it.display_material||'Handloom'}</p></div>`}
         ${badgeHtml}
         ${sold ? `<div class="sp-sold-ov"><p>Sold Out</p><button onclick="openRequestModal('${it.id}','${nm.replace(/'/g,"\\'")}')">Notify Me</button></div>` : ''}
       </div>
       <div class="sp-info">
-        <div class="sp-nm">${it.name}</div>
+        <div class="sp-nm"><a href="product.html?id=${it.id}" style="color:inherit;text-decoration:none;">${it.name}</a></div>
         ${it.display_variant ? `<div class="sp-sub">${it.display_variant}</div>` : ''}
         <div class="sp-fab">${it.display_material||''}</div>
         <div class="sp-pr-row"><span class="sp-pr">${sym}${fmtP(sp2)}</span>${mrp2>sp2 ? `<span class="sp-mrp">${sym}${fmtP(mrp2)}</span>` : ''}</div>
@@ -1743,7 +1766,7 @@ function renderCart() {
     el.innerHTML = cart.map(c => {
       const price = isAud ? (c.price_aud||0) : (c.price_inr||0);
       return `<div class="cart-item">
-        ${c.photo ? `<img src="${c.photo}" alt="${c.name}">` : `<div class="cart-item-noimg">🧵</div>`}
+        ${c.photo ? `<img src="${c.photo}" alt="${c.name}" loading="lazy" decoding="async">` : `<div class="cart-item-noimg">🧵</div>`}
         <div class="cart-item-info">
           <div class="cart-item-nm">${c.name}</div>
           ${c.variant ? `<div class="cart-item-sub">${c.variant}</div>` : ''}

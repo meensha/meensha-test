@@ -135,7 +135,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- LOGIN -->
 <div class="login-ov" id="LOV">
   <div class="login-box">
-    <a href="index.html"><img src="meensha_rotating_logo.gif" alt="Meensha" class="login-logo-gif" style="cursor:pointer;"></a>
+    <a href="index.html"><img src="meensha_rotating_logo.webp" alt="Meensha" class="login-logo-gif" style="cursor:pointer;"></a>
     <div class="login-sub">Karigar Portal</div>
     <input type="text" id="LU" placeholder="Username" onkeydown="if(event.key==='Enter')doLogin()">
     <input type="password" id="LP" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
@@ -1200,7 +1200,10 @@ async function sbDel(table,q){try{const r=await fetch(`${SB}/rest/v1/${table}${q
 // before every upload; falls back to the original file if anything about
 // compression fails (unsupported format, decode error, etc.) rather than
 // blocking the upload entirely.
-async function compressImage(file,maxDim=1600,quality=0.82){
+// 1600px JPEGs still came out ~1MB each and made the storefront ~30MB
+// (SEO audit 2026-09-27), so 1200px/0.8. Stays JPEG, not WebP: the
+// Telegram bots send these same URLs via sendPhoto.
+async function compressImage(file,maxDim=1200,quality=0.8){
   try{
     const bitmap=await createImageBitmap(file);
     let{width,height}=bitmap;
