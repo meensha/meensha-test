@@ -1192,10 +1192,10 @@ const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',
 const HDR=()=>({'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'return=representation'});
 // admin_* RPCs and set_user_password check this session token server-side (issued by login()).
 const AHDR=()=>({...HDR(),'x-admin-session':CU?.session_token||''});
-async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:HDR()});if(!r.ok)return[];return await r.json();}catch{return[];}}
-async function sbIns(table,data){try{const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:HDR(),body:JSON.stringify(data)});return r.ok?(await r.json()):null;}catch{return null;}}
-async function sbUpd(table,q,data){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'PATCH',headers:HDR(),body:JSON.stringify(data)});return r.ok;}catch{return false;}}
-async function sbDel(table,q){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'DELETE',headers:HDR()});return r.ok;}catch{return false;}}
+async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:AHDR()});if(!r.ok)return[];return await r.json();}catch{return[];}}
+async function sbIns(table,data){try{const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:AHDR(),body:JSON.stringify(data)});return r.ok?(await r.json()):null;}catch{return null;}}
+async function sbUpd(table,q,data){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'PATCH',headers:AHDR(),body:JSON.stringify(data)});return r.ok;}catch{return false;}}
+async function sbDel(table,q){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'DELETE',headers:AHDR()});return r.ok;}catch{return false;}}
 // Raw phone-camera photos were uploading at 4-10MB each, uncompressed —
 // slow/timing-out on venue wifi, looking like "images not rendering" on
 // the storefront. Resize to a sane max dimension and re-encode as JPEG
@@ -1800,7 +1800,23 @@ async function deleteCoupon(id){
 // ═══════════════════════════════════════════════
 // INIT + LOAD
 // ═══════════════════════════════════════════════
+// With an expired session, table reads come back empty rather than failing,
+// so check up front and every 5 minutes and send the user back to login.
+async function checkAdminSession(){
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/has_admin_session`,{method:'POST',headers:AHDR(),body:'{}'});
+    if(r.ok&&(await r.json())===false){
+      sessionStorage.removeItem('MSN_USER');
+      alert('Your session has expired. Please log in again.');
+      location.reload();
+      return false;
+    }
+  }catch{}
+  return true;
+}
 async function initApp(){
+  if(!await checkAdminSession())return;
+  setInterval(checkAdminSession,5*60*1000);
   // Load dynamic permissions
   try{const rp=await sbQ('settings','?key=eq.role_permissions');if(rp&&rp.length)rolePerms={...DEFAULT_PERMS,...JSON.parse(rp[0].value||'{}')};}catch{}
   applyRole();
@@ -1983,7 +1999,7 @@ function vendorTotal(vuuid){return vendorPurchases(vuuid).reduce((a,p)=>a+(p.tot
 async function nextVendorId(){
   // Try the server RPC first, then fall back to client calculation
   try{
-    const r=await fetch(`${SB}/rest/v1/rpc/next_vendor_id`,{method:'POST',headers:HDR(),body:'{}'});
+    const r=await fetch(`${SB}/rest/v1/rpc/next_vendor_id`,{method:'POST',headers:AHDR(),body:'{}'});
     if(r.ok){const v=await r.json();if(v)return String(v);}
   }catch{}
   let mx=0;vendors.forEach(v=>{const n=parseInt(v.vendor_id,10);if(!isNaN(n)&&n>mx)mx=n;});
@@ -2499,7 +2515,7 @@ async function approveVendorIdChange(reqId){
   const req=vidRequests.find(r=>r.id===reqId);if(!req)return;
   if(!confirm(`Approve ID change ${req.old_vendor_id} → ${req.new_vendor_id}?\n\nThis regenerates every unit_code for this vendor. Any printed tags will need to be reprinted.`))return;
   try{
-    const r=await fetch(`${SB}/rest/v1/rpc/change_vendor_id`,{method:'POST',headers:HDR(),body:JSON.stringify({p_vendor_uuid:req.vendor_uuid,p_new_vid:req.new_vendor_id,p_performed_by:CU?.username||''})});
+    const r=await fetch(`${SB}/rest/v1/rpc/change_vendor_id`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_vendor_uuid:req.vendor_uuid,p_new_vid:req.new_vendor_id,p_performed_by:CU?.username||''})});
     if(!r.ok){const t=await r.text();throw new Error(t);}
     const changed=await r.json();
     await sbUpd('vendor_edit_requests','?id=eq.'+reqId,{status:'approved',reviewed_by:CU?.username||'',reviewed_at:new Date().toISOString()});
@@ -2694,7 +2710,7 @@ async function runMigration(){
       for(let i=0;i<qty;i++)phoArr.push(photos[i]||null);
 
       const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{
-        method:'POST',headers:HDR(),
+        method:'POST',headers:AHDR(),
         body:JSON.stringify({p_sku_id:newSku.id,p_vendor_code:seedVendor.vendor_id,p_purchase_id:seedPurch.id,p_qty:qty,p_photo_urls:phoArr})
       });
       if(!rpcR.ok){const txt=await rpcR.text();push(`  ✗ ${legacy.item_id} units RPC failed: ${txt.slice(0,80)}`,'var(--red)');failCount++;continue;}
@@ -3007,23 +3023,23 @@ function openForgotPwd(){
 async function submitForgotPwd(){
   const un=document.getElementById('FG-UN').value.trim();
   if(!un){toast('Enter your username','var(--red)');return;}
-  // Look up role
-  let role='';
+  // Not logged in, so users/password_reset_requests aren't readable here:
+  // staff_forgot_password() looks up the user and, for owner/sales, files
+  // the request to rachnakar. Returns null | 'super_admin' | 'requested'.
+  const note=document.getElementById('FG-NOTE').value.trim();
+  let res=null;
   try{
-    const rows=await sbQ('users',`?username=eq.${encodeURIComponent(un)}&select=role,active`);
-    if(rows&&rows.length)role=rows[0].role;
+    const r=await fetch(`${SB}/rest/v1/rpc/staff_forgot_password`,{method:'POST',headers:HDR(),body:JSON.stringify({p_username:un,p_note:note})});
+    if(r.ok)res=await r.json();
   }catch{}
-  if(!role){toast('Username not found','var(--red)');return;}
-  if(role==='super_admin'){
+  if(!res){toast('Username not found','var(--red)');return;}
+  if(res==='super_admin'){
     // Rachnakar — show choice between email reset and recovery code
     document.getElementById('FG-STAGE1').style.display='none';
     document.getElementById('FG-STAGE2-SA').style.display='';
     return;
   }
-  // Owner/Sales — submit a request to rachnakar
-  const note=document.getElementById('FG-NOTE').value.trim();
   try{
-    await sbIns('password_reset_requests',{username:un,note:note,status:'pending'});
     document.getElementById('FG-STAGE1').style.display='none';
     document.getElementById('FG-STAGE2-SA').style.display='none';
     document.getElementById('FG-STAGE3-EMAIL').style.display='';
@@ -3774,7 +3790,7 @@ async function saveSIEntryInner(){
       const skuIns=await sbIns('inventory_skus',{sku_code:rd.code,pattern:parts[0]||'',material:parts[1]||'',variant:parts[2]||'PL',name:rd.name,display_material:rd.material,display_variant:rd.variant,tags:[],cost:rd.cost,mrp:rd.mrp,disc:rd.disc,sale_price:rd.salePrice,sale_price_aud:rd.salePriceAud,photos,hero_photo:photos[0]||null});
       if(!skuIns||!skuIns.length){toast('SKU insert failed for '+rd.code,'var(--red)');failedRows.push(rd.code);continue;}
       skuRec=skuIns[0];skus.push(skuRec);skuCount++;
-      const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{method:'POST',headers:HDR(),body:JSON.stringify({p_sku_id:skuRec.id,p_vendor_code:vendor.vendor_id,p_purchase_id:purchRec.id,p_qty:rd.qty,p_photo_urls:[]})});
+      const rpcR=await fetch(`${SB}/rest/v1/rpc/create_batch_units`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_sku_id:skuRec.id,p_vendor_code:vendor.vendor_id,p_purchase_id:purchRec.id,p_qty:rd.qty,p_photo_urls:[]})});
       if(!rpcR.ok){const t=await rpcR.text();toast('Units failed for '+rd.code+': '+t.slice(0,60),'var(--red)');failedRows.push(rd.code);continue;}
       const created=await rpcR.json();unitCount+=created.length;
     }catch(err){
@@ -3894,7 +3910,7 @@ async function saveSale(){
     }else if(it.source==='sku'){
       const availUnits=units.filter(u=>u.sku_id===it.skuId&&u.status==='available').slice(0,qty);
       for(const u of availUnits){
-        const rr=await fetch(`${SB}/rest/v1/rpc/claim_unit`,{method:'POST',headers:HDR(),body:JSON.stringify({p_unit_id:u.id,p_sale_id:saleData.id})});
+        const rr=await fetch(`${SB}/rest/v1/rpc/claim_unit`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_unit_id:u.id,p_sale_id:saleData.id})});
         if(rr.ok){u.status='sold';u.sold_in_sale_id=saleData.id;}
       }
     }

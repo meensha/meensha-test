@@ -69,13 +69,16 @@ async function loadInvoice() {
     return;
   }
   try {
-    const r = await fetch(`${_SB}/rest/v1/sales?inv=eq.${encodeURIComponent(inv)}&select=*`, { headers: { apikey: _SK, Authorization: 'Bearer ' + _SK } });
-    const rows = await r.json();
+    // get_invoice() only returns the sale when the WhatsApp number matches
+    // (last 10 digits, so a +91 prefix difference doesn't break a real match).
+    const r = await fetch(`${_SB}/rest/v1/rpc/get_invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: _SK, Authorization: 'Bearer ' + _SK },
+      body: JSON.stringify({ p_inv: inv, p_wa: wa })
+    });
+    const rows = r.ok ? await r.json() : [];
     const s = (rows || [])[0];
-    const saleWa = (s?.customer?.wa || '').replace(/\D/g, '');
-    // Match on the last 10 digits so a stored country-code prefix
-    // difference (e.g. with vs without +91) doesn't break a legitimate match.
-    if (!s || saleWa.slice(-10) !== wa.slice(-10)) {
+    if (!s) {
       content.innerHTML = '<p class="msg">Invoice not found, or the WhatsApp number doesn\'t match this order.</p>';
       document.querySelector('.print-btn').style.display = 'none';
       return;

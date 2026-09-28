@@ -13,8 +13,8 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   try {
     const [skus, units] = await Promise.all([
-      get('inventory_skus?select=id,name,display_material,display_variant,pattern,photos,sale_price,mrp,sale_price_aud,india_available,au_available&order=sku_code'),
-      get('inventory_units?select=sku_id,status&status=eq.available'),
+      get('public_skus?select=id,name,display_material,display_variant,pattern,photos,sale_price,mrp,sale_price_aud,india_available,au_available&order=sku_code'),
+      get('public_units?select=sku_id,status&status=eq.available'),
     ]);
     const avail = {};
     units.forEach(u => { avail[u.sku_id] = (avail[u.sku_id] || 0) + 1; });

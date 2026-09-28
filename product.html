@@ -47,8 +47,8 @@
   try { au = localStorage.getItem('msh_currency') === 'AU'; } catch (e) {}
   try {
     const [skus, units, st] = await Promise.all([
-      get(`inventory_skus?id=eq.${id}&select=id,sku_code,name,display_material,display_variant,photos,sale_price,mrp,sale_price_aud,india_available,au_available`),
-      get(`inventory_units?sku_id=eq.${id}&status=eq.available&select=id`),
+      get(`public_skus?id=eq.${id}&select=id,sku_code,name,display_material,display_variant,photos,sale_price,mrp,sale_price_aud,india_available,au_available`),
+      get(`public_units?sku_id=eq.${id}&status=eq.available&select=id`),
       get('settings?key=in.(wa_num_in,wa_num_au)&select=key,value'),
     ]);
     const it = skus[0];

@@ -1294,8 +1294,8 @@ async function loadShop() {
   try { await spPostRPC('release_expired_reservations'); } catch(e) {}
   try {
     const [sk, un, st] = await Promise.all([
-      spFetch('inventory_skus', '?order=sku_code'),
-      spFetch('inventory_units', '?select=id,sku_id,status'),
+      spFetch('public_skus', '?order=sku_code'),
+      spFetch('public_units', '?select=id,sku_id,status'),
       spFetch('settings', '?key=in.(wa_num_in,wa_num_au,razorpay_enabled,ticker_messages,shipping_tracking_enabled,shipping_tracking_url,upi_qr_code_url)')
     ]);
     const byKey = {}; st.forEach(s => byKey[s.key] = s.value);
