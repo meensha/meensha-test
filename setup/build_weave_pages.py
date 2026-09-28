@@ -213,6 +213,10 @@ def index_page():
   <div class="wv-cards">{cards}</div>
 </main>
 <footer class="wv-foot">Meensha · करघों की विरासत · <a href="https://wa.me/918709525218">WhatsApp</a></footer>
+<script>
+// Minimal internal visitor counter — same as index.html/about.html, write-only, reported in the daily digest.
+fetch('https://eglanmhhcccsuhbxywua.supabase.co/rest/v1/page_views', {{ method: 'POST', headers: {{ 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo', 'Content-Type': 'application/json', 'Prefer': 'return=minimal' }}, body: JSON.stringify({{ page: 'sarees' }}) }}).catch(() => {{}});
+</script>
 </body>
 </html>
 """
