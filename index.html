@@ -636,6 +636,8 @@ footer {
 .cen-btn { font-family:'Cinzel',serif;font-size:10.5px;letter-spacing:.08em;background:#C89B3C;color:#4A1F28;border:none;border-radius:8px;padding:10px 16px;cursor:pointer;white-space:nowrap;transition:background .25s,transform .3s;flex-shrink:0; }
 .cen-btn:hover { background:#D8AE53; }
 @media (max-width:640px) { #cart-expiry-notice { flex-wrap:wrap; } .cen-btn { width:100%; } }
+/* Narrow cart drawer: code + Apply on one row, WhatsApp field full-width below. */
+@media (max-width:640px) { #cart-coupon-form { flex-wrap:wrap; } #cart-coupon-wa { order:3;flex:1 1 100% !important; } }
 
 /* Phase 1 (calm) — a slow gold shimmer across the border every 20s */
 @keyframes cenShimmer { 0%,90% { box-shadow:0 12px 34px rgba(20,8,10,.4); } 95% { box-shadow:0 12px 34px rgba(20,8,10,.4), 0 0 20px rgba(201,162,78,.45); } 100% { box-shadow:0 12px 34px rgba(20,8,10,.4); } }
@@ -1034,8 +1036,8 @@ footer {
   <div id="cart-foot">
     <div id="cart-coupon-box" style="margin-bottom:8px;">
       <div id="cart-coupon-form" style="display:flex;gap:6px;">
-        <input id="cart-coupon-code" placeholder="Coupon code" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
-        <input id="cart-coupon-wa" placeholder="WhatsApp # (only for personal codes)" style="flex:1;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+        <input id="cart-coupon-code" placeholder="Coupon code" style="flex:1;min-width:0;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
+        <input id="cart-coupon-wa" placeholder="WhatsApp # (only for personal codes)" style="flex:1;min-width:0;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
         <button onclick="applyCoupon()" style="padding:7px 12px;font-size:12px;background:var(--gold-dim);color:var(--cream);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Apply</button>
       </div>
       <div id="cart-coupon-applied" style="display:none;font-size:12px;color:#8fdb8f;justify-content:space-between;align-items:center;">
@@ -1677,8 +1679,11 @@ function updateCartTimers(){
   if (remain <= PERSIST_MS) {
     shouldShow = true;
   } else {
-    if (!soonest.noticeShownAt) soonest.noticeShownAt = Date.now();
-    shouldShow = (Date.now() - soonest.noticeShownAt) < INITIAL_SHOW_MS;
+    // The nudge points back to the cart, so don't start it while the
+    // drawer is open (on mobile it would cover the cart items).
+    const drawerOpen = document.getElementById('cart-drawer').classList.contains('on');
+    if (!soonest.noticeShownAt && !drawerOpen) soonest.noticeShownAt = Date.now();
+    shouldShow = !drawerOpen && !!soonest.noticeShownAt && (Date.now() - soonest.noticeShownAt) < INITIAL_SHOW_MS;
   }
   if (!shouldShow) { notice.classList.remove('cen-show'); return; }
 

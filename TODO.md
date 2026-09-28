@@ -26,14 +26,13 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
   - Fill in `inventory_skus.description` (all 43 are empty), since product pages are thin without it. Fill in `popups.date_from` so pop-ups get Event rich results.
   - Weave pages come from `setup/build_weave_pages.py`: edit its WEAVES list and re-run it. The script also rewrites sitemap.xml, so don't hand-edit sitemap.xml any more.
 
-- [ ] Mobile cart (found in 2026-09-28 QA, pre-existing): the "Handpicked. Not Held Forever" notice covers the cart items for its first 10s after adding an item; the coupon row's WhatsApp field overflows the drawer at 360px.
-
 ## Data quality (not a code bug, needs a decision)
 
 - Dynamic shop categories (added 2026-09-13) surface real name-typo fragmentation in `inventory_skus.name` — e.g. "Mangalgiri" / "Mangalgri" / "Mangalriri", "Kalamkari" / "Kalamakari" each show as separate categories. Worth a data cleanup pass in admin.html's Inventory tab, or a future category-merging feature, if the sidebar gets too noisy.
 
 ## Done (recent, for reference)
 
+- 2026-09-28: Mobile cart fixes (found in the same day's QA, pre-existing). The 10s "Handpicked. Not Held Forever" nudge no longer shows while the cart drawer is open (it covered the items on mobile); its 10s window now starts when the drawer is closed. The final-30s warning is unchanged. Below 640px the coupon row wraps: code + Apply on one line, WhatsApp field full width underneath (it used to overflow the drawer). Verified with Playwright at 360, 390 and 1366 (desktop layout unchanged).
 - 2026-09-28: Locked the database to admin sessions. The public anon key could read (and write) users, sales, purchases, vendors, overheads and `inventory_skus.cost`. Storefront/product/weave pages now read `public_skus`/`public_units` views (no cost/vendor columns), invoice.html uses `get_invoice()` (WhatsApp match server-side), admin.html sends `x-admin-session` on every call and returns to login when the session expires. Migrations `20260927180000`, `20260927190000`, `20260927191000` all applied. Verified: anon now sees only instagram_posts, popups, 6 safe settings keys and the two public views; full Playwright QA on staging and meensha.in (desktop 1366 + mobile 360: all pages, add-to-cart hold/release, coupon, customer login, Razorpay contact step, invoice mismatch, admin login screen) passed before and after the lock. Admin tabs after the lock still need one real owner login to confirm.
 - 2026-09-27 (cloud routine, d3c8c82): `page_views` now logged on `/sarees/*` and product.html.
 - 2026-09-27: `page_views` now logged on `/sarees/*` and `product.html` (was only `index.html`/`about.html`). Added the same write-only POST used on those two pages: `sarees/weave.js` (page `sarees`, covers all 15 `/sarees/<weave>/` pages that load it), `setup/build_weave_pages.py`'s `index_page()` template (page `sarees`, regenerated `sarees/index.html`), and `product.html` (page `product`). No new digest breakdown added — these just add to the existing daily/weekly totals in `visitStats()`.
