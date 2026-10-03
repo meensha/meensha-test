@@ -1359,6 +1359,30 @@ async function loadShop() {
     if (document.readyState === 'complete') setTimeout(scrollToResults, 400);
     else window.addEventListener('load', () => setTimeout(scrollToResults, 200), { once: true });
   }
+
+  // QR/share link for a specific coupon: ?coupon=<code> pre-fills+applies
+  // that code (same spirit as ?buy=/?shop= above), then — since an applied
+  // coupon with an empty cart is a dead end — routes the customer to the
+  // shop grid the same way ?shop= does, and confirms with the same alert()
+  // convention used elsewhere on this page (see the hold-released notice
+  // above) rather than inventing a new banner.
+  const couponCode = new URLSearchParams(location.search).get('coupon');
+  if (couponCode) {
+    const ci = document.getElementById('cart-coupon-code');
+    if (ci) {
+      ci.value = couponCode;
+      applyCoupon().then(res => {
+        document.getElementById('shop-page').style.display = 'block';
+        document.getElementById('shop-cta').style.display = 'none';
+        const scrollToResults = () => (document.getElementById('sp-grid') || document.getElementById('shop')).scrollIntoView({behavior:'smooth', block:'start'});
+        setTimeout(scrollToResults, 80);
+        if (document.readyState === 'complete') setTimeout(scrollToResults, 400);
+        else window.addEventListener('load', () => setTimeout(scrollToResults, 200), { once: true });
+        if (res && res.valid) alert(`Coupon ${res.code} applied — add items to cart to use it.`);
+        else alert((res && res.message) || 'Could not validate this coupon code.');
+      });
+    }
+  }
 }
 
 // Ticker messages come from settings.ticker_messages (admin-managed, see
@@ -1864,7 +1888,7 @@ async function applyCoupon() {
   const code = document.getElementById('cart-coupon-code').value.trim();
   const wa = document.getElementById('cart-coupon-wa').value.trim();
   const msg = document.getElementById('cart-coupon-msg');
-  if (!code) { msg.textContent = 'Enter a coupon code.'; return; }
+  if (!code) { msg.textContent = 'Enter a coupon code.'; return null; }
   const region = currency === 'AU' ? 'australia' : 'india';
   msg.textContent = 'Checking...';
   const res = await spPostRPC('validate_coupon', { p_code: code, p_wa: wa, p_region: region });
@@ -1876,6 +1900,7 @@ async function applyCoupon() {
   } else {
     msg.textContent = (res && res.message) || 'Could not validate this code.';
   }
+  return res;
 }
 function removeCoupon() {
   appliedCoupon = null;

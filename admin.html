@@ -780,6 +780,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <div class="fi"><label>Code *</label><input id="CP-CODE" placeholder="e.g. VIP-001 or FREEDOM200" style="text-transform:uppercase;"></div>
       <div class="fi"><label>Customer Name <span style="font-weight:400;color:var(--gy);">(blank = public)</span></label><input id="CP-NM" placeholder="Full name"></div>
       <div class="fi"><label>Customer WhatsApp <span style="font-weight:400;color:var(--gy);">(blank = public)</span></label><input id="CP-WA" placeholder="+91..."></div>
+      <div class="fi"><label>&nbsp;</label><label style="display:flex;align-items:center;gap:6px;font-weight:400;"><input type="checkbox" id="CP-SINGLEUSE"> One-time use <span style="font-weight:400;color:var(--gy);">(public codes only redeemable once)</span></label></div>
       <div class="fi"><label>Discount Type *</label><select id="CP-TYPE" onchange="onCpTypeChange()"><option value="percent">% Off</option><option value="flat">₹/A$ Off (flat)</option></select></div>
       <div class="fi"><label>Discount Value *</label><input type="number" id="CP-VAL" placeholder="10"></div>
       <div class="fi"><label>Region *</label>
@@ -1728,16 +1729,17 @@ async function createCoupon(){
   const catFilter=document.getElementById('CP-CATFILTER').value.trim();
   const from=document.getElementById('CP-FROM').value||null;
   const until=document.getElementById('CP-UNTIL').value||null;
+  const singleUse=document.getElementById('CP-SINGLEUSE').checked;
   // Name/WA are a pair: either both blank (public code) or both filled (locked to one customer) — not one or the other.
   if(!code||!val||val<=0){toast('Fill in code and a discount value','var(--red)');return;}
   if((name && !wa) || (!name && wa)){toast('Fill in both customer name and WhatsApp, or leave both blank for a public code','var(--red)');return;}
   if(wa && wa.length<10){toast('Enter a valid WhatsApp number, or leave it blank','var(--red)');return;}
   if(type==='flat'&&region==='all'){toast('Flat discounts need a single region (India or Australia)','var(--red)');return;}
   if(type==='percent'&&val>100){toast('Percent discount can\'t exceed 100','var(--red)');return;}
-  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until,p_category_filter:catFilter})});
+  const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until,p_category_filter:catFilter,p_single_use:singleUse})});
   if(!rr.ok){toast('Could not create coupon — code may already exist','var(--red)');return;}
   toast('✅ Coupon created','#27ae60');
-  document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-CATFILTER').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';
+  document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-CATFILTER').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';document.getElementById('CP-SINGLEUSE').checked=false;
   renderCoupons();
 }
 // Creates a voucher_events row (setup/add_voucher_events.sql) and gives back
