@@ -797,6 +797,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div style="font-size:10px;color:var(--gy);margin-bottom:8px;" id="CP-FLATNOTE"></div>
     <button class="btn bg" onclick="createCoupon()">➕ Create Coupon</button>
     <button class="btn bgy" style="margin-left:6px;" onclick="createEventForm()" title="Generate a shareable registration link — each visitor who fills in their name+WhatsApp gets their own unique voucher">🎉 Create Event Form</button>
+    <button class="btn bo" id="CP-GENVOUCHER" style="margin-left:6px;display:none;" onclick="openVoucherGen(lastCreatedCoupon)">🖼️ Generate Voucher Image</button>
   </div>
   <div class="card">
     <div class="ct">📋 Coupon Register</div>
@@ -1738,9 +1739,20 @@ async function createCoupon(){
   if(type==='percent'&&val>100){toast('Percent discount can\'t exceed 100','var(--red)');return;}
   const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_coupon`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:type,p_discount_value:val,p_region:region,p_valid_from:from,p_valid_until:until,p_category_filter:catFilter,p_single_use:singleUse})});
   if(!rr.ok){toast('Could not create coupon — code may already exist','var(--red)');return;}
+  lastCreatedCoupon=await rr.json();
+  document.getElementById('CP-GENVOUCHER').style.display='';
   toast('✅ Coupon created','#27ae60');
   document.getElementById('CP-CODE').value='';document.getElementById('CP-NM').value='';document.getElementById('CP-WA').value='';document.getElementById('CP-VAL').value='';document.getElementById('CP-CATFILTER').value='';document.getElementById('CP-FROM').value='';document.getElementById('CP-UNTIL').value='';document.getElementById('CP-SINGLEUSE').checked=false;
   renderCoupons();
+}
+// Hands the just-created (or just-selected) coupon row off to admin-voucher.html
+// via sessionStorage (same-origin, same tab lineage) so that page can render a
+// shareable voucher image without re-fetching — see admin-voucher.html.
+let lastCreatedCoupon=null;
+function openVoucherGen(coupon){
+  if(!coupon){toast('Create a coupon first','var(--red)');return;}
+  sessionStorage.setItem('MSN_VOUCHER_PENDING',JSON.stringify(coupon));
+  window.open('admin-voucher.html','_blank');
 }
 // Creates a voucher_events row (setup/add_voucher_events.sql) and gives back
 // a shareable register.html?event=<id> link — each visitor who fills in
@@ -1784,7 +1796,7 @@ async function renderCoupons(){
       <td style="font-size:11px;">${valid}</td>
       <td>${c.customer_wa?(c.used?'✅ '+new Date(c.used_at).toLocaleDateString():'—'):'reusable'}</td>
       <td><input type="checkbox" ${c.active?'checked':''} onchange="toggleCouponActive('${c.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
-      <td><button class="btn br xs" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
+      <td><button class="btn bo xs" onclick="openVoucherGen(coupons.find(x=>x.id==='${c.id}'))" title="Generate a shareable voucher image for this coupon">🖼️</button> <button class="btn br xs" onclick="deleteCoupon('${c.id}')">🗑️</button></td>
     </tr>`;
   }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--gy);">No coupons yet</td></tr>';
 }
