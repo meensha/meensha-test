@@ -150,6 +150,15 @@ Deno.serve(async (req: Request) => {
       await startAddPhoto(supabase, chatId, payload.slice("photo_".length));
     } else if (payload?.startsWith("aucost_")) {
       await startAucost(supabase, chatId, payload.slice("aucost_".length));
+    } else if (payload?.startsWith("coupon_")) {
+      // Deep-link payload (t.me/<bot>?start=coupon_<code>) — a customer
+      // shows this QR/link at a stall; scanning it launches the normal
+      // kiosk sale flow (same as the "kiosk:start" callback below) with the
+      // code seeded into session data so it's ready when the flow reaches
+      // its existing coupon-code step, instead of prompting to type it again.
+      const kioskData: SessionData = { cart: [], page: 0, coupon_code_pending: payload.slice("coupon_".length) };
+      await showItemPicker(supabase, chatId, kioskData);
+      await saveSession(supabase, chatId, "kiosk_pick_item", kioskData);
     } else {
       await showTopMenu(chatId);
       await saveSession(supabase, chatId, "idle", {});
@@ -1508,6 +1517,15 @@ async function handleTextInput(
   if (state === "kiosk_customer_name") {
     data.customer_name = text.trim();
     await showOrderSummary(chatId, data);
+    if (data.coupon_code_pending) {
+      // Code already seeded from a coupon_<code> deep link — validate it
+      // immediately via the same path a manually-typed code uses, instead
+      // of showing the discount picker and waiting for input.
+      const pendingCode = data.coupon_code_pending;
+      data.coupon_code_pending = undefined;
+      await applyCouponCode(supabase, chatId, data, pendingCode);
+      return;
+    }
     await showDiscountPicker(supabase, chatId, data);
     return;
   }
@@ -1541,18 +1559,7 @@ async function handleTextInput(
   }
 
   if (state === "kiosk_discount_code_entry") {
-    const code = text.trim().toUpperCase();
-    const { data: coupon } = await supabase
-      .from("coupons")
-      .select("*")
-      .ilike("code", code)
-      .maybeSingle();
-    if (!validateCoupon(coupon)) {
-      await tgSend(chatId, "Code not found, already used, expired, or not active.");
-      await showDiscountPicker(supabase, chatId, data);
-      return;
-    }
-    await pickDiscountItem(supabase, chatId, data, coupon);
+    await applyCouponCode(supabase, chatId, data, text);
     return;
   }
 
@@ -1624,6 +1631,24 @@ function clearDiscountIfUnitRemoved(data: SessionData, skuIdBeingRemoved: string
     data.discountUnitId = undefined;
     data.appliedCoupon = undefined;
   }
+}
+
+// Shared by a manually-typed code (kiosk_discount_code_entry) and a code
+// pre-seeded from a coupon_<code> deep link (kiosk_customer_name) — one
+// validation path for both instead of a parallel/duplicate one.
+async function applyCouponCode(supabase: SB, chatId: number, data: SessionData, rawCode: string) {
+  const code = rawCode.trim().toUpperCase();
+  const { data: coupon } = await supabase
+    .from("coupons")
+    .select("*")
+    .ilike("code", code)
+    .maybeSingle();
+  if (!validateCoupon(coupon)) {
+    await tgSend(chatId, "Code not found, already used, expired, or not active.");
+    await showDiscountPicker(supabase, chatId, data);
+    return;
+  }
+  await pickDiscountItem(supabase, chatId, data, coupon);
 }
 
 // deno-lint-ignore no-explicit-any

@@ -58,6 +58,18 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:#2d2d2d;font-s
         </select>
       </div>
       <div class="fi" id="VT-NAME-FI"><label id="VT-NAME-LBL">Customer Name (optional)</label><input id="VT-NAME" placeholder=""></div>
+      <div class="fi"><label>QR Type</label>
+        <select id="QR-TYPE" onchange="onQrTypeChange()">
+          <option value="website">Website (meensha.in)</option>
+          <option value="telegram">Telegram deep link (staff scan)</option>
+        </select>
+      </div>
+      <div class="fi" id="QR-BOT-FI" style="display:none;"><label>Telegram Bot</label>
+        <select id="QR-BOT">
+          <option value="india">India (Shalini)</option>
+          <option value="australia">Australia (Meenakshi)</option>
+        </select>
+      </div>
     </div>
     <button class="btn bgn" onclick="renderVoucher()">🔄 Render Preview</button>
     <button class="btn bgy" style="margin-left:6px;" onclick="downloadVoucher()">⬇️ Download PNG</button>
@@ -2435,6 +2447,12 @@ function setCoupon(c){
     `<b>Code:</b> ${esc(c.code)} &nbsp;·&nbsp; <b>Discount:</b> ${esc(disc)} &nbsp;·&nbsp; <b>Region:</b> ${esc(c.region)} &nbsp;·&nbsp; <b>Valid:</b> ${esc(valid)} ${c.single_use?' &nbsp;·&nbsp; <b>One-time use</b>':''}`;
   // Prefill name field from customer_name if present (useful as partner/event name too)
   document.getElementById('VT-NAME').value=c.customer_name||'';
+  // Default to whichever QR matches the coupon's own bot when only one bot
+  // applies (region india/australia); region='all' can't guess which bot,
+  // so it defaults to the website QR instead.
+  document.getElementById('QR-TYPE').value=(c.region==='india'||c.region==='australia')?'telegram':'website';
+  document.getElementById('QR-BOT').value=c.region==='australia'?'australia':'india';
+  onQrTypeChange();
   onVtTypeChange();
   renderVoucher();
 }
@@ -2447,6 +2465,15 @@ function onVtTypeChange(){
   if(t==='partner')lbl.textContent='Partner / Organization Name';
   else if(t==='event')lbl.textContent='Event Name';
   else lbl.textContent='Customer Name (optional)';
+}
+
+// Telegram QR is only ambiguous (which bot?) when the coupon's region is
+// 'all' — india/australia-scoped coupons always map to exactly one bot, so
+// the bot picker only needs to show up in that one case.
+function onQrTypeChange(){
+  const t=document.getElementById('QR-TYPE').value;
+  const showBot=t==='telegram'&&currentCoupon&&currentCoupon.region==='all';
+  document.getElementById('QR-BOT-FI').style.display=showBot?'flex':'none';
 }
 
 function loadImage(src){
@@ -2476,6 +2503,73 @@ function drawDashedRect(ctx,x,y,w,h,r,dash){
   ctx.restore();
 }
 
+// Four simple L-shaped brackets at the corners of (x,y,w,h), pointing
+// inward — pure canvas drawing, no image asset.
+function drawCornerBrackets(ctx,x,y,w,h,len,color,lw){
+  ctx.save();
+  ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.lineCap='square';
+  [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(([cx,cy,dx,dy])=>{
+    ctx.beginPath();
+    ctx.moveTo(cx,cy+len*dy);
+    ctx.lineTo(cx,cy);
+    ctx.lineTo(cx+len*dx,cy);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+// Builds a "torn ribbon" path for the code box: flat top/bottom, jagged
+// sawtooth left/right edges. Caller fills/strokes the returned path.
+function ribbonPath(ctx,x,y,w,h,tooth){
+  const teeth=Math.max(3,Math.round(h/tooth));
+  const step=h/teeth;
+  ctx.beginPath();
+  ctx.moveTo(x,y);
+  ctx.lineTo(x+w,y);
+  for(let i=0;i<teeth;i++){
+    const yMid=y+step*i+step/2, yEnd=y+step*(i+1);
+    const out=(i%2===0)?tooth/2:-tooth/2;
+    ctx.lineTo(x+w+out,yMid);
+    ctx.lineTo(x+w,yEnd);
+  }
+  ctx.lineTo(x,y+h);
+  for(let i=teeth-1;i>=0;i--){
+    const yMid=y+step*i+step/2, yStart=y+step*i;
+    const out=(i%2===0)?-tooth/2:tooth/2;
+    ctx.lineTo(x+out,yMid);
+    ctx.lineTo(x,yStart);
+  }
+  ctx.closePath();
+}
+
+// Simple decorative footer icons — drawn as plain shapes (not the official
+// Instagram/WhatsApp glyphs) so there's no logo asset or trademark to pull
+// in, and no external network request.
+function drawGlobeIcon(ctx,cx,cy,r,color){
+  ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.6;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx-r,cy);ctx.lineTo(cx+r,cy);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(cx,cy,r*0.45,r,0,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
+function drawInstaIcon(ctx,cx,cy,size,color){
+  ctx.save();ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1.6;
+  drawRoundedRect(ctx,cx-size/2,cy-size/2,size,size,size*0.28);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,size*0.26,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.arc(cx+size*0.28,cy-size*0.28,size*0.07,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+}
+function drawWhatsIcon(ctx,cx,cy,r,color){
+  ctx.save();ctx.strokeStyle=color;ctx.lineWidth=1.6;
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,Math.PI*0.15,Math.PI*1.85);
+  ctx.lineTo(cx-r*0.1,cy+r*1.25);
+  ctx.lineTo(cx+r*0.45,cy+r*0.55);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
+}
+
 async function renderVoucher(){
   if(!currentCoupon)return;
   const c=currentCoupon;
@@ -2493,10 +2587,14 @@ async function renderVoucher(){
   ctx.fillStyle=grad;
   ctx.fillRect(0,0,W,H);
 
-  // Outer gold border
+  // Double gold border + simple corner brackets (pure canvas drawing)
   ctx.strokeStyle='#8B6914';
-  ctx.lineWidth=3;
+  ctx.lineWidth=2;
   ctx.strokeRect(14,14,W-28,H-28);
+  ctx.strokeStyle='#C9A84C';
+  ctx.lineWidth=1;
+  ctx.strokeRect(26,26,W-52,H-52);
+  drawCornerBrackets(ctx,14,14,W-28,H-28,30,'#E8D5A3',3);
 
   // Logo (top-left)
   try{
@@ -2550,11 +2648,20 @@ async function renderVoucher(){
   ctx.fillText(headline,46,y+90);
   y+=120;
 
-  // Dashed code box
+  // Code "ribbon" — parchment background, jagged torn-paper edges,
+  // dashed gold inner border.
   const boxW=480,boxH=72;
-  drawDashedRect(ctx,46,y,boxW,boxH,10,[9,7]);
+  ribbonPath(ctx,46,y,boxW,boxH,14);
+  ctx.fillStyle='#EDE4CF';
+  ctx.fill();
+  ctx.save();
+  ctx.setLineDash([9,7]);
   ctx.strokeStyle='#8B6914';
-  ctx.fillStyle='#C9A84C';
+  ctx.lineWidth=1.5;
+  ribbonPath(ctx,46,y,boxW,boxH,14);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle='#1A1208';
   ctx.font='bold 34px "Courier New", monospace';
   ctx.textAlign='center';
   ctx.fillText(c.code,46+boxW/2,y+46);
@@ -2564,7 +2671,8 @@ async function renderVoucher(){
   ctx.textAlign='left';
   ctx.fillStyle='#E8D5A3';
   ctx.font='14px Arial, sans-serif';
-  ctx.fillText('Online: scan the QR, or enter the code at checkout on meensha.in.',46,y);
+  const qrType=document.getElementById('QR-TYPE').value;
+  ctx.fillText(qrType==='telegram'?'At a stall: show this to staff — they’ll scan it to apply your discount.':'Online: scan the QR, or enter the code at checkout on meensha.in.',46,y);
   y+=22;
   ctx.fillText('Offline: show this voucher or quote the code to staff.',46,y);
   y+=30;
@@ -2588,7 +2696,15 @@ async function renderVoucher(){
   drawRoundedRect(ctx,qrPanelX,qrPanelY,qrPanelSize,qrPanelSize,14);
   ctx.fill();
 
-  const qrData=`https://meensha.in/?coupon=${encodeURIComponent(c.code)}`;
+  // Website QR keeps encoding the online path (verified/working already).
+  // Telegram QR instead deep-links into the matching bot's kiosk flow (see
+  // telegram-bot(-au)/index.ts's coupon_<code> /start payload) — region
+  // india/australia map to exactly one bot each; region='all' uses QR-BOT.
+  const botUsername=c.region==='australia'?'meenshaozbot':c.region==='india'?'meenshashalbot':
+    (document.getElementById('QR-BOT').value==='australia'?'meenshaozbot':'meenshashalbot');
+  const qrData=qrType==='telegram'
+    ?`https://t.me/${botUsername}?start=coupon_${encodeURIComponent(c.code)}`
+    :`https://meensha.in/?coupon=${encodeURIComponent(c.code)}`;
   const qr=qrcode(0,'M');
   qr.addData(qrData);
   qr.make();
@@ -2608,15 +2724,32 @@ async function renderVoucher(){
   ctx.textAlign='center';
   ctx.fillText('Scan to redeem',qrPanelX+qrPanelSize/2,qrPanelY+qrPanelSize+22);
 
-  // Footer
-  ctx.textAlign='left';
-  ctx.fillStyle='#C9A84C';
-  ctx.font='12px Arial, sans-serif';
-  const waLine=[];
-  if(c.region==='india'||c.region==='all'){if(settingsByKey.wa_num_in)waLine.push('WhatsApp (India): '+settingsByKey.wa_num_in);}
-  if(c.region==='australia'||c.region==='all'){if(settingsByKey.wa_num_au)waLine.push('WhatsApp (Australia): '+settingsByKey.wa_num_au);}
-  const footerParts=['meensha.in','@meensha_fabrics',...waLine];
-  ctx.fillText(footerParts.join('  ·  '),46,H-40);
+  // Footer bar — icon + text pairs (website / Instagram / WhatsApp)
+  const footX=26,footW=W-52,footH=56,footY=H-26-footH;
+  ctx.fillStyle='#120D06';
+  drawRoundedRect(ctx,footX,footY,footW,footH,8);
+  ctx.fill();
+  ctx.strokeStyle='rgba(139,105,20,0.5)';
+  ctx.lineWidth=1;
+  drawRoundedRect(ctx,footX,footY,footW,footH,8);
+  ctx.stroke();
+
+  const footItems=[{icon:'globe',text:'meensha.in'},{icon:'insta',text:'@meensha_fabrics'}];
+  if(c.region==='india'||c.region==='all'){if(settingsByKey.wa_num_in)footItems.push({icon:'whats',text:settingsByKey.wa_num_in});}
+  if(c.region==='australia'||c.region==='all'){if(settingsByKey.wa_num_au)footItems.push({icon:'whats',text:settingsByKey.wa_num_au});}
+
+  const footCy=footY+footH/2;
+  const itemGap=footW/footItems.length;
+  footItems.forEach((item,i)=>{
+    const iconCx=footX+itemGap*i+30;
+    if(item.icon==='globe')drawGlobeIcon(ctx,iconCx,footCy,11,'#C9A84C');
+    else if(item.icon==='insta')drawInstaIcon(ctx,iconCx,footCy,20,'#C9A84C');
+    else drawWhatsIcon(ctx,iconCx,footCy,11,'#C9A84C');
+    ctx.textAlign='left';
+    ctx.fillStyle='#E8D5A3';
+    ctx.font='13px Arial, sans-serif';
+    ctx.fillText(item.text,iconCx+22,footCy+4);
+  });
 }
 
 function downloadVoucher(){

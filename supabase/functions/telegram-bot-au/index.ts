@@ -338,7 +338,11 @@ async function kioskConfirmQty(supabase: any, chatId: number, data: any, qty: nu
   const total = cart.reduce((sum: number, item: any) => sum + item.sku.sale_price_aud * item.qty, 0);
   const lines = cart.map((item: any) => `• ${item.sku.name} ×${item.qty} — ${fmtAud(item.sku.sale_price_aud * item.qty)}`);
 
-  await saveSession(supabase, chatId, "kiosk_cart", { cart });
+  // Preserve the rest of the session (notably coupon_code_pending from a
+  // coupon_<code> deep link) instead of replacing it with a cart-only
+  // object — this used to silently drop it the moment the first item was
+  // added to the cart, before the coupon step was ever reached.
+  await saveSession(supabase, chatId, "kiosk_cart", { ...data, cart, pending_sku: undefined, pending_units: undefined });
   await tgSend(chatId, `*Cart*\n${lines.join("\n")}\n\nTotal: ${fmtAud(total)}`, {
     inline_keyboard: [
       [{ text: "➕ Add another item", callback_data: "kiosk:search_again" }],
@@ -480,10 +484,19 @@ async function handleTextInput(supabase: any, chatId: number, state: string, dat
       await saveSession(supabase, chatId, "kiosk_customer_wa", { ...data, customer_name: text });
       await tgSend(chatId, "Customer WhatsApp number?");
       break;
-    case "kiosk_customer_wa":
-      await saveSession(supabase, chatId, "kiosk_coupon_code", { ...data, customer_wa: text });
+    case "kiosk_customer_wa": {
+      const newData = { ...data, customer_wa: text };
+      await saveSession(supabase, chatId, "kiosk_coupon_code", newData);
+      if (newData.coupon_code_pending) {
+        // Code already seeded from a coupon_<code> deep link — validate it
+        // immediately via the same kiosk_coupon_code logic below instead of
+        // prompting the owner to type it again.
+        await handleTextInput(supabase, chatId, "kiosk_coupon_code", newData, newData.coupon_code_pending);
+        break;
+      }
       await tgSend(chatId, "Coupon code? Type a code, or 'skip' if none.");
       break;
+    }
     case "kiosk_coupon_code": {
       const code = text.trim();
       if (code.toLowerCase() === "skip") {
@@ -700,6 +713,14 @@ Deno.serve(async (req: Request) => {
     const payload = text.includes(" ") ? text.split(" ")[1] : null;
     if (payload?.startsWith("photo_")) {
       await startAddPhotoAu(supabase, chatId, payload.slice("photo_".length));
+    } else if (payload?.startsWith("coupon_")) {
+      // Deep-link payload (t.me/<bot>?start=coupon_<code>) — a customer
+      // shows this QR/link at a stall; scanning it launches the normal
+      // kiosk sale flow (same as tapping "Kiosk mode" below) with the code
+      // seeded into session data so it's ready when the flow reaches its
+      // existing coupon-code step, instead of prompting to type it again.
+      await saveSession(supabase, chatId, "kiosk_search", { cart: [], coupon_code_pending: payload.slice("coupon_".length) });
+      await tgSend(chatId, "Type a product name to search AU stock:");
     } else {
       await showTopMenu(chatId);
       await saveSession(supabase, chatId, "idle", {});
