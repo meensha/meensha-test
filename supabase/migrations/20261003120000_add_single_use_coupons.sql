@@ -60,6 +60,13 @@ RETURNS coupons
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE c coupons;
 BEGIN
+  -- Restores the require_admin_session() check present in the version this
+  -- replaces (supabase/migrations/20260927180000_admin_session_guard.sql) —
+  -- dropped by accident when this migration added p_single_use, which would
+  -- have let anyone with the public anon key create coupons with no admin
+  -- session. Passes through for service_role callers (bots/edge functions),
+  -- same as every other admin_* function.
+  PERFORM require_admin_session();
   INSERT INTO coupons(code, customer_name, customer_wa, discount_type, discount_value, region, valid_from, valid_until, category_filter, single_use)
   VALUES (upper(trim(p_code)), nullif(p_customer_name, ''), nullif(p_customer_wa, ''), p_discount_type, p_discount_value, p_region, p_valid_from, p_valid_until, nullif(p_category_filter, ''), p_single_use)
   RETURNING * INTO c;
