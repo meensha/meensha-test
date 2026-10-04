@@ -34,6 +34,22 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-10-04: Visiting-card redesign per owner's follow-up request — logo now centered above
+  the name (was side-by-side in a header row), the wordmark/tagline block under the logo is
+  gone (front now shows logo + name + title only), and the simple L-bracket corners are
+  replaced with a more ornate hand-drawn-style gold corner-flourish SVG (single quarter-motif
+  mirrored via CSS `scaleX`/`scaleY` for the other three corners), applied to all four corners.
+  Clicking any corner now triggers a real 3D flip (`perspective` on a wrapper, `rotateY(180deg)`
+  + `backface-visibility:hidden` on the two faces) to reveal a new back side: centered logo
+  only, no name/title/icons, crossfading every 2.5s between `meensha_logo_eng.png` and
+  `hindi_logo_main.png` (two stacked `<img>`s, opacity toggled by a `setInterval`). The back
+  has its own four corner flourishes; clicking any of them flips back to the front. Same
+  palette, same `?person=` logic, same live `settings.wa_num_au` fetch for Meenakshi's
+  WhatsApp number (untouched), same five contact icons (front only). Pure inline CSS/SVG/JS,
+  no new dependency. Verified in a browser pane via a local static server on both
+  `?person=shalini` and `?person=meenakshi`: front layout, flip-to-back, back logo actually
+  alternating (screenshots ~3s apart show different logos), flip-back-to-front, and the
+  unknown-`?person=` error path all confirmed working.
 - 2026-10-04 (cloud routine): Social media boost worker, reminder-nudge half — Shalbot
   (India bot, `supabase/functions/telegram-bot/index.ts` only, per the spec's scope) now
   shows Dheeraj's exact reminder copy ("Hey Shalini, want to increase traffic to your page
