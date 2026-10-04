@@ -43,6 +43,31 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-10-04: Chatbot retrieval/escalation/auth build (Phases 2-4, 6-7 of the internal "how
+  does this work" chatbot plan — Phase 1/1.5 KB content from earlier today, Phase 5 hosting
+  explicitly out of scope). New `chatbot/server/` (local lexical search over `chatbot/kb/`,
+  opt-in OpenRouter escalation only on an explicit click, `ESCALATION_MODEL` set to
+  `qwen/qwen3.8-27b:free`), `chatbot/frontend/` (vendored `mermaid.min.js`, a markdown->HTML
+  converter for the KB's headings/lists/tables/mermaid blocks), and a new
+  `verify_admin_session_for_chatbot` RPC (`supabase/migrations/20261004050000_...sql` —
+  **file only, not applied to the live DB**, same manual-apply convention as this session's
+  other pending migrations). Corrected mid-build per Dheeraj's call: the chatbot has no
+  login of its own — it's reached via a new "🤖 Ask Chatbot" button in admin.html (reuses
+  the existing session, token passed via URL fragment not query string) and a new "❓ How
+  does this work?" menu item in both Telegram bots (new `supabase/functions/_shared/
+  chatbotClient.ts`, server-to-server with a shared `CHATBOT_API_SECRET` — not generated/set
+  yet, no VM exists to share it with). **Known gap, needs Dheeraj's input**: neither
+  `telegram_allowed_users` nor `telegram_allowed_users_au` has a column distinguishing the
+  account owner's chat_id from other staff, so both bots currently default every caller to
+  `sales` tier unconditionally rather than guess — Shalini/Meenakshi only get full owner-tier
+  chatbot answers via admin.html for now, not via their own bot. QA (independent subagent):
+  server starts clean, role-scoping confirmed (sales tier never saw admin/owner-only KB
+  content), no-confident-match path never auto-escalates, auth fails closed with no live
+  migration, 2 real mermaid diagrams rendered via the actual frontend code with no console
+  errors, `auth.js`'s RPC call shape matches the migration exactly byte-for-byte. Full
+  deployment runbook in `chatbot/README.md`. Nothing pushed to `origin` (test2 only, per
+  convention).
+
 - 2026-10-04: Chatbot knowledge-base content curation + admin system mapping (Phase 1 + 1.5 of the internal "how does this work" chatbot plan). Created `chatbot/kb/{admin,owner,sales}/` — curated copies of existing docs (with credentials/project-refs/IPs/internal hostnames stripped where flagged), a fresh `admin/architecture-reference.md` written from scratch to replace `Project Brief v3.md` (never copied — it has plaintext passwords), `CURATION_NOTES.md` codifying the "explain why/what, never exact mechanism" rule, and new admin-tier system-map content (`SYSTEM_MAP.md`, `ARCHITECTURE.md`, and 8 flow docs with mermaid diagrams covering coupons/vouchers, kiosk sales, checkout/payment, stock intake, invoicing, Instagram integration, auth/session shape, and admin role-gating) read directly from the current codebase. `docs/MEENSHA_AUTH_SECURITY_HANDOFF.md` and `docs/MEENSHA_MONITORING.md` excluded entirely, per plan. No server/frontend/DB code touched — pure markdown, no other files in the repo modified except this entry. Full plan and per-file verdicts in the session's implementation plan; next phases (retrieval server, auth RPC, hosting) not started.
   - Both bots now handle `t.me/<bot>?start=coupon_<code>`: it launches the normal kiosk sale flow (same first step as tapping "Kiosk mode") with the code seeded into session data, so the existing coupon-code step auto-validates it instead of prompting to type it again (`supabase/functions/telegram-bot-au/index.ts` ~L483-520, ~L697-719; `supabase/functions/telegram-bot/index.ts` ~L144-162, ~L1517-1527, new `applyCouponCode()` helper extracted from the old inline `kiosk_discount_code_entry` logic so manual-entry and deep-link-seeded codes share one path). Found and fixed a real bug during QA: AU bot's `kioskConfirmQty` was saving `{ cart }` instead of `{ ...data, cart }`, silently dropping the seeded code (and `pending_sku`/`pending_units`) the moment the first item was added to a sale — fixed and redeployed. Both functions deployed with `--no-verify-jwt`, confirmed via curl (app-level 403, not gateway 401) after each deploy.
   - **India bot's kiosk coupon flow does NOT use the `validate_coupon` RPC** — it validates against the `coupons` table directly via a local `validateCoupon()` function with a generic message. Only the AU bot's kiosk flow and the website (`index.html`) call the RPC. Pre-existing asymmetry, not something this session introduced or fixed.
