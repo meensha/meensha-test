@@ -16,6 +16,7 @@ import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuS
 import { askChatbot, escalateChatbot } from "../_shared/chatbotClient.ts";
 
 const MENU_ACTIONS: MenuAction[] = [
+  { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
   { keywords: ["kiosk", "sale", "sell", "checkout"], label: "🛍️ Kiosk mode", callback_data: "kiosk:start" },
   { keywords: ["inventory", "enter inventory", "purchase", "vendor"], label: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" },
   { keywords: ["stock intake", "intake", "invoice", "scan invoice", "vendor invoice"], label: "📦 Stock Intake", callback_data: "si:start" },
@@ -31,7 +32,6 @@ const MENU_ACTIONS: MenuAction[] = [
   { keywords: ["voucher", "coupon", "discount", "promo", "discount code"], label: "🎟️ Create voucher", callback_data: "maint:voucher" },
   { keywords: ["event", "event form", "registration form", "event registration"], label: "📋 Create event form", callback_data: "maint:eventform" },
   { keywords: ["visiting card", "business card", "digital card", "share card"], label: "📇 Share visiting card", callback_data: "maint:sharecard" },
-  { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
 
 // telegram_allowed_users now has a role column (see
@@ -125,7 +125,7 @@ async function handleHowWorksEscalate(supabase: SB, chatId: number, data: Sessio
 // message (either a greeting or a keyword match), false to fall through.
 async function tryMenuKeywordSearch(chatId: number, text: string): Promise<boolean> {
   if (isGreeting(text)) {
-    await tgSend(chatId, "👋 Hi! Type a keyword like \"event\", \"voucher\", or \"photo\" to jump straight to that menu, or tap a button below:", {
+    await tgSend(chatId, "👋 Hi! Type what you want to do and I'll guide you with a link — e.g. \"event\", \"voucher\", or \"photo\" — or tap a button below:", {
       inline_keyboard: [
         [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
         [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
@@ -377,6 +377,7 @@ async function showTopMenu(chatId: number) {
 async function showMaintenanceMenu(chatId: number) {
   await tgSend(chatId, "Maintenance:", {
     inline_keyboard: [
+      [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "📦 Godown check", callback_data: "godown:start" }],
       [{ text: "🧾 Sales history", callback_data: "hist:start" }],
       [{ text: "📸 Event photo submissions", callback_data: "evphoto:menu" }],
@@ -388,7 +389,6 @@ async function showMaintenanceMenu(chatId: number) {
       [{ text: "🎟️ Create voucher", callback_data: "maint:voucher" }],
       [{ text: "📋 Create event form", callback_data: "maint:eventform" }],
       [{ text: "📇 Share visiting card", callback_data: "maint:sharecard" }],
-      [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });

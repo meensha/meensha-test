@@ -25,6 +25,7 @@ import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuS
 import { askChatbot, escalateChatbot } from "../_shared/chatbotClient.ts";
 
 const MENU_ACTIONS_AU: MenuAction[] = [
+  { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
   { keywords: ["kiosk", "sale", "sell"], label: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" },
   { keywords: ["enter inventory", "vendor", "vendor purchase"], label: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" },
   { keywords: ["stock intake", "intake", "invoice", "scan invoice", "vendor invoice"], label: "📦 Stock Intake", callback_data: "si:start" },
@@ -36,7 +37,6 @@ const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["photo", "image", "picture"], label: "📷 Add photo to item", callback_data: "maint:addphoto" },
   { keywords: ["event", "event form", "registration"], label: "📋 Create event form", callback_data: "vouchers:eventform" },
   { keywords: ["visiting card", "business card", "digital card", "share card"], label: "📇 Share visiting card", callback_data: "maint:sharecard" },
-  { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
 
 // telegram_allowed_users_au now has a role column (see
@@ -122,7 +122,7 @@ async function handleHowWorksEscalateAu(supabase: any, chatId: number, data: any
 
 async function tryMenuKeywordSearchAu(chatId: number, text: string): Promise<boolean> {
   if (isGreeting(text)) {
-    await tgSend(chatId, "👋 Hi! Type a keyword like \"event\", \"voucher\", or \"photo\" to jump straight to that menu, or tap a button below:", {
+    await tgSend(chatId, "👋 Hi! Type what you want to do and I'll guide you with a link — e.g. \"event\", \"voucher\", or \"photo\" — or tap a button below:", {
       inline_keyboard: [
         [{ text: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" }],
         [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
@@ -1330,10 +1330,10 @@ async function advanceGodown(supabase: any, chatId: number, fromState: string, d
 async function showMaintenanceMenuAu(chatId: number) {
   await tgSend(chatId, "Maintenance:", {
     inline_keyboard: [
+      [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
       [{ text: "📷 Add photo to item", callback_data: "maint:addphoto" }],
       [{ text: "📇 Share visiting card", callback_data: "maint:sharecard" }],
-      [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });
