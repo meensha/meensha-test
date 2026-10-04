@@ -87,6 +87,11 @@ chatbot/
   frontend/
     index.html, app.js, vendor/mermaid.min.js   -- no login UI; token via URL fragment only
   README.md          -- this file
+supabase/functions/chatbot/   -- the DEPLOYED version (see "Deploying" below) — ported
+  index.ts, auth.ts, retrieval.ts,   from the files above to Deno/Edge Function conventions.
+  escalate.ts, config.ts,            chatbot/server/*.js and chatbot/frontend/* above are
+  frontend.ts, kb_data.ts,           kept as reference/local-dev copies but are NOT what's
+  synonyms_data.ts                   running live.
 supabase/functions/_shared/
   chatbotClient.ts   -- askChatbot()/escalateChatbot(), used by both bots
 supabase/migrations/
@@ -98,27 +103,24 @@ Also touched outside `chatbot/`: `admin.html` (new `openChatbot()` + button),
 `maint:howworks` menu item, `howworks_ask`/`howworks_awaiting_escalate` session states,
 `howworks:escalate:yes|no` callbacks).
 
-## Before this works at all: apply the migration, and set two secrets
+## Status as of 2026-10-04: bot path live, admin.html path blocked on one migration
 
-`supabase/migrations/20261004050000_verify_admin_session_for_chatbot.sql` has **not** been
+**Update:** this is now deployed as a Supabase Edge Function (see "Deploying" below), not a
+VM. `CHATBOT_API_SECRET` and `CHATBOT_BACKEND_URL` are both set as Edge Function secrets —
+the bot path (both Telegram bots' "❓ How does this work?" menu item) is fully live.
+
+`supabase/migrations/20261004050000_verify_admin_session_for_chatbot.sql` is still **not**
 applied to the live database — per this session's established convention (every migration
 this session touched was applied manually), the file was created but not run. Apply it via
-the Supabase SQL editor for project `eglanmhhcccsuhbxywua` before the admin.html path works
-end-to-end. Until then, `auth.js`'s RPC call fails closed (the function doesn't exist yet) —
-the safe failure mode, not a crash.
+the Supabase SQL editor for project `eglanmhhcccsuhbxywua` before the **admin.html path**
+(the "🤖 Ask Chatbot" button) works end-to-end. Until then, `auth.ts`'s RPC call fails closed
+(the function doesn't exist yet) — verified via curl, returns a plain 401 "Invalid or
+expired session," not a crash.
 
-For the bot path, generate a `CHATBOT_API_SECRET` value once and set it in **two** places so
-both sides agree on it:
-- As a Supabase Edge Function secret: `supabase secrets set CHATBOT_API_SECRET=<value>`
-  (read by `chatbotClient.ts` via `Deno.env.get`).
-- As an env var on whatever host runs `chatbot/server/index.js` (read via
-  `process.env.CHATBOT_API_SECRET` in `config.js`).
-
-Also set `CHATBOT_BACKEND_URL` (the two bots' side — e.g.
-`https://chatbot.meensha.in`) as a Supabase Edge Function secret once the VM exists. Until
-all three of these are set, the bot path fails closed with a plain "chatbot isn't available
-yet" message (see `askChatbot`/`escalateChatbot` in `chatbotClient.ts`) — never a crash,
-never a silently-wrong answer.
+`OPENROUTER_API_KEY` is not set, so `/api/escalate` fails closed with a plain error message
+until it's set via `supabase secrets set OPENROUTER_API_KEY=sk-or-...` — `/api/search` (the
+main path for both the bots and admin.html, once the migration is applied) works fully
+without it.
 
 ## Running it locally
 
@@ -139,33 +141,124 @@ work).
 The frontend itself only renders usefully with a real `#session_token=...` fragment from a
 real admin.html login — there's no standalone way to exercise it without that (by design).
 
-## Deploying (Phase 5 — not done in this pass, Dheeraj's own step)
+## Deploying (Phase 5 — superseded: deployed as a Supabase Edge Function, not an Oracle VM)
 
-This needs a cloud account Claude Code cannot provision. Summary of what the plan calls
-for, so a future session (or Dheeraj directly) can pick this up:
+**Oracle Cloud signup is blocked for the owner right now, so the original Oracle VM +
+Caddy plan below was dropped (2026-10-04) in favor of reusing this repo's existing Edge
+Function deploy pattern** (same as `telegram-bot`, `telegram-bot-au`, `daily-health-check`,
+`razorpay-webhook`, etc.). **`chatbot/server/*.js` and `chatbot/frontend/*` (this directory)
+are now superseded by `supabase/functions/chatbot/`** — kept in the repo as the readable,
+Node-flavored reference implementation (and because `chatbot/kb/` is still the source of
+truth the Edge Function's `kb_data.ts` is generated from), but they are **not what's
+running**. Don't edit `chatbot/server/index.js` expecting it to affect the live chatbot —
+edit `supabase/functions/chatbot/` instead.
 
-1. Provision an Oracle Cloud **Always-Free**-eligible VM (`VM.Standard.E2.1.Micro` or an
-   Ampere A1 Always-Free allocation — confirm the "Always Free eligible" badge at creation,
-   the console can default to a paid shape).
-2. Copy the `chatbot/` directory to the VM. Install Node (no other dependencies).
-3. Set `OPENROUTER_API_KEY` and `CHATBOT_API_SECRET` as environment variables on the VM
-   (don't commit them).
-4. Run `node chatbot/server/index.js` under a `systemd` unit (simpler than pm2, restarts on
-   crash/reboot) — no unit file is included in this pass since it's host-specific.
-5. Point `chatbot.meensha.in` (CNAME, domain already owned) at the VM, and put **Caddy** in
-   front as a reverse proxy for zero-config free Let's Encrypt HTTPS. Caddy config is not
-   included here — it's two lines (`chatbot.meensha.in { reverse_proxy localhost:8787 }`)
-   once Caddy is installed on the VM.
-6. Set `CHATBOT_BACKEND_URL=https://chatbot.meensha.in` and the same `CHATBOT_API_SECRET`
-   value as Supabase Edge Function secrets (`supabase secrets set ...`) so both bots can
-   reach the VM. Update `CHATBOT_URL` in admin.html if the actual hostname differs.
-7. Re-verify `ESCALATION_MODEL` in `chatbot/server/config.js` is still a real, currently-free
-   model on `https://openrouter.ai/models` (filter: free) — the catalog rotates. See the
-   comment directly above that constant.
-8. Re-run the Phase 1 red-flag grep across `chatbot/kb/` (see `chatbot/kb/CURATION_NOTES.md`)
-   before every deploy, not just once.
-9. Decide the owner-vs-sales tier question for the bots (see "Known gap" above) before
-   relying on bot answers being tier-appropriate for anyone but kiosk staff.
+### What's actually deployed
+
+`supabase/functions/chatbot/` — same three responsibilities, ported to Deno/Edge Function
+conventions (`createClient`-style secrets via `Deno.env.get`, `Deno.serve`):
+
+- `index.ts` — routes `GET /` (frontend), `POST /api/search`, `POST /api/escalate`; strips
+  the gateway's path prefix (observed as `/chatbot/...` in production, not
+  `/functions/v1/chatbot/...` — `routeOf()` handles both forms).
+- `auth.ts` — port of `chatbot/server/auth.js`'s `resolveKbTierFromHeaders`.
+- `retrieval.ts` — port of `chatbot/server/retrieval.js`'s chunk/score logic, reading from
+  `kb_data.ts` instead of the filesystem.
+- `escalate.ts` — port of `chatbot/server/escalate.js`. One behavior change: Edge Functions
+  have no persistent filesystem across invocations, so escalations are logged via
+  `console.log` (visible with the Supabase dashboard's function logs) instead of appending
+  to a local `escalation-log.jsonl` file.
+- `config.ts` — same constants as `chatbot/server/config.js`, read from `Deno.env`.
+- `frontend.ts` — the original `chatbot/frontend/index.html` + `app.js`, inlined as one HTML
+  string this function serves on `GET /`. One difference: mermaid is loaded from
+  `cdnjs.cloudflare.com` (already used elsewhere in this repo, e.g. `admin.html`) instead of
+  the ~3.5MB vendored `mermaid.min.js` — simpler than bundling that file into the function.
+- `kb_data.ts` — **auto-generated** from `chatbot/kb/{admin,owner,sales}/*.md`. Edge
+  Functions don't reliably support reading arbitrary sibling files from the deployed bundle
+  at runtime, so KB content is inlined as JSON-escaped string constants instead. **Whenever
+  a KB markdown file is added/changed, regenerate this file before redeploying**:
+  ```
+  python3 -c "
+  import json, os
+  kb_root, tiers = 'chatbot/kb', ['admin', 'owner', 'sales']
+  data = {t: {f: open(os.path.join(kb_root, t, f), encoding='utf-8').read()
+              for f in sorted(os.listdir(os.path.join(kb_root, t))) if f.endswith('.md')}
+          for t in tiers}
+  with open('supabase/functions/chatbot/kb_data.ts', 'w', encoding='utf-8') as out:
+      out.write('export const KB_DATA: Record<string, Record<string, string>> = ')
+      out.write(json.dumps(data, ensure_ascii=False, indent=2))
+      out.write(';\n')
+  "
+  ```
+  then `supabase functions deploy chatbot --no-verify-jwt`.
+- `synonyms_data.ts` — copy of `chatbot/server/synonyms.json`; keep in sync by hand.
+
+### Deployed URL and secrets (set 2026-10-04)
+
+- Function URL: `https://eglanmhhcccsuhbxywua.supabase.co/functions/v1/chatbot`
+- Deployed with `supabase functions deploy chatbot --no-verify-jwt` (required for every
+  function in this project — this function does its own auth via `auth.ts` instead of a
+  Supabase user JWT).
+- `CHATBOT_API_SECRET` — generated this session (`openssl rand -hex 32`) and set via
+  `supabase secrets set`. Shared with the bots' side via the same name (read by
+  `chatbotClient.ts`).
+- `CHATBOT_BACKEND_URL` — set to the function URL above, as a Supabase Edge Function secret,
+  so `chatbotClient.ts`'s `askChatbot`/`escalateChatbot` (used by both bots) can reach it.
+- `OPENROUTER_API_KEY` — **not set**. `/api/search` (the bots' and admin.html's main path)
+  works fully without it; `/api/escalate` fails closed with a plain, non-crashing
+  `"Escalation is not configured on this server (missing OPENROUTER_API_KEY)"` message until
+  it's set via `supabase secrets set OPENROUTER_API_KEY=sk-or-...`.
+- `admin.html`'s `CHATBOT_URL` constant now points at the function URL above (was
+  `https://chatbot.meensha.in/`). `openChatbot()` itself is unchanged — still opens the URL
+  in a new tab with `#session_token=...` appended as a fragment.
+
+### Verified end-to-end (2026-10-04, via curl)
+
+- `GET /` → 200, serves the frontend HTML.
+- `POST /api/search` with no auth headers → 401 (fails closed).
+- `POST /api/search` with a wrong `x-chatbot-secret` → 401 (fails closed, does not fall
+  through to the session path — see `auth.ts`).
+- `POST /api/search` with the real secret, `x-chatbot-tier: admin`, asking about coupon
+  internals → 200, returned `coupon-voucher-lifecycle.md` (an admin-only KB file).
+- The **same question**, same secret, `x-chatbot-tier: sales` → 200, returned only
+  `kiosk-coupon-basics.md` (the sales-tier file) — **no admin-tier content leaked**. Confirms
+  role-scoping holds.
+- `x-chatbot-tier: owner` → 200, returned owner-tier content (`TELEGRAM_BOT_BUILD_PLAN.md`,
+  handoff docs), distinct from both other tiers.
+- `x-admin-session: <any token>` (the admin.html/browser path) → 401, because
+  `verify_admin_session_for_chatbot` isn't applied to the live DB yet (expected — see next
+  section). Fails closed with the same plain "Invalid or expired session" message, not a
+  crash.
+- `POST /api/escalate` with a valid secret/tier but no `OPENROUTER_API_KEY` set → 502,
+  `{"ok":false,"error":"Escalation is not configured on this server..."}` — fails closed as
+  designed.
+
+### What's still blocked on the pending migration
+
+`supabase/migrations/20261004050000_verify_admin_session_for_chatbot.sql` is **still not
+applied** to the live DB (unchanged from before this pass — same "file only, Dheeraj applies
+manually" convention as every other migration this session). Until it's applied:
+
+- The `x-admin-session` path — i.e. **the "🤖 Ask Chatbot" button inside admin.html** — fails
+  closed with "Invalid or expired session," even for a real, valid admin.html login. This is
+  expected and correct, not a bug.
+- The **bot path** (both Telegram bots' "❓ How does this work?" menu item, via
+  `chatbotClient.ts`) does **not** depend on this migration and is fully live now that
+  `CHATBOT_API_SECRET`/`CHATBOT_BACKEND_URL` are set.
+
+Apply the migration via the Supabase SQL editor for project `eglanmhhcccsuhbxywua` to
+unblock the admin.html path — no further code changes needed once it's applied.
+
+### Re-verify before every future redeploy
+
+1. `ESCALATION_MODEL` in `supabase/functions/chatbot/config.ts` — re-checked 2026-10-04
+   directly against `https://openrouter.ai/api/v1/models` (filtered for `:free`-suffixed
+   ids): `qwen/qwen3.8-27b:free` is present with $0 pricing. The catalog rotates — re-check
+   before relying on it.
+2. Re-run the Phase 1 red-flag grep across `chatbot/kb/` (see `CURATION_NOTES.md`) before
+   adding any new doc, same as always.
+3. If `chatbot/kb/` changes, regenerate `kb_data.ts` (see above) before redeploying — the
+   Edge Function has no other way to pick up new KB content.
 
 ## Adding a new KB doc
 
