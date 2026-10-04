@@ -124,15 +124,24 @@ body{
 // ---------------------------------------------------------------------
 
 const SVG_NS='http://www.w3.org/2000/svg';
+// Peacock-feather / paisley corner motif — matches the physical printed
+// card (gold outline, deep peacock-blue gem fill), per owner reference
+// photos. A fan of 5 teardrop "gems" radiates from the corner point,
+// graduated in size, with a thin gold spine down each gem.
 const FLOURISH_SVG=`
 <svg viewBox="0 0 40 40" xmlns="${SVG_NS}">
-  <path d="M2 2 C2 14, 2 22, 2 30" fill="none" stroke="#8B6914" stroke-width="1.6" stroke-linecap="round"/>
-  <path d="M2 2 C14 2, 22 2, 30 2" fill="none" stroke="#8B6914" stroke-width="1.6" stroke-linecap="round"/>
-  <path d="M2 2 C10 3, 15 8, 16 16 C17 22, 13 27, 6 26" fill="none" stroke="#C9A84C" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M2 2 C3 10, 8 15, 16 16 C22 17, 27 13, 26 6" fill="none" stroke="#C9A84C" stroke-width="1.4" stroke-linecap="round"/>
-  <path d="M16 16 C19 19, 19 23, 15 25 C12 26.5, 9 25, 9 22 C9 20, 11 19, 13 20 C14.3 20.6, 14.3 22, 13 22.4" fill="none" stroke="#8B6914" stroke-width="1.1" stroke-linecap="round"/>
-  <circle cx="2" cy="2" r="2.2" fill="#8B6914"/>
-  <path d="M9 9 C11 7.3, 13.5 7.6, 14.3 10 C15 12, 13.3 13.6, 11.3 13 C10 12.6, 9.6 11.2, 10.6 10.5" fill="none" stroke="#C9A84C" stroke-width="1" stroke-linecap="round"/>
+  <defs>
+    <g id="gem">
+      <path d="M0,0 C4,1.5 7,6 7,11 C7,17 3.5,21 0,22 C-3.5,21 -7,17 -7,11 C-7,6 -4,1.5 0,0 Z" fill="#1E2F66" stroke="#C9A84C" stroke-width="1.1"/>
+      <path d="M0,3 L0,19" fill="none" stroke="#C9A84C" stroke-width="0.6" stroke-linecap="round" opacity="0.85"/>
+    </g>
+  </defs>
+  <use href="#gem" transform="translate(3,3) rotate(-90) scale(0.6)"/>
+  <use href="#gem" transform="translate(3,3) rotate(-67.5) scale(0.85)"/>
+  <use href="#gem" transform="translate(3,3) rotate(-45) scale(1.05)"/>
+  <use href="#gem" transform="translate(3,3) rotate(-22.5) scale(0.85)"/>
+  <use href="#gem" transform="translate(3,3) rotate(0) scale(0.6)"/>
+  <circle cx="3" cy="3" r="1.8" fill="#C9A84C"/>
 </svg>`;
 
 document.querySelectorAll('.flourish').forEach(el=>{el.innerHTML=FLOURISH_SVG;});
