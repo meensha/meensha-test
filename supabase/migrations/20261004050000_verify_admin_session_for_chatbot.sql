@@ -21,7 +21,7 @@
 -- role). Does not accept trusted/service-role callers the way
 -- require_admin_session() does — the chatbot has no service-role caller, so
 -- a missing/blank token should always fail, not resolve to NULL.
-CREATE FUNCTION public.verify_admin_session_for_chatbot(p_token text)
+CREATE OR REPLACE FUNCTION public.verify_admin_session_for_chatbot(p_token text)
  RETURNS jsonb
  LANGUAGE plpgsql
  STABLE
