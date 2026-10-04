@@ -250,6 +250,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
         <strong>2. Instagram auto-posting</strong> <span id="SET-IG-BADGE" class="bx ba">checking…</span><br>
         Event-photo carousels (4 photos → auto-posted to Instagram) won't publish until both values below are set.<br>
         <strong>Get these from:</strong> <a href="https://developers.facebook.com" target="_blank" style="color:var(--gdk);">developers.facebook.com</a> — needs an Instagram Business/Creator account linked to a Facebook Page, a Meta Developer App, and a long-lived access token with <code>instagram_content_publish</code> permission.
+        <div id="IG-SECRETS-SECTION">
         <div class="fg" style="margin-top:8px;">
           <div class="fi"><label>Instagram Access Token</label><input type="password" id="SET-IG-TOKEN" placeholder="paste long-lived access token"></div>
           <div class="fi"><label>Instagram Business Account ID</label><input id="SET-IG-ACCTID" placeholder="numeric ID"></div>
@@ -257,12 +258,14 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
         <button class="btn bgn sm" onclick="saveInstagramSecrets()">💾 Save</button>
         <span style="font-size:10px;color:var(--gy);margin-left:8px;">Stored write-only — not readable back through this dashboard once saved, even by staff.</span>
         <p id="SET-IG-MSG" style="font-size:11px;color:var(--gy);margin-top:6px;"></p>
+        </div>
       </div>
     </div>
 
     <div class="sa-title">📱 Functional Links</div>
-    <!-- General settings: WA numbers + AUD multiplier -->
-    <div style="margin-bottom:20px;">
+    <!-- General settings: WA numbers + AUD multiplier — super_admin only,
+         infra/pricing config, not kiosk-level owner work. -->
+    <div style="margin-bottom:20px;" id="GEN-SETTINGS-SECTION">
       <strong style="font-size:13px;">⚙️ General Settings</strong>
       <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">Read by both admin.html and the storefront — changes apply immediately.</div>
       <div class="fg">
@@ -286,8 +289,9 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       </label>
     </div>
     <!-- Shipping tracking — site-wide toggle + one shared tracking URL, not
-         a real Shiprocket API integration (KYC still pending). -->
-    <div style="margin-top:20px;margin-bottom:20px;">
+         a real Shiprocket API integration (KYC still pending). Super_admin
+         only — infra config, not kiosk-level owner work. -->
+    <div style="margin-top:20px;margin-bottom:20px;" id="SHIP-TRACK-SECTION">
       <strong style="font-size:13px;">🚚 Shipping Tracking</strong>
       <div style="font-size:11px;color:var(--gy);margin:6px 0 10px;">When enabled, a "Track Your Order" link shows on the storefront pointing at the URL below. Not per-order — one shared link (e.g. a Shiprocket tracking portal) until real order-level tracking exists.</div>
       <label style="font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">
@@ -298,6 +302,9 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <button class="btn bgn sm" style="margin-top:7px;" onclick="saveShipTracking()">💾 Save</button>
     </div>
 
+    <!-- Ticker + Pop-Up Events — super_admin only, marketing/infra content
+         not kiosk-level owner work. -->
+    <div id="TICKER-SECTION">
     <div class="sa-title">📢 Ticker Messages</div>
     <div style="margin-bottom:20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -307,13 +314,16 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <div id="TICK-ROWS"></div>
       <button class="btn bgn sm" style="margin-top:7px;" onclick="saveTicker()">💾 Save Ticker to DB</button>
     </div>
+    </div>
 
+    <div id="POPUP-SECTION">
     <div class="sa-title">📅 Pop-Up Events</div>
     <div style="margin-bottom:20px;">
       <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
         <button class="btn bg sm" onclick="openEvModal()">+ Add Event</button>
       </div>
       <div id="EV-LIST"></div>
+    </div>
     </div>
 
     <div class="sa-title">📸 Instagram Posts</div>
@@ -463,7 +473,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 
   <!-- ── SUB-TAB: Overheads & Expenses ── -->
   <div id="st-overheads" style="display:none;">
-    <div class="card">
+    <div class="card" id="OV-ADD-EXPENSE-SECTION">
       <div class="ct">💸 Add Expense</div>
       <div class="fg">
         <div class="fi"><label>Date *</label><input type="date" id="OV-DT"></div>
@@ -515,7 +525,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 
     <!-- Purchase & Expense History with Contribution Breakdown -->
     <div class="card">
-      <div class="ct">📋 Expense Register <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Editable by owners only</span></div>
+      <div class="ct">📋 Expense Register <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Editable by Rachnakar only</span></div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px;">
         <select id="OV-FCAT" onchange="renderOVList()"><option value="">All Categories</option><option>Web Design & Hosting</option><option>Market Research</option><option>Accounting & Legal</option><option>Social Media & Marketing</option><option>Exhibition / Stall</option><option>Packaging & Supplies</option><option>Transport & Logistics</option><option>Shipping Costs</option><option>Miscellaneous</option></select>
         <select id="OV-FWH" onchange="renderOVList()"><option value="">All</option><option value="Shalini">🌸 Shalini</option><option value="Meenakshi">🌺 Meenakshi</option><option value="Shared">🤝 Shared</option></select>
@@ -534,7 +544,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <!-- Stock Purchase Contribution Breakdown -->
     <div class="card">
       <div class="ct">📦 Stock Purchase Breakdown</div>
-      <div style="font-size:12px;color:var(--gy);margin-bottom:12px;">Contribution per purchase — editable by owners.</div>
+      <div style="font-size:12px;color:var(--gy);margin-bottom:12px;">Contribution per purchase — editable by Rachnakar only.</div>
       <div id="SP-BREAKDOWN" style="overflow-x:auto;"></div>
     </div>
   </div><!-- end st-overheads -->
@@ -613,7 +623,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
     <div class="card" id="PNL-DISP"></div>
     <div>
-      <div class="card"><div class="ct">💸 Add Expense</div>
+      <div class="card" id="PNL-ADD-EXPENSE-SECTION"><div class="ct">💸 Add Expense</div>
         <div class="fg">
           <div class="fi"><label>Date *</label><input type="date" id="OH-DT"></div>
           <div class="fi"><label>Category</label><select id="OH-CAT"><option>Stock Purchase</option><option>Web Design & Hosting</option><option>Market Research</option><option>Accounting & Legal</option><option>Social Media & Marketing</option><option>Exhibition / Stall</option><option>Packaging & Supplies</option><option>Transport & Logistics</option><option>Shipping Costs</option><option>Miscellaneous</option></select></div>
@@ -1185,7 +1195,7 @@ const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6I
 const MRP_M={'Cotton':2.1,'Silk':1.8,'Tussar':2.0,'Modal':2.0,'Modal Silk':1.75,'Cotton Silk':2.2,'Tussar Silk':2.0,'Kota Doria':1.8,'default':2.0};
 const COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
 // Default role permissions (super_admin can override via UI)
-const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','usr','conn','req'],owner:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','conn','req'],sales:['sale','inv']};
+const DEFAULT_PERMS={super_admin:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','usr','conn','req','drafts'],owner:['home','inv','stock','sale','sum','pnl','vend','appr','coup','rev','conn','req','drafts'],sales:['sale','inv']};
 let rolePerms=JSON.parse(JSON.stringify(DEFAULT_PERMS));
 const SEED_INV=[{item_id:'#1',cat:'PAITH/COT',name:'Paithani Cotton',subtype:'',fabric:'Cotton',qty:6,sold:0,cost:3000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#2',cat:'AJRK/MODL/SLK',name:'Ajrak Modal Silk',subtype:'',fabric:'Modal Silk',qty:5,sold:0,cost:1399,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#5',cat:'PCHMPL/COT/SLK',name:'Pochampally Cotton Silk',subtype:'',fabric:'Cotton Silk',qty:1,sold:0,cost:720,mrp:1800,disc:10,sale_price:1620,photos:[]},{item_id:'#6',cat:'DOLA/SLK2',name:'Dola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:720,mrp:1500,disc:10,sale_price:1350,photos:[]},{item_id:'#7',cat:'DOLA/SLK1',name:'Dola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:899,mrp:2000,disc:10,sale_price:1800,photos:[]},{item_id:'#8',cat:'TUSS/SLK/MDHB',name:'Tussar Silk',subtype:'Madhubani',fabric:'Tussar Silk',qty:3,sold:0,cost:3200,mrp:6400,disc:10,sale_price:5760,photos:[]},{item_id:'#9',cat:'TUSS/DUPIN',name:'Tussar Dupin',subtype:'',fabric:'Tussar',qty:1,sold:0,cost:3100,mrp:6000,disc:10,sale_price:5400,photos:[]},{item_id:'#10',cat:'TUSS/HAND',name:'Tussar',subtype:'Handpainted',fabric:'Tussar',qty:2,sold:0,cost:4800,mrp:9000,disc:10,sale_price:8100,photos:[]},{item_id:'#11',cat:'TUSS/SUIT/MDHB',name:'Tussar Suit',subtype:'Madhubani',fabric:'Tussar',qty:4,sold:0,cost:3000,mrp:5600,disc:10,sale_price:5040,photos:[]},{item_id:'#12',cat:'TUSS/GHCHA',name:'Tussar',subtype:'Ghicha',fabric:'Tussar',qty:4,sold:0,cost:4200,mrp:8500,disc:10,sale_price:7650,photos:[]},{item_id:'#13',cat:'IKKT/COT',name:'Ikkat',subtype:'Cotton',fabric:'Cotton',qty:13,sold:0,cost:2000,mrp:4200,disc:10,sale_price:3780,photos:[]},{item_id:'#14',cat:'KLMK/COT',name:'Kalamkari',subtype:'Cotton',fabric:'Cotton',qty:6,sold:0,cost:1000,mrp:2200,disc:10,sale_price:1980,photos:[]},{item_id:'#15',cat:'MUL/COT',name:'Mul Cotton',subtype:'',fabric:'Cotton',qty:1,sold:0,cost:2200,mrp:4500,disc:10,sale_price:4050,photos:[]},{item_id:'#16',cat:'GHRCHL/AJRKSEMI',name:'Gharchola',subtype:'Semi Ajrak',fabric:'Silk',qty:4,sold:0,cost:3700,mrp:7500,disc:10,sale_price:6750,photos:[]},{item_id:'#17',cat:'GHRCHL/BANDH',name:'Gharchola',subtype:'Bandhej',fabric:'Silk',qty:1,sold:0,cost:3100,mrp:6300,disc:10,sale_price:5670,photos:[]},{item_id:'#18',cat:'AJRK/PL',name:'Ajrak Plain',subtype:'',fabric:'Cotton',qty:5,sold:0,cost:2600,mrp:5500,disc:10,sale_price:4950,photos:[]},{item_id:'#19',cat:'MODAL/PL',name:'Modal Plain',subtype:'',fabric:'Modal',qty:5,sold:0,cost:1650,mrp:3300,disc:10,sale_price:2970,photos:[]},{item_id:'#20',cat:'MODAL/AJRK',name:'Modal Ajrak',subtype:'',fabric:'Modal',qty:5,sold:0,cost:2500,mrp:4800,disc:10,sale_price:4320,photos:[]},{item_id:'#21',cat:'KOTA/BLOCK',name:'Kota Doria',subtype:'Block Print',fabric:'Kota Doria',qty:2,sold:0,cost:1700,mrp:2900,disc:10,sale_price:2610,photos:[]},{item_id:'#22',cat:'KOTA/SCRN',name:'Kota Doria',subtype:'Screen Print',fabric:'Kota Doria',qty:2,sold:0,cost:1300,mrp:2500,disc:10,sale_price:2250,photos:[]},{item_id:'#23',cat:'DOLA/MODAL/SLK',name:'Dola Modal Silk',subtype:'',fabric:'Modal Silk',qty:1,sold:0,cost:2700,mrp:5800,disc:10,sale_price:5220,photos:[]},{item_id:'#24',cat:'PATOLA/SLK1',name:'Patola Silk 1',subtype:'',fabric:'Silk',qty:1,sold:0,cost:10000,mrp:17900,disc:10,sale_price:16110,photos:[]},{item_id:'#25',cat:'PATOLA/SLK2',name:'Patola Silk 2',subtype:'',fabric:'Silk',qty:1,sold:0,cost:11000,mrp:18500,disc:10,sale_price:16650,photos:[]}];
 
@@ -1413,7 +1423,7 @@ function applyRole(){
   if(r==='super_admin'){const el=document.getElementById('TBU');if(el)el.style.color='#C9A84C';}
   // Apply permissions: hide tabs not in the role's allowed list
   const allowed=rolePerms[r]||rolePerms.sales;
-  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',appr:'tb-appr',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn',req:'tb-req'};
+  const tabMap={home:'tb-home',inv:'tb-inv',stock:'tb-stock',sale:'tb-sale',sum:'tb-sum',pnl:'tb-pnl',vend:'tb-vend',appr:'tb-appr',coup:'tb-coup',rev:'tb-rev',usr:'tb-usr',conn:'tb-conn',req:'tb-req',drafts:'tb-drafts'};
   Object.entries(tabMap).forEach(([mod,tabId])=>{
     const el=document.getElementById(tabId);
     if(!el)return;
@@ -1428,6 +1438,19 @@ function applyRole(){
   if(tgSec)tgSec.classList.toggle('hi',r!=='super_admin');
   const tgAuSec=document.getElementById('TGAU-LINK-SECTION');
   if(tgAuSec)tgAuSec.classList.toggle('hi',r!=='super_admin');
+  // General Settings / Instagram secrets / shipping tracking URL / ticker +
+  // popup content — infra/marketing config, super_admin only (owner keeps
+  // everything else in Connections: Instagram Posts, Reviews link, etc).
+  ['GEN-SETTINGS-SECTION','IG-SECRETS-SECTION','SHIP-TRACK-SECTION','TICKER-SECTION','POPUP-SECTION'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.classList.toggle('hi',r!=='super_admin');
+  });
+  // P&L add/edit/delete — owner keeps view-only access; super_admin only
+  // can add expenses (OV-* in Add Stock>Overheads, OH-* in P&L tab itself).
+  const pnlAddSec=document.getElementById('PNL-ADD-EXPENSE-SECTION');
+  if(pnlAddSec)pnlAddSec.classList.toggle('hi',r!=='super_admin');
+  const ovAddSec=document.getElementById('OV-ADD-EXPENSE-SECTION');
+  if(ovAddSec)ovAddSec.classList.toggle('hi',r!=='super_admin');
 }
 async function loadRzpEnabled(){
   const el=document.getElementById('RZP-ENABLED');if(!el)return;
@@ -4158,9 +4181,9 @@ function renderPnL(){
 }
 function calcOHTot(){const u=parseFloat(document.getElementById('OH-UNIT').value)||0,q=parseFloat(document.getElementById('OH-QTY').value)||1;const t=Math.round(u*q*100)/100;document.getElementById('OH-TOT').value=t;calcOHSplit();}
 function calcOHSplit(){const t=parseFloat(document.getElementById('OH-TOT').value)||0,by=document.getElementById('OH-BY').value;if(by==='Shalini'){document.getElementById('OH-SH').value=t;document.getElementById('OH-ME').value=0;}else if(by==='Meenakshi'){document.getElementById('OH-SH').value=0;document.getElementById('OH-ME').value=t;}else{const h=Math.round(t/2*100)/100;document.getElementById('OH-SH').value=h;document.getElementById('OH-ME').value=t-h;}}
-async function addOH(){const dt=document.getElementById('OH-DT').value,desc=document.getElementById('OH-DESC').value.trim();if(!dt||!desc){toast('Date and description required','var(--red)');return;}const unit=parseFloat(document.getElementById('OH-UNIT').value)||0,qty=parseFloat(document.getElementById('OH-QTY').value)||1,tot=parseFloat(document.getElementById('OH-TOT').value)||unit*qty,by=document.getElementById('OH-BY').value,sh=parseFloat(document.getElementById('OH-SH').value)||0,me2=parseFloat(document.getElementById('OH-ME').value)||0;await sbIns('overheads',{date:dt,cat:document.getElementById('OH-CAT').value,description:desc,unit_price:unit,qty,total:tot,paid_by:by,shalini:sh,meenakshi:me2});ohs=await sbQ('overheads','?order=created_at.desc');toast('✅ Expense added','#27ae60');renderPnL();renderOH();}
-function renderOH(){const cat=document.getElementById('OH-FCAT').value;const tb=document.getElementById('OH-BODY');tb.innerHTML='';ohs.filter(o=>!cat||o.cat===cat).forEach(o=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${o.date}</td><td style="font-size:11px;">${o.cat}</td><td>${o.description}</td><td>₹${fmt(o.total)}</td><td><span class="bx ${o.paid_by==='Shalini'?'bb2':o.paid_by==='Meenakshi'?'bp':'bg2'}">${o.paid_by}</span></td><td>₹${fmt(o.shalini)}</td><td>₹${fmt(o.meenakshi)}</td><td><button class="btn br xs" onclick="delOH('${o.id}')">🗑️</button></td>`;tb.appendChild(tr);});}
-async function delOH(id){if(!confirm('Delete?'))return;await sbDel('overheads',`?id=eq.${id}`);ohs=ohs.filter(o=>o.id!==id);renderPnL();renderOH();}
+async function addOH(){if(CU.role!=='super_admin'){toast('Only Rachnakar can add expenses','var(--red)');return;}const dt=document.getElementById('OH-DT').value,desc=document.getElementById('OH-DESC').value.trim();if(!dt||!desc){toast('Date and description required','var(--red)');return;}const unit=parseFloat(document.getElementById('OH-UNIT').value)||0,qty=parseFloat(document.getElementById('OH-QTY').value)||1,tot=parseFloat(document.getElementById('OH-TOT').value)||unit*qty,by=document.getElementById('OH-BY').value,sh=parseFloat(document.getElementById('OH-SH').value)||0,me2=parseFloat(document.getElementById('OH-ME').value)||0;await sbIns('overheads',{date:dt,cat:document.getElementById('OH-CAT').value,description:desc,unit_price:unit,qty,total:tot,paid_by:by,shalini:sh,meenakshi:me2});ohs=await sbQ('overheads','?order=created_at.desc');toast('✅ Expense added','#27ae60');renderPnL();renderOH();}
+function renderOH(){const cat=document.getElementById('OH-FCAT').value;const isSuperAdmin=CU.role==='super_admin';const tb=document.getElementById('OH-BODY');tb.innerHTML='';ohs.filter(o=>!cat||o.cat===cat).forEach(o=>{const tr=document.createElement('tr');tr.innerHTML=`<td>${o.date}</td><td style="font-size:11px;">${o.cat}</td><td>${o.description}</td><td>₹${fmt(o.total)}</td><td><span class="bx ${o.paid_by==='Shalini'?'bb2':o.paid_by==='Meenakshi'?'bp':'bg2'}">${o.paid_by}</span></td><td>₹${fmt(o.shalini)}</td><td>₹${fmt(o.meenakshi)}</td><td>${isSuperAdmin?`<button class="btn br xs" onclick="delOH('${o.id}')">🗑️</button>`:''}</td>`;tb.appendChild(tr);});}
+async function delOH(id){if(CU.role!=='super_admin'){toast('Only Rachnakar can delete expenses','var(--red)');return;}if(!confirm('Delete?'))return;await sbDel('overheads',`?id=eq.${id}`);ohs=ohs.filter(o=>o.id!==id);renderPnL();renderOH();}
 
 // ═══════════════════════════════════════════════
 // REVIEWS
@@ -4377,7 +4400,7 @@ function calcOVTot(){const u=parseFloat(document.getElementById('OV-UNIT').value
 function calcOVSplit(){const t=parseFloat(document.getElementById('OV-TOT').value)||0,by=document.getElementById('OV-BY').value;if(by==='Shalini'){document.getElementById('OV-SH').value=t;document.getElementById('OV-ME').value=0;}else if(by==='Meenakshi'){document.getElementById('OV-SH').value=0;document.getElementById('OV-ME').value=t;}else{const h=Math.round(t/2*100)/100;document.getElementById('OV-SH').value=h;document.getElementById('OV-ME').value=t-h;}chkOVSplit();}
 function chkOVSplit(){const t=parseFloat(document.getElementById('OV-TOT').value)||0,s=parseFloat(document.getElementById('OV-SH').value)||0,m=parseFloat(document.getElementById('OV-ME').value)||0;const w=document.getElementById('OV-WARN');w.style.display=Math.abs(s+m-t)>0.1?'block':'none';}
 async function saveOV(){
-  if(!(['owner','super_admin'].includes(CU.role))){toast('Only owners can add expenses','var(--red)');return;}
+  if(CU.role!=='super_admin'){toast('Only Rachnakar can add expenses','var(--red)');return;}
   const dt=document.getElementById('OV-DT').value,desc=document.getElementById('OV-DESC').value.trim();
   if(!dt||!desc){toast('Date and description required','var(--red)');return;}
   const tot=parseFloat(document.getElementById('OV-TOT').value)||0,by=document.getElementById('OV-BY').value;
@@ -4395,7 +4418,7 @@ async function saveOV(){
   renderOVList();toast('✅ Expense added','#27ae60');
 }
 async function editOV(id){
-  if(!(['owner','super_admin'].includes(CU.role))){toast('Only owners can edit expenses','var(--red)');return;}
+  if(CU.role!=='super_admin'){toast('Only Rachnakar can edit expenses','var(--red)');return;}
   const o=ohs.find(x=>x.id===id);if(!o)return;
   const newSh=parseFloat(prompt('🌸 Shalini contribution (₹):',o.shalini||0));
   const newMe=parseFloat(prompt('🌺 Meenakshi contribution (₹):',o.meenakshi||0));
@@ -4407,7 +4430,7 @@ async function editOV(id){
   ohs=await sbQ('overheads','?order=created_at.desc');renderOVList();toast('✅ Updated','#27ae60');
 }
 async function delOV2(id){
-  if(!(['owner','super_admin'].includes(CU.role))){toast('Only owners can delete','var(--red)');return;}
+  if(CU.role!=='super_admin'){toast('Only Rachnakar can delete','var(--red)');return;}
   if(!confirm('Delete this expense?'))return;
   await sbDel('overheads',`?id=eq.${id}`);ohs=ohs.filter(o=>o.id!==id);renderOVList();toast('Deleted','var(--red)');
 }
@@ -4431,7 +4454,7 @@ function renderOVList(){
   const tagTotals={};rows.forEach(o=>(o.tags||[]).forEach(tg=>{tagTotals[tg]=(tagTotals[tg]||0)+(o.total||0);}));
   const tagEl=document.getElementById('OV-TAG-SUMMARY');
   if(tagEl&&Object.keys(tagTotals).length){tagEl.innerHTML='<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--gdk);margin-bottom:6px;">By Tag</div><div style="display:flex;flex-wrap:wrap;gap:8px;">'+Object.entries(tagTotals).map(([t,v])=>`<div style="background:#f8f6f0;border:1px solid var(--bd);border-radius:8px;padding:6px 12px;font-size:12px;"><strong>#${t}</strong> ₹${fmt(v)}</div>`).join('')+'</div>';}else if(tagEl){tagEl.innerHTML='';}
-  const isOwner=['owner','super_admin'].includes(CU.role);
+  const isOwner=CU.role==='super_admin'; // name kept for diff size; now super_admin-only (owner is view-only)
   const tb=document.getElementById('OV-BODY');tb.innerHTML='';
   rows.forEach(o=>{const tr=document.createElement('tr');
     const tagBadges=(o.tags||[]).map(t=>`<span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:9px;background:#e8d5a3;color:#5b4a1e;margin:1px;">#${t}</span>`).join('');
@@ -4460,7 +4483,7 @@ function renderOVList(){
 // EDIT PURCHASE SPLIT
 // ═══════════════════════════════════════════════
 async function editPurchSplit(id){
-  if(!(['owner','super_admin'].includes(CU.role))){toast('Only owners can edit','var(--red)');return;}
+  if(CU.role!=='super_admin'){toast('Only Rachnakar can edit','var(--red)');return;}
   const p=purch.find(x=>x.id===id);if(!p)return;
   const newSh=parseFloat(prompt('🌸 Shalini contribution (₹):',p.payment?.shalini||0));
   const newMe=parseFloat(prompt('🌺 Meenakshi contribution (₹):',p.payment?.meenakshi||0));
