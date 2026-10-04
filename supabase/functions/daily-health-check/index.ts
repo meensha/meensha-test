@@ -51,6 +51,8 @@ Deno.serve(async (_req: Request) => {
   const missingPhotos = ((allSkus ?? []) as Sku[]).filter((s) => !s.photos || s.photos.length === 0);
   const missingIndia = missingPhotos.filter((s) => s.india_available);
   const missingAu = missingPhotos.filter((s) => s.au_available);
+  const totalIndia = ((allSkus ?? []) as Sku[]).filter((s) => s.india_available).length;
+  const totalAu = ((allSkus ?? []) as Sku[]).filter((s) => s.au_available).length;
 
   const overviewLine = missingPhotos.length
     ? `📷 ${missingPhotos.length} item(s) with no photo (${missingIndia.length} India, ${missingAu.length} AU)`
@@ -60,14 +62,23 @@ Deno.serve(async (_req: Request) => {
   const heading = anyIssue ? "📋 Meensha Daily Health Check" : "✅ Meensha Daily Health Check — all clear";
 
   const monitorText = `${heading}\n\n${report}\n\n${overviewLine}\n\n👀 ${visits}`;
+  // "Every item has a photo" is only true/meaningful when there's at least
+  // one item to check — with zero items in a region, that phrasing reads as
+  // a false all-clear (no photos is trivially true over an empty set) when
+  // the real state is "nothing stocked here," a distinct thing worth saying
+  // plainly rather than papering over.
   const indiaText = `${heading}\n\n${report}\n\n${
     missingIndia.length
       ? `📷 ${missingIndia.length} item(s) with no photo (tap to fix):\n${photoLines(missingIndia, "meenshashalbot")}`
+      : totalIndia === 0
+      ? "📷 No India items currently stocked"
       : "📷 Every India item has at least one photo ✅"
   }\n\n👀 ${visits}`;
   const auText = `${heading}\n\n${
     missingAu.length
       ? `📷 ${missingAu.length} item(s) with no photo (tap to fix):\n${photoLines(missingAu, "meenshaozbot")}`
+      : totalAu === 0
+      ? "📷 No AU items currently stocked"
       : "📷 Every AU item has at least one photo ✅"
   }`;
 
