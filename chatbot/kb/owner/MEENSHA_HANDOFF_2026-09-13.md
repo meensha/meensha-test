@@ -1,0 +1,59 @@
+# Meensha — Handoff / Current State (2026-09-13, session 2)
+
+Session note — supersedes `MEENSHA_HANDOFF_2026-09-07.md` as the living status doc. Everything from before this session still holds; not repeated here. (Note: an earlier same-day session already shipped dynamic shop categories, live search, invoice-PDF backfill fixes, and the "Meensha TODO worker" cloud routine going live — those are in TODO.md's Done section, not repeated here either. This doc covers the second session of 2026-09-13.)
+
+## New this session
+
+**SEO Phase 0 — Google Search Console, done.** Domain property `meensha.in` verified (DNS TXT record via GoDaddy), `sitemap.xml` submitted. Performance data (impressions/clicks/position) expected to populate within 2-4 days. `robots.txt` and `sitemap.xml` both confirmed live and correct at the real URLs — GSC's initial "no robots.txt" warning was just stale-crawl noise, not a real problem.
+
+**SEO Phase 2/3 — rescoped, narrower than originally planned.** After a scoping conversation, dropped the generic "blog + content calendar" idea entirely. New shape:
+- Phase 2 = mine real category/keyword terms from `inventory_skus.name` (same data the dynamic shop categories already surface) to inform Instagram topics and product labeling.
+- Phase 3 = Instagram content, 2-3 posts/week, drafted for Shalini via bot — new-stock-arrival announcements and event coverage, not generic posts.
+- The one surviving "blog" is scoped narrowly to the existing Artisans section (`index.html#weavers`) — weaver-upliftment content, explicitly *not* CSR framing (it's core mission, not an add-on program).
+- Full spec is in TODO.md under "SEO + Instagram growth initiative."
+
+**Instagram Graph API / Instagram Shopping — researched, not yet set up.** Confirmed free (no per-call charge from Meta) for a Business/Creator account, but needs one-time setup: Instagram account → Business/Creator, linked to a Facebook Page, then Meta App Review (business verification, screencast, permission justification — can take days). This blocks two things: the "Trending" badge's Instagram-view-count signal, and Tier B of the Instagram→store flow (native product tagging). **Still needs Dheeraj** — nobody else can do this setup.
+
+**Instagram → store click flow — planned, Tier A buildable now.** Two tiers documented in TODO.md: Tier A uses the existing bio link / Story link sticker (both free, no follower minimum as of 2026) pointing at the already-built `?buy=<sku_id>`/`?shop=<term>` deep links with UTM params appended. Tier B (native in-app product tags) needs the Graph API setup above. Not yet implemented — this is a process/usage change (how links get pasted into Instagram), not really a code task.
+
+**"NEW" and "Trending" product badges — built and deployed.** `index.html`'s shop grid now shows a NEW badge (top-left, gold) when a SKU's `created_at` is within 14 days, and a Trending badge (pink) when a new `inventory_skus.trending` flag is set. Trending is staff-controlled from admin.html's Inventory tab (🔥 toggle) — staff's manual choice is always final. A 💡 suggestion nudge appears when a SKU has ≥3 units sold in the last 14 days (computed from existing `inventory_units` data, no new tables needed) — staff can accept or ignore it, it never auto-applies. The Instagram-view-count half of that suggestion signal is deliberately not built yet (blocked on the Graph API setup above); there's a TODO comment in `skuSoldRecent()` marking where it plugs in later.
+
+**UTM parameter passthrough — confirmed already safe.** Both `?shop=` and `?buy=` parsing use `URLSearchParams(...).get(...)`, which ignores unrelated query keys by design. No code change was needed — verified, not assumed.
+
+**Kiosk "Share links/photos" — WhatsApp per-item message flow, built and deployed.** Extends the existing plain-link share feature with a second option: staff pick specific matching items by number (multi-select, e.g. "1,3,4"), enter the customer's name, choose whether to include price, and get back one clean, forward-ready message per item — photo + price (if chosen) + personalized greeting + `?buy=<sku_id>` link, with **no bot wrapper text** around it, ready to paste straight into WhatsApp. Deployed with `--no-verify-jwt` confirmed held. QA-verified against the live deployed code, step by step against spec. **Still needs one real Telegram tap-through test by a human** — every verification this session was code-read + API-reachability, never an actual message sent through the bot.
+
+**Admin login IP/location logging — built, deployed, and a real pre-existing bug found+fixed along the way.** New `log-auth-attempt` Edge Function (admin.html posts to it instead of inserting into `auth_log` directly), does a free IP geo lookup (ipapi.co), stores `ip_address`/`location`. A new `auth-log-digest` cron reports login activity since its last run to MeenshaMonitor only (never Shalini's chat), per spec. **The bug**: `auth_log` never actually existed as a table — admin.html has been calling `sbIns('auth_log', ...)` since 26 June 2026, and every single insert was silently swallowed by a try/catch. Admin login logging has been completely non-functional in production this entire time, unrelated to anything built this session. Fixed by creating the table (RLS matching existing conventions) before applying the intended IP/location migration.
+
+**"📝 Content Drafts" tab — new, in admin.html.** Displays draft blog/content posts from `docs/` (currently two — see below) readably formatted, with a one-click Copy button per draft for pasting into Medium or the site. Confirmed (not assumed) that `docs/*.md` is actually served live by GitHub Pages via a direct curl check. Designed to extend with a one-line addition to a hardcoded file list as more drafts get written — deliberately not a full CMS.
+
+**Two content drafts written**, both in `docs/`, both visible in the new admin panel tab:
+- `MEDIUM_POST_02_draft.md` — continues the "Adopting AI in Business" Medium series (post #1 already published: [Adopting AI in Business](https://medium.com/@dheeraj.ahead/adopting-ai-in-business-a6b636480657)). Built from the physical-inventory-model beat, the two production-failure stories (silent JWT-default breakage, the mislabeled-credential script that reported success while doing nothing), and the AI-that-only-answers-never-writes guardrail. Deliberately leaves out this session's multi-agent-collision story for a future post, once it's fully resolved rather than mid-flight.
+- `ARTISANS_BLOG_DRAFT_01.md` — a voice/structure template for the Artisans-section weaver-upliftment post, matched to the site's existing copy voice. Left with bracketed placeholders instead of invented names/villages/specifics — needs a real anchor (an actual recent visit/activity) from Dheeraj or Shalini before it's publishable; inventing specifics about real weavers would be dishonest.
+
+## What almost went wrong this session (worth reading, not just skimming)
+
+**Two agents independently built the same feature.** A background agent I spawned to build the kiosk WhatsApp-share flow discovered mid-task that the autonomous 4-hourly "Meensha TODO worker" cloud routine had *already* built and pushed the exact same feature to `test2` a few hours earlier — plus a second, unrelated feature (the admin-login IP logging) in a separate commit. Both agents were editing the same repo simultaneously without knowing about each other. Resolved by treating the cloud routine's version as authoritative (it matched spec correctly) and discarding the duplicate local commit rather than pushing a second conflicting implementation. No data was lost, but it's a real collision-risk pattern worth being aware of going forward — the cloud routine and any manually-spawned session-agent can both be touching `test2` at once.
+
+**Critical infrastructure discovery: staging and production are not actually separate.** Despite the "push test2 → verify → promote origin" workflow, there is only **one** Supabase project (`eglanmhhcccsuhbxywua`) backing both git branches. The frontend/static-site split (two GitHub Pages sites) is real; the backend split is an illusion — any Edge Function deploy or SQL migration is immediately live in production regardless of which branch it came from. Discovered when deploying today's kiosk/IP-logging work. Full proposal for fixing this — recommends building toward a genuinely separate second Supabase project, with a 9-step migration plan that never risks production downtime — is written up in `meensha-test/STAGING_SEPARATION_PROPOSAL.md`. Also notably: the base-schema migration file in the repo is **empty (0 bytes)** — the actual database schema currently only exists live in Supabase, not reproducible from git. **Not yet acted on** — proposal only, needs Dheeraj's review and decision.
+
+**A downstream QA agent caught this collision risk itself** without being told about it explicitly — flagged "another process actively editing this working directory in real time" mid-task, which was in fact the reconciliation agent working in parallel. Worth noting as a sign the multi-agent QA-verification pattern (build agents → independent QA agent → only-then report to Telegram) worked as intended this session.
+
+## Repo cleanup
+
+Two stale, non-git-tracked snapshot directories deleted from the parent `Meensha/` folder after review: `Build M1 M2/` and `files-5/` (both pre-dated current migrations, contained old copies of `admin.html`/schema files from May 2026). `origin`/`test2` remotes are active deploy targets, not backups — don't fold into "backup count." `gitea` remains the one actual backup remote. Full inventory and reasoning in `STAGING_SEPARATION_PROPOSAL.md`.
+
+## Known gaps / open items
+
+- **Staging/production separation** — proposal written, not yet acted on. Needs Dheeraj's review of `STAGING_SEPARATION_PROPOSAL.md` and a decision on whether/when to build the second Supabase project.
+- **Kiosk WhatsApp share flow** — needs one real Telegram tap-through test by a human. No agent this session had Telegram credentials/access to do this.
+- **Instagram Graph API setup** — still needs Dheeraj: convert `@meensha_fabrics` to Business/Creator, link a Facebook Page, go through Meta App Review. Blocks the Trending badge's view-count signal and Tier B of the Instagram→store flow. See `docs/INSTAGRAM_INSIGHTS_SETUP.md` (pre-existing, still accurate).
+- **Artisans blog draft** needs a real anchor (an actual recent weaver visit/activity, with consent to publish specifics) before it's publishable — currently a structure template only.
+- **Everything built this session is on `test2` only.** `origin` (production) is untouched throughout. Needs manual review + promotion, same as always.
+- Everything from `MEENSHA_HANDOFF_2026-09-07.md`'s "Known gaps" still applies unless addressed above.
+
+## Working conventions (still apply, reconfirmed this session)
+
+- All of today's work stayed on `test2`; nothing pushed to `origin` at any point — confirmed repeatedly via `git fetch origin` diffs across every agent in this session.
+- The `--no-verify-jwt` flag requirement (telegram-bot, telegram-bot-au, razorpay-webhook, and now auth-log-digest) was followed and verified via curl (app-level response vs. gateway 401) on every deploy this session.
+- New pattern this session, worth keeping: **build agent → independent QA agent → QA-only-then reports "done" to Telegram**, rather than a build agent self-reporting completion. Caught a stale TODO.md note and confirmed no regressions; recommend reusing this pattern for future multi-agent sessions, especially now that the cloud routine can also be touching the repo unprompted.
+- `docs/` in `meensha-test/` is confirmed servable live by GitHub Pages as raw files (no Jekyll conversion) — usable for more than just this session's blog drafts if a "static content the admin panel reads" pattern is useful elsewhere later.
