@@ -4,10 +4,6 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Queued (not started)
 
-- [ ] **Digital visiting card, bot feature** — queued to start after the current chatbot ("how does this work") build is done, not concurrent with it. A "Share visiting card" action in both Telegram bots that generates a shareable digital business card, styled on the physical Meensha card (peacock-feather gold/blue corner motifs, "मीनशा · करघों की विरासत" wordmark, tagline "Curating fabrics from India's finest weaving traditions"), but with **clickable icons** (not just a static image) for website/Instagram/WhatsApp — likely an HTML page (same approach as `admin-voucher.html`'s generator: real `tel:`/`wa.me/`/`instagram.com`/`https://meensha.in` links behind each icon, not a flat graphic) rather than a plain image or `.vcf` file, so the links actually work when shared/opened.
-  - **India**: Shalini Bharti, title "Curator", WhatsApp +91 87095 25218, meensha.fabrics@gmail.com, meensha.in, Instagram @meensha_fabrics — all confirmed from the physical card photo.
-  - **Australia**: Meenakshi Ranjan — confirmed 2026-10-04: same title "Curator", same shared email/Instagram as Shalini's card, only WhatsApp differs (`settings.wa_num_au`, +61 488 967 995).
-  - Reuse the existing brand palette/logo assets already established this session (gold `#8B6914`/`#C9A84C`/`#E8D5A3`, `meensha_logo_eng.png`) rather than trying to recreate the physical card's exact peacock-corner artwork from scratch — visually consistent with the voucher generator, not a pixel-accurate copy of the print design.
 - [ ] Instagram tiles on the storefront: the left-most tile should always show the actual latest post from Meensha's Instagram account (currently — confirm current behavior before building; may need Instagram Graph API access to pull real posts).
 - [ ] SEO + Instagram growth initiative (large, multi-phase — see proposal in session transcript 2026-09-13):
   - ~~Phase 0: Google Search Console setup~~ — **done 2026-09-13**: domain property `meensha.in` verified (DNS via GoDaddy), sitemap.xml submitted. Performance data (impressions/clicks/position) expected to populate within 2-4 days.
@@ -43,6 +39,25 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-10-04: Digital visiting card, both bots — new "📇 Share visiting card" entry in each
+  bot's Maintenance menu (`maint:sharecard`), sending the owner a link to their own public
+  card page: `visiting-card.html?person=shalini` (India) / `?person=meenakshi` (Australia).
+  New `visiting-card.html` at the repo root — no login/session required (public by design,
+  unlike `admin-voucher.html`), real clickable `tel:`/`wa.me/`/`instagram.com`/`mailto:`/
+  `https://meensha.in` links behind five icons (Call, WhatsApp, Instagram, Email, Website),
+  not a flat image. Compact landscape business-card proportions (`aspect-ratio:7/4`), warm
+  light-wood/parchment background with gold-brown (`#8B6914`/`#C9A84C`/`#4A3216`) text/border
+  accents — a deliberate departure from `admin-voucher.html`'s near-black voucher palette,
+  per owner's visual correction this session. India's card uses `hindi_logo_main.png` (same
+  medallion the invoice PDF generator bundles); Australia's uses `meensha_logo_eng.png`.
+  Meenakshi's WhatsApp number is read live from `settings.wa_num_au` at page load (not
+  hardcoded); Shalini's is hardcoded per the confirmed physical-card details. No QR code —
+  considered and deliberately dropped (the page itself is already the tappable destination,
+  unlike the voucher QR which encodes a different deep-link). Type-checked both edited bot
+  files with `tsc --strict` (only the expected `Deno`/`esm.sh` noise and the pre-existing
+  `SendFn` mismatch). Deployed `--no-verify-jwt`, verified via curl (both return their app-level
+  `403 Forbidden` webhook-secret check, not a gateway 401). QA'd by an independent subagent
+  before reporting done. Pushed to `test2` only.
 - 2026-10-04: Guided "📦 Stock Intake" flow, both bots — new entry point alongside (not replacing) "🧾 Vendor purchase": invoice photo(s) → Gemini vision reads vendor/items/total (new `extractInvoiceData()` in `_shared/askGemini.ts`) → confirm/fix → vendor auto-matched against `vendors` → per-item photo-count-vs-qty loop with optional discrepancy flagging (type/photo/reason/credit) → summary with adjusted total → good items through the existing unchanged `submit_purchase_intake_batch` pipeline, discrepancy items into `vendor_issues` (defect history per vendor) → wrapper-free draft vendor message, ready to paste into WhatsApp. No shipping/ViaSetu code (deliberately out of scope — held pending real API access, see ViaSetu outreach doc). Deployed `--no-verify-jwt`, QA'd independently (10/10 checks), pushed to `test2` only.
 - 2026-10-04: Closed the chatbot owner-tier gap noted below (and in `chatbot/README.md`'s
   former "Known gap" section). Added `supabase/migrations/20261004060000_chatbot_tier_role_column.sql`

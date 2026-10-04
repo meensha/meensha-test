@@ -30,6 +30,7 @@ const MENU_ACTIONS: MenuAction[] = [
   { keywords: ["insta", "instagram", "insta link"], label: "🔗 Insta link", callback_data: "maint:iglink" },
   { keywords: ["voucher", "coupon", "discount", "promo", "discount code"], label: "🎟️ Create voucher", callback_data: "maint:voucher" },
   { keywords: ["event", "event form", "registration form", "event registration"], label: "📋 Create event form", callback_data: "maint:eventform" },
+  { keywords: ["visiting card", "business card", "digital card", "share card"], label: "📇 Share visiting card", callback_data: "maint:sharecard" },
   { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
 
@@ -383,6 +384,7 @@ async function showMaintenanceMenu(chatId: number) {
       [{ text: "🔗 Insta link", callback_data: "maint:iglink" }],
       [{ text: "🎟️ Create voucher", callback_data: "maint:voucher" }],
       [{ text: "📋 Create event form", callback_data: "maint:eventform" }],
+      [{ text: "📇 Share visiting card", callback_data: "maint:sharecard" }],
       [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
@@ -422,6 +424,10 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
   if (callbackData === "maint:eventform") {
     await tgSend(chatId, "Event title? (e.g. AFWWA Exhibition)");
     await saveSession(supabase, chatId, "eventform_title", {});
+    return;
+  }
+  if (callbackData === "maint:sharecard") {
+    await tgSend(chatId, `📇 Your Meensha digital visiting card — forward this link to a customer or contact:\n\n${STOREFRONT_URL}/visiting-card.html?person=shalini`);
     return;
   }
   if (callbackData === "maint:howworks") {

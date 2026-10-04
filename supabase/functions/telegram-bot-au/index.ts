@@ -35,6 +35,7 @@ const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["note"], label: "📝 Add a note", callback_data: "maint:note" },
   { keywords: ["photo", "image", "picture"], label: "📷 Add photo to item", callback_data: "maint:addphoto" },
   { keywords: ["event", "event form", "registration"], label: "📋 Create event form", callback_data: "vouchers:eventform" },
+  { keywords: ["visiting card", "business card", "digital card", "share card"], label: "📇 Share visiting card", callback_data: "maint:sharecard" },
   { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
 
@@ -1331,6 +1332,7 @@ async function showMaintenanceMenuAu(chatId: number) {
     inline_keyboard: [
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
       [{ text: "📷 Add photo to item", callback_data: "maint:addphoto" }],
+      [{ text: "📇 Share visiting card", callback_data: "maint:sharecard" }],
       [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
@@ -1363,6 +1365,10 @@ async function handleMaintenanceAu(supabase: any, chatId: number, callbackData: 
   }
   if (callbackData.startsWith("maint:addphoto:pick:")) {
     await startAddPhotoAu(supabase, chatId, callbackData.slice("maint:addphoto:pick:".length));
+    return;
+  }
+  if (callbackData === "maint:sharecard") {
+    await tgSend(chatId, `📇 Your Meensha digital visiting card — forward this link to a customer or contact:\n\n${STOREFRONT_URL}/visiting-card.html?person=meenakshi`);
     return;
   }
   if (callbackData === "maint:howworks") {

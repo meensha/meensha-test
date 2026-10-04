@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meensha · Digital Visiting Card</title>
+<meta name="description" content="Meensha — Heritage weaves of India. Tap to call, WhatsApp, email, or visit.">
+<style>
+:root{--gold:#C9A84C;--gdk:#8B6914;--ink:#4A3216;--wood1:#F5E8C8;--wood2:#E6CB98;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Segoe UI',Arial,sans-serif;
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#5C4019,#3E2B10);
+  padding:24px 16px;
+}
+.card{
+  position:relative;
+  width:100%;max-width:440px;aspect-ratio:7/4;
+  background:linear-gradient(135deg,var(--wood1),var(--wood2));
+  border:2px solid var(--gdk);
+  border-radius:14px;
+  padding:16px 20px;
+  box-shadow:0 8px 28px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+.card::before{
+  content:'';position:absolute;inset:7px;
+  border:1px solid var(--gold);border-radius:9px;
+  pointer-events:none;
+}
+.corner{position:absolute;width:16px;height:16px;border:2.5px solid var(--ink);pointer-events:none;}
+.corner.tl{top:3px;left:3px;border-right:none;border-bottom:none;}
+.corner.tr{top:3px;right:3px;border-left:none;border-bottom:none;}
+.corner.bl{bottom:3px;left:3px;border-right:none;border-top:none;}
+.corner.br{bottom:3px;right:3px;border-left:none;border-top:none;}
+.header-row{display:flex;align-items:center;gap:10px;}
+.header-row img{width:38px;height:38px;object-fit:contain;flex-shrink:0;}
+.brandtext{min-width:0;}
+.wordmark{font-family:Georgia,serif;color:var(--gdk);font-size:11px;letter-spacing:.02em;line-height:1.3;}
+.tagline{font-style:italic;color:var(--gdk);font-size:8px;line-height:1.3;opacity:.85;}
+.name-block{text-align:center;}
+.name{color:var(--ink);font-family:Georgia,serif;font-size:19px;font-weight:700;line-height:1.15;}
+.title{color:var(--gdk);font-size:9px;letter-spacing:.14em;text-transform:uppercase;margin-top:2px;}
+.icon-row{display:flex;justify-content:center;gap:9px;}
+.icon-link{display:flex;color:inherit;text-decoration:none;}
+.icon-circle{
+  width:30px;height:30px;border-radius:50%;
+  border:1.3px solid var(--gdk);
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.18);
+  transition:background .15s;
+}
+.icon-link:active .icon-circle,.icon-link:hover .icon-circle{background:rgba(139,105,20,.2);}
+.icon-circle svg{width:15px;height:15px;stroke:var(--gdk);fill:none;}
+.icon-circle svg.filled{fill:var(--gdk);stroke:none;}
+.err{color:#8a2d1b;text-align:center;font-size:13px;padding:20px 10px;}
+</style>
+</head>
+<body>
+<div class="card" id="CARD">
+  <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+  <div id="CARD-BODY" style="display:flex;flex-direction:column;justify-content:space-between;height:100%;">
+    <div class="header-row">
+      <img src="meensha_logo_eng.png" alt="Meensha">
+      <div class="brandtext">
+        <div class="wordmark">मीनशा · करघों की विरासत</div>
+        <div class="tagline">Curating fabrics from India's finest weaving traditions</div>
+      </div>
+    </div>
+    <div class="name-block">
+      <div class="name" id="P-NAME"></div>
+      <div class="title" id="P-TITLE"></div>
+    </div>
+    <div class="icon-row" id="ICON-ROW"></div>
+  </div>
+</div>
+<script>
+// ---------------------------------------------------------------------
+// Meensha digital visiting card — public page, no login required.
+// Query param ?person=shalini|meenakshi selects which owner's card to
+// render. Icons are real <a> elements (tel:/wa.me/instagram.com/mailto:/
+// website), not a flat image — see TODO.md "Digital visiting card, bot
+// feature" for the full spec this implements.
+// ---------------------------------------------------------------------
+
+const SB='https://eglanmhhcccsuhbxywua.supabase.co';
+const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+
+async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:{'apikey':SK,'Authorization':'Bearer '+SK}});if(!r.ok)return[];return await r.json();}catch{return[];}}
+
+// Shared across both owners (confirmed 2026-10-04 — see TODO.md).
+const EMAIL='meensha.fabrics@gmail.com';
+const WEBSITE='https://meensha.in';
+const INSTA_HANDLE='meensha_fabrics';
+
+const PEOPLE={
+  shalini:{
+    name:'Shalini Bharti',
+    title:'Curator',
+    // Hindi-script logo for the India card (same medallion artwork the
+    // invoice PDF generator bundles — see generate-invoice-pdf/index.ts).
+    logo:'hindi_logo_main.png',
+    // Confirmed from the physical card photo — hardcoded per TODO.md spec
+    // (only Meenakshi's AU number needs a live settings lookup).
+    waDigits:'918709525218',
+  },
+  meenakshi:{
+    name:'Meenakshi Ranjan',
+    title:'Curator',
+    // English-script logo for the Australia card.
+    logo:'meensha_logo_eng.png',
+    // Read from settings.wa_num_au at generation time, not hardcoded — see
+    // TODO.md: "+61 488 967 995, already a live DB value ... in case it
+    // ever changes." waFallback only covers a lookup failure.
+    waSettingKey:'wa_num_au',
+    waFallback:'61488967995',
+  },
+};
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+const ICONS={
+  call:'<svg viewBox="0 0 24 24" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.5 2.5.8 3.8.9.6 0 1 .5 1 1V20.8c0 .6-.5 1-1 1C10.7 21.8 2.2 13.3 2.2 2.8c0-.5.4-1 1-1H6.5c.5 0 1 .4 1 1 .1 1.3.4 2.6.9 3.8.2.3.1.7-.2 1l-2.2 2.2z"/></svg>',
+  whats:'<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.6 14.4c-.3-.1-1.8-.9-2.1-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.2-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.1-.3-.2-.6-.3z"/><path d="M12 2a10 10 0 00-8.5 15.2L2.5 21.5l4.4-1.4A10 10 0 1012 2z"/></svg>',
+  insta:'<svg viewBox="0 0 24 24" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="1.1" class="filled"/></svg>',
+  email:'<svg viewBox="0 0 24 24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/></svg>',
+  globe:'<svg viewBox="0 0 24 24" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>',
+};
+
+function iconLink(key,href,label){
+  const a=document.createElement('a');
+  a.className='icon-link';
+  a.href=href;
+  a.title=label;
+  a.setAttribute('aria-label',label);
+  if(/^https?:/.test(href))a.target='_blank';
+  if(key==='email'||key==='call')a.rel='noopener';
+  else a.rel='noopener noreferrer';
+  a.innerHTML=`<span class="icon-circle">${ICONS[key]}</span>`;
+  return a;
+}
+
+function showError(msg){
+  document.getElementById('CARD-BODY').innerHTML=`<div class="err">${esc(msg)}</div>`;
+}
+
+(async function(){
+  const params=new URLSearchParams(window.location.search);
+  const personKey=(params.get('person')||'').trim().toLowerCase();
+  const person=PEOPLE[personKey];
+  if(!person){
+    showError('Unknown card. Use ?person=shalini or ?person=meenakshi in the link.');
+    return;
+  }
+
+  let waDigits=person.waDigits;
+  if(!waDigits && person.waSettingKey){
+    const rows=await sbQ('settings',`?key=eq.${person.waSettingKey}&select=value`);
+    waDigits=(rows&&rows[0]&&rows[0].value?String(rows[0].value):'').replace(/\D/g,'')||person.waFallback;
+  }
+
+  document.querySelector('.header-row img').src=person.logo;
+  document.getElementById('P-NAME').textContent=person.name;
+  document.getElementById('P-TITLE').textContent=person.title;
+
+  const row=document.getElementById('ICON-ROW');
+  row.appendChild(iconLink('call',`tel:+${waDigits}`,'Call'));
+  row.appendChild(iconLink('whats',`https://wa.me/${waDigits}`,'WhatsApp'));
+  row.appendChild(iconLink('insta',`https://instagram.com/${INSTA_HANDLE}`,'Instagram'));
+  row.appendChild(iconLink('email',`mailto:${EMAIL}`,'Email'));
+  row.appendChild(iconLink('globe',WEBSITE,'Website'));
+})();
+</script>
+</body>
+</html>
