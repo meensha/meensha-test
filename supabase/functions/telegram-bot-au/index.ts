@@ -37,18 +37,25 @@ const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
 
-// Every chat_id on this bot's allowlist currently maps to the same KB tier.
-// telegram_allowed_users_au has no column distinguishing Meenakshi (the
-// account owner) from any other staff chat_id that self-registers via the
-// "first 3 chats" auto-approval above — just chat_id/label/active — so
-// there is no reliable signal to promote any particular chat_id to the
-// broader "owner" tier yet. Defaulting everyone to the narrowest tier
-// ("sales") until that signal exists (e.g. a real role column) is
-// deliberate: getting this wrong the other way would leak owner-tier
-// (financial/strategic) KB content to kiosk staff. Known gap — see
-// chatbot/README.md.
-function resolveChatbotTierAu(_chatId: number): string {
-  return "sales";
+// telegram_allowed_users_au now has a role column (see
+// 20261004060000_chatbot_tier_role_column.sql — migration file only, not yet
+// applied live) distinguishing Meenakshi (the account owner) from any other
+// allowlisted chat_id, including ones that self-registered via the "first 3
+// chats" auto-approval above. Looks up the caller's own row the same way
+// that auto-approval check does (chat_id + active=true), rather than
+// trusting a previously-fetched row — fails safe to "sales" on any lookup
+// miss (row not found, query error, or an unexpected role value), never
+// defaults to "owner". Previously this hardcoded "sales" for every caller —
+// see chatbot/README.md's "Known gap" section (now resolved).
+async function resolveChatbotTierAu(supabase: any, chatId: number): Promise<string> {
+  const { data: row, error } = await supabase
+    .from("telegram_allowed_users_au")
+    .select("role")
+    .eq("chat_id", String(chatId))
+    .eq("active", true)
+    .maybeSingle();
+  if (error || !row) return "sales";
+  return row.role === "owner" ? "owner" : "sales";
 }
 
 function toTelegramTextAu(md: string): string {
@@ -61,7 +68,7 @@ function toTelegramTextAu(md: string): string {
 }
 
 async function handleHowWorksTextAu(supabase: any, chatId: number, text: string) {
-  const tier = resolveChatbotTierAu(chatId);
+  const tier = await resolveChatbotTierAu(supabase, chatId);
   const result = await askChatbot(text, tier);
 
   if (!result) {
@@ -101,7 +108,7 @@ async function handleHowWorksEscalateAu(supabase: any, chatId: number, data: any
     await saveSession(supabase, chatId, "idle", {});
     return;
   }
-  const tier = resolveChatbotTierAu(chatId);
+  const tier = await resolveChatbotTierAu(supabase, chatId);
   const result = await escalateChatbot(data.howworksQuestion, data.howworksWeakSnippet, tier);
   if (!result.ok) {
     await tgSend(chatId, `Escalation failed: ${result.error}`);

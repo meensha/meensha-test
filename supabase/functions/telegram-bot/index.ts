@@ -32,18 +32,24 @@ const MENU_ACTIONS: MenuAction[] = [
   { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
 
-// Every chat_id on this bot's allowlist currently maps to the same KB tier.
-// telegram_allowed_users has no column distinguishing Shalini (the account
-// owner) from any other staff chat_id that might get allowlisted later —
-// just chat_id/label/active — so there is no reliable signal to promote any
-// particular chat_id to the broader "owner" tier yet. Defaulting everyone to
-// the narrowest tier ("sales") until that signal exists (e.g. a real role
-// column) is deliberate: getting this wrong in the other direction would
-// leak owner-tier (financial/strategic) KB content to kiosk staff, which is
-// exactly what this feature's role-scoping exists to prevent. Known gap —
-// see chatbot/README.md.
-function resolveChatbotTier(_chatId: number): string {
-  return "sales";
+// telegram_allowed_users now has a role column (see
+// 20261004060000_chatbot_tier_role_column.sql — migration file only, not yet
+// applied live) distinguishing Shalini (the account owner) from any other
+// allowlisted chat_id. Looks up the caller's own row the same way the main
+// allowlist check above does (chat_id + active=true), rather than trusting
+// the bulk allowlist array already in scope — fails safe to "sales" on any
+// lookup miss (row not found, query error, or an unexpected role value),
+// never defaults to "owner". Previously this hardcoded "sales" for every
+// caller — see chatbot/README.md's "Known gap" section (now resolved).
+async function resolveChatbotTier(supabase: SB, chatId: number): Promise<string> {
+  const { data: row, error } = await supabase
+    .from("telegram_allowed_users")
+    .select("role")
+    .eq("chat_id", String(chatId))
+    .eq("active", true)
+    .maybeSingle();
+  if (error || !row) return "sales";
+  return row.role === "owner" ? "owner" : "sales";
 }
 
 // Converts a KB chunk's markdown to plain Telegram text — Telegram has no
@@ -60,7 +66,7 @@ function toTelegramText(md: string): string {
 }
 
 async function handleHowWorksText(supabase: SB, chatId: number, text: string) {
-  const tier = resolveChatbotTier(chatId);
+  const tier = await resolveChatbotTier(supabase, chatId);
   const result = await askChatbot(text, tier);
 
   if (!result) {
@@ -102,7 +108,7 @@ async function handleHowWorksEscalate(supabase: SB, chatId: number, data: Sessio
   }
   // "howworks:escalate:yes" — only reachable by this explicit tap, never
   // auto-fired after a no-confident-match answer above.
-  const tier = resolveChatbotTier(chatId);
+  const tier = await resolveChatbotTier(supabase, chatId);
   const result = await escalateChatbot(data.howworksQuestion, data.howworksWeakSnippet, tier);
   if (!result.ok) {
     await tgSend(chatId, `Escalation failed: ${result.error}`);

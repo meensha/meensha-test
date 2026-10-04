@@ -43,6 +43,23 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-10-04: Closed the chatbot owner-tier gap noted below (and in `chatbot/README.md`'s
+  former "Known gap" section). Added `supabase/migrations/20261004060000_chatbot_tier_role_column.sql`
+  (**file only, not applied to the live DB** — same manual-apply convention as every other
+  migration this session) adding a `role text NOT NULL DEFAULT 'sales' CHECK (role IN
+  ('owner','sales'))` column to both `telegram_allowed_users` and `telegram_allowed_users_au`,
+  and promoting the identified owner rows: chat_id `8853893414` (label "migrated", India's
+  only allowlisted row) → `role='owner'` on `telegram_allowed_users` (Shalini); chat_id
+  `8918326830` (label "Meenakshi Ranjan") → `role='owner'` on `telegram_allowed_users_au`
+  (Meenakshi). The other AU row, chat_id `8853893414` (label "Meensha Fabrics" — same chat_id
+  as the India owner row, a shared cross-bot broadcast contact, not a second AU owner), stays
+  at the `'sales'` default. Both bots' `resolveChatbotTier`/`resolveChatbotTierAu` now read
+  this column (query by `chat_id` + `active=true`, same pattern as each bot's existing
+  allowlist check) instead of hardcoding `'sales'` — fails safe to `'sales'` on any lookup
+  miss, never defaults to `'owner'`. Type-checked both edited bot files with `tsc --strict`
+  (no new errors beyond the expected `Deno`/`esm.sh` noise and the pre-existing unrelated
+  `SendFn` mismatch). QA'd by an independent subagent before reporting done.
+
 - 2026-10-04: Chatbot retrieval/escalation/auth build (Phases 2-4, 6-7 of the internal "how
   does this work" chatbot plan — Phase 1/1.5 KB content from earlier today, Phase 5 hosting
   explicitly out of scope). New `chatbot/server/` (local lexical search over `chatbot/kb/`,

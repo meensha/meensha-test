@@ -44,23 +44,32 @@ The chatbot never asks anyone to log in a second time. It's reachable from:
 A secret presented at all but wrong fails closed (doesn't fall through to the session
 path) — see the comment in `auth.js`.
 
-## Known gap: both bots currently default every caller to `sales` tier
+## Resolved: both bots used to default every caller to `sales` tier
 
-`telegram_allowed_users` / `telegram_allowed_users_au` have **no column distinguishing the
-account owner (Shalini/Meenakshi) from any other allowlisted chat_id** — just
-`chat_id`/`label`/`active`. An insertion-order heuristic ("first row = owner") was
+`telegram_allowed_users` / `telegram_allowed_users_au` used to have **no column
+distinguishing the account owner (Shalini/Meenakshi) from any other allowlisted chat_id** —
+just `chat_id`/`label`/`active`. An insertion-order heuristic ("first row = owner") was
 considered and deliberately rejected during build: it's not a reliable signal, and getting
 it wrong would leak owner-tier (financial/strategic) KB content to kiosk/sales staff — the
 exact thing this feature's role-scoping exists to prevent.
 
-So both bots' `resolveChatbotTier(_chatId)` / `resolveChatbotTierAu(_chatId)` currently
-**ignore the chat_id and always return `'sales'`**, unconditionally, for every caller on
-that bot — including Shalini and Meenakshi themselves. This means asking via the bot only
-ever gets sales-tier answers right now; Shalini/Meenakshi still get full owner-tier access
-via admin.html's "🤖 Ask Chatbot" button, which is unaffected. **This needs a real decision
-from Dheeraj to fix** — e.g. add a `role`/`is_owner` column to both allowlist tables (set
-once per row, not inferred) and update those two functions to read it, once that column
-exists.
+Fixed via `supabase/migrations/20261004060000_chatbot_tier_role_column.sql` (migration file
+only — needs manual application via the Supabase SQL editor, same as every other migration
+this session, **not yet applied live**), which adds a `role text NOT NULL DEFAULT 'sales'
+CHECK (role IN ('owner','sales'))` column to both tables and promotes the identified owner
+row(s):
+
+- `telegram_allowed_users` (India): chat_id `8853893414` (label "migrated", the only row on
+  this table) → `role='owner'` — Shalini's account.
+- `telegram_allowed_users_au` (Australia): chat_id `8918326830` (label "Meenakshi Ranjan") →
+  `role='owner'` — Meenakshi's own account. The other AU row, chat_id `8853893414` (label
+  "Meensha Fabrics" — the same chat_id promoted above, a shared/business-wide contact used
+  for cross-bot broadcasts, not a second AU owner identity), stays at the `'sales'` default.
+
+Both bots' `resolveChatbotTier(supabase, chatId)` / `resolveChatbotTierAu(supabase, chatId)`
+now look up the caller's own row (`chat_id` + `active=true`) and read `role` — fails safe to
+`'sales'` on any lookup miss (row not found, query error, or an unexpected `role` value),
+never defaults to `'owner'`.
 
 ## File structure
 
