@@ -19,12 +19,7 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
   - Needs: a supervisor → worker → QA → reporting-manager agent pipeline, each terminating after its task; daily morning-brief progress reporting; all actions recorded to syncthing/obsidian/gitea (and blog posts published) each phase. **The 4-hourly TODO-worker cloud routine (below) is the first piece of this — currently blocked on connecting GitHub to claude.ai.**
 - [ ] sitemap.xml still has no entries for the (future, Artisans-section-only) CSR/weaver-upliftment posts — add once that content exists.
 
-- [ ] "Social media boost worker" — Shalbot (India bot, `supabase/functions/telegram-bot/index.ts`) should proactively nudge Shalini about pending Instagram/social-media growth setup steps and let her ask free-form questions for step-by-step guidance instead of only menu buttons. Spec'd out 2026-10-04 from a chat with Dheeraj, not yet built:
-  - Reminder copy (Dheeraj's exact wording): "Hey Shalini, want to increase traffic to your page and site? These steps are pending: `<dynamic list>`. Ask me anything and I'll guide you step by step." Show it (e.g. from `showTopMenu`) whenever the checklist below has pending items — don't nag once everything's checked off.
-  - Pending-steps list = the Instagram Graph API setup checklist (convert IG to Business/Creator account; link a Facebook Page; create a Meta Developer app; generate a long-lived access token — App Review/business verification is a separate later step, only needed once this goes beyond the linked test account). Store as JSON in a new `settings` row (e.g. key `ig_setup_checklist`), following the existing key/value + `upsert(..., {onConflict:'key'})` pattern already used elsewhere in this file (see e.g. `upi_qr_code_url`, `inv_counter`). Toggle items via inline-keyboard buttons (e.g. `socialboost:done:<id>` callback) rather than trusting free-text/LLM parsing to detect "I did this" — matches the existing callback-button convention (`kiosk:`, `inv:`, etc.).
-  - The "ask me anything" layer does **not** need a new secret: OpenRouter is already wired up in `supabase/functions/_shared/askGemini.ts` (`callLLM`, reads `settings.openrouter_key`/`openrouter_model` fresh each call, falls back to `settings.gemini_key`) — it's just never had an actual key value set. Add that via admin.html/SQL before this is testable end-to-end. The existing exported `askGemini()` is deliberately scoped to a fixed set of stock/sales/price lookups (never raw LLM chat, never DB access) — this feature needs a new, separate open-ended export from the same file (e.g. `askSocialBoostAssistant(supabase, question, checklist)`) since it's guidance/Q&A about the checklist, not a DB lookup.
-  - Hook point: `handleTextInput`'s end-of-chain fallback (~line 1577-1588 as of 2026-10-04) already falls through from menu-keyword search to `askGemini`'s stock/sales Q&A when no flow/keyword matches. The new assistant needs its own branch spliced in before that (keyed on keywords like "instagram"/"social"/"traffic"/"boost"/"what next", or a dedicated `socialboost_*` session state) so it doesn't collide with the existing stock-lookup fallback.
-  - Not yet built — purely spec at this point, left as a TODO rather than implemented same-session per Dheeraj's call 2026-10-04.
+- [ ] "Social media boost worker" — remaining piece: the free-form "ask me anything" guidance layer (the reminder-nudge + checklist-toggle half is now built, see Done below). OpenRouter is already wired up in `supabase/functions/_shared/askGemini.ts` (`callLLM`, reads `settings.openrouter_key`/`openrouter_model` fresh each call, falls back to `settings.gemini_key`) — it's just never had an actual key value set. Add that via admin.html/SQL before this is testable end-to-end (needs admin/owner access this cloud worker doesn't have). Needs a new, separate open-ended export from that file (e.g. `askSocialBoostAssistant(supabase, question, checklist)`) — the existing `askGemini()` export is deliberately scoped to fixed stock/sales/price lookups only, never raw LLM chat. Hook point: `handleTextInput`'s end-of-chain fallback in `telegram-bot/index.ts` (falls through to `askGemini`'s stock/sales Q&A when no flow/keyword matches) — the new assistant needs its own branch spliced in before that (keyed on keywords like "instagram"/"social"/"traffic"/"boost"/"what next", or a dedicated `socialboost_*` session state) so it doesn't collide with the existing stock-lookup fallback.
 
 - [ ] SEO follow-ups from the 2026-09-27 audit (full detail: `../meensha.in-audit/MEASUREMENT.md`):
   - Font loading is now the main LCP cost (homepage lab LCP 9.5 s): trim Google Fonts weights and preload the hero font. **Needs owner OK**, since it can change how the site looks.
@@ -39,6 +34,27 @@ Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to git
 
 ## Done (recent, for reference)
 
+- 2026-10-04 (cloud routine): Social media boost worker, reminder-nudge half — Shalbot
+  (India bot, `supabase/functions/telegram-bot/index.ts` only, per the spec's scope) now
+  shows Dheeraj's exact reminder copy ("Hey Shalini, want to increase traffic to your page
+  and site? These steps are pending: ..., Ask me anything and I'll guide you step by step.")
+  from `showTopMenu` whenever the Instagram Graph API setup checklist has pending items —
+  silent once everything's checked off. Checklist (convert IG to Business/Creator; link a
+  Facebook Page; create a Meta Developer app; generate a long-lived access token) lives in
+  new `settings` row `ig_setup_checklist` (JSON array), seeded with defaults on first read,
+  same key/value `upsert(..., {onConflict:'key'})` pattern as `upi_qr_code_url`/`inv_counter`.
+  Each pending step has its own inline-keyboard toggle button (`socialboost:done:<id>`
+  callback, new `handleSocialBoost()`), matching the existing `kiosk:`/`inv:` callback-button
+  convention rather than trusting free-text parsing. Deliberately left out the "ask me
+  anything" free-form Q&A half (needs an `askSocialBoostAssistant` export plus an
+  `openrouter_key`/`gemini_key` actually set in `settings` — neither available to this
+  worker; re-queued above). Type-checked with `tsc --strict` (only the expected
+  `Deno`/`esm.sh` noise and the pre-existing `SendFn` mismatch, both pre-existing in this
+  file). **Not deployed** — this routine's sandbox has no `supabase` CLI and no network
+  route to Supabase (outbound is restricted to `github.com` + package registries), so unlike
+  earlier sessions' Done entries this one could only type-check, not deploy or curl-verify;
+  needs a `supabase functions deploy telegram-bot --no-verify-jwt` (or equivalent) from a
+  session that can reach Supabase before Shalini actually sees this live.
 - 2026-10-04: Digital visiting card, both bots — new "📇 Share visiting card" entry in each
   bot's Maintenance menu (`maint:sharecard`), sending the owner a link to their own public
   card page: `visiting-card.html?person=shalini` (India) / `?person=meenakshi` (Australia).

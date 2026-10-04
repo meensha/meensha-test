@@ -267,6 +267,8 @@ Deno.serve(async (req: Request) => {
     await handleEventPhotoToggle(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("maint:")) {
     await handleMaintenance(supabase, chatId, callbackData, data);
+  } else if (callbackData?.startsWith("socialboost:")) {
+    await handleSocialBoost(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("howworks:escalate:")) {
     await handleHowWorksEscalate(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("iglink:")) {
@@ -365,6 +367,7 @@ async function showTopMenu(chatId: number) {
       [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
     ],
   });
+  await sendSocialBoostNudge(chatId);
 }
 
 // Everything that isn't Kiosk or Enter Inventory lives here — Check stock,
@@ -456,6 +459,65 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
     await startAddPhoto(supabase, chatId, callbackData.slice("maint:addphoto:pick:".length));
     return;
   }
+}
+
+// ═══════════════════════════════════════════════
+// SOCIAL MEDIA BOOST NUDGE
+// ═══════════════════════════════════════════════
+// Proactively reminds Shalini about the pending Instagram Graph API setup
+// steps (business/creator conversion, Facebook Page link, Meta dev app,
+// long-lived token — needed before IG-driven features like view-count
+// "Trending" signals or native product tags can go live) whenever she opens
+// the top menu, instead of making her remember to ask. Checklist lives in
+// settings.ig_setup_checklist (JSON array), toggled via inline buttons
+// rather than free-text/LLM parsing. Spec'd 2026-10-04 — this covers only
+// the reminder + checklist; the free-form "ask me anything" guidance layer
+// is a separate, not-yet-built piece (see TODO.md).
+const DEFAULT_IG_SETUP_CHECKLIST = [
+  { id: "ig_business", label: "Convert Instagram to a Business/Creator account", done: false },
+  { id: "fb_page", label: "Link a Facebook Page to the Instagram account", done: false },
+  { id: "meta_app", label: "Create a Meta Developer app", done: false },
+  { id: "access_token", label: "Generate a long-lived access token", done: false },
+];
+
+async function getIgSetupChecklist(supabase: SB): Promise<{ id: string; label: string; done: boolean }[]> {
+  const { data: row } = await supabase.from("settings").select("value").eq("key", "ig_setup_checklist").maybeSingle();
+  if (!row?.value) {
+    await supabase.from("settings").upsert({ key: "ig_setup_checklist", value: JSON.stringify(DEFAULT_IG_SETUP_CHECKLIST) }, { onConflict: "key" });
+    return DEFAULT_IG_SETUP_CHECKLIST;
+  }
+  try {
+    return JSON.parse(row.value);
+  } catch {
+    return DEFAULT_IG_SETUP_CHECKLIST;
+  }
+}
+
+async function sendSocialBoostNudge(chatId: number) {
+  const checklist = await getIgSetupChecklist(supabase);
+  const pending = checklist.filter((item) => !item.done);
+  if (!pending.length) return;
+  const list = pending.map((item) => item.label).join(", ");
+  await tgSend(
+    chatId,
+    `Hey Shalini, want to increase traffic to your page and site? These steps are pending: ${list}. Ask me anything and I'll guide you step by step.`,
+    { inline_keyboard: pending.map((item) => [{ text: `✅ Done: ${item.label}`, callback_data: `socialboost:done:${item.id}` }]) },
+  );
+}
+
+async function handleSocialBoost(supabase: SB, chatId: number, callbackData: string) {
+  if (!callbackData.startsWith("socialboost:done:")) return;
+  const id = callbackData.slice("socialboost:done:".length);
+  const checklist = await getIgSetupChecklist(supabase);
+  const updated = checklist.map((item) => (item.id === id ? { ...item, done: true } : item));
+  await supabase.from("settings").upsert({ key: "ig_setup_checklist", value: JSON.stringify(updated) }, { onConflict: "key" });
+  const stillPending = updated.filter((item) => !item.done);
+  if (!stillPending.length) {
+    await tgSend(chatId, "🎉 All Instagram setup steps are checked off!");
+    return;
+  }
+  await tgSend(chatId, "Marked as done.");
+  await sendSocialBoostNudge(chatId);
 }
 
 // ═══════════════════════════════════════════════
