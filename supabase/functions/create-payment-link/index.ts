@@ -24,16 +24,13 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { items, total, customer, unit_ids, currency, coupon, source, telegram_chat_id } = await req.json();
+    const { items, customer, unit_ids, currency, coupon, source, telegram_chat_id } = await req.json();
 
     if (!Array.isArray(unit_ids) || !unit_ids.length) {
       return json({ error: "Cart is empty" }, 400);
     }
     if (!customer?.name || !customer?.wa) {
       return json({ error: "Name and WhatsApp number are required" }, 400);
-    }
-    if (!total || total <= 0) {
-      return json({ error: "Invalid total" }, 400);
     }
     if (currency && currency !== "INR") {
       return json({ error: "Razorpay checkout is India-only" }, 400);
@@ -46,9 +43,13 @@ Deno.serve(async (req: Request) => {
 
     // Defensive re-check: every unit must still be available or already
     // reserved (by this same customer's earlier Add to Cart) — never sold.
+    // Also pulls each unit's real sku_id so the price can be recomputed
+    // server-side below — the client-submitted `total` is never trusted
+    // (a customer could edit it in devtools before this call; stock was
+    // already re-checked here but price wasn't, until this fix).
     const { data: units, error: unitsErr } = await supabase
       .from("inventory_units")
-      .select("id,status")
+      .select("id,status,sku_id")
       .in("id", unit_ids);
     if (unitsErr) return json({ error: "Could not verify stock" }, 500);
     const unavailable = (units || []).filter(
@@ -59,6 +60,50 @@ Deno.serve(async (req: Request) => {
         { error: "One or more items were just sold — please refresh your cart." },
         409,
       );
+    }
+
+    const skuIds = [...new Set((units || []).map((u: { sku_id: string }) => u.sku_id))];
+    const { data: skus, error: skusErr } = await supabase
+      .from("inventory_skus")
+      .select("id,name,sale_price")
+      .in("id", skuIds);
+    if (skusErr) return json({ error: "Could not verify prices" }, 500);
+    const skuById = new Map((skus || []).map((s: { id: string; name: string; sale_price: number }) => [s.id, s]));
+
+    // Server-truth cart: one line per unit, price from inventory_skus, never
+    // from the client. `items` (client-sent) is used only for the Razorpay
+    // description text below — cosmetic, not security-relevant.
+    const serverItems = (units || []).map((u: { id: string; sku_id: string }) => {
+      const sku = skuById.get(u.sku_id) as { name: string; sale_price: number } | undefined;
+      return { unit_id: u.id, name: sku?.name || "", price: sku?.sale_price || 0 };
+    });
+    const subtotal = serverItems.reduce((a, it) => a + it.price, 0);
+
+    // Re-validate the coupon server-side (same RPC the storefront itself
+    // calls) rather than trusting a client-reported discount_type/value —
+    // mirrors couponDiscountBase() in index.html exactly.
+    let discount = 0;
+    if (coupon?.code) {
+      const { data: cRes } = await supabase.rpc("validate_coupon", {
+        p_code: coupon.code,
+        p_wa: coupon.wa || null,
+        p_region: "india",
+      });
+      if (cRes?.valid) {
+        const filter = cRes.category_filter as string | null;
+        const discountBase = filter
+          ? serverItems.filter((it) => it.name.toLowerCase().includes(filter.toLowerCase())).reduce((a, it) => a + it.price, 0)
+          : subtotal;
+        discount = cRes.discount_type === "percent"
+          ? discountBase * (Number(cRes.discount_value) / 100)
+          : Number(cRes.discount_value);
+        discount = Math.min(discount, discountBase);
+      }
+    }
+
+    const total = Math.round((subtotal - discount) * 100) / 100;
+    if (!total || total <= 0) {
+      return json({ error: "Invalid total" }, 400);
     }
 
     const orderId = crypto.randomUUID();
