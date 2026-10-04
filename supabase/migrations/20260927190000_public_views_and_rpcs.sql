@@ -10,7 +10,7 @@
 -- True when the request carries a valid admin session token (see
 -- 20260927180000_admin_session_guard.sql). Used by RLS policies and by
 -- admin.html's session check.
-CREATE FUNCTION public.has_admin_session()
+CREATE OR REPLACE FUNCTION public.has_admin_session()
  RETURNS boolean
  LANGUAGE sql
  STABLE
@@ -27,12 +27,12 @@ GRANT EXECUTE ON FUNCTION public.has_admin_session() TO anon;
 
 -- Storefront catalog. Views run as their owner, so they keep working once the
 -- base tables are locked; cost and vendor/purchase links are left out.
-CREATE VIEW public.public_skus AS
+CREATE OR REPLACE VIEW public.public_skus AS
   SELECT id, sku_code, name, material, tags, mrp, disc, sale_price, sale_price_aud,
          hero_photo, description, created_at, updated_at, display_material,
          display_variant, pattern, variant, photos, india_available, au_available, trending
     FROM public.inventory_skus;
-CREATE VIEW public.public_units AS
+CREATE OR REPLACE VIEW public.public_units AS
   SELECT id, sku_id, status FROM public.inventory_units;
 -- Read-only: these are auto-updatable views owned by postgres, so a write
 -- through them would bypass RLS on the base tables.
@@ -41,7 +41,7 @@ GRANT SELECT ON public.public_skus, public.public_units TO anon;
 
 -- invoice.html: return the sale only when the WhatsApp number matches (last
 -- 10 digits, same rule the page used to apply client-side).
-CREATE FUNCTION public.get_invoice(p_inv text, p_wa text)
+CREATE OR REPLACE FUNCTION public.get_invoice(p_inv text, p_wa text)
  RETURNS SETOF public.sales
  LANGUAGE sql
  STABLE
@@ -60,7 +60,7 @@ GRANT EXECUTE ON FUNCTION public.get_invoice(text, text) TO anon;
 -- admin.html "Forgot password" (before login). Returns NULL if the username
 -- is unknown, 'super_admin' for the rachnakar flow, otherwise files a reset
 -- request and returns 'requested'.
-CREATE FUNCTION public.staff_forgot_password(p_username text, p_note text)
+CREATE OR REPLACE FUNCTION public.staff_forgot_password(p_username text, p_note text)
  RETURNS text
  LANGUAGE plpgsql
  SECURITY DEFINER
