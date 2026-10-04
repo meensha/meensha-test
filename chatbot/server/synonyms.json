@@ -1,0 +1,19 @@
+{
+  "qr": ["voucher", "coupon", "scan", "code"],
+  "voucher": ["coupon", "code", "qr"],
+  "coupon": ["voucher", "code", "discount"],
+  "discount": ["coupon", "voucher", "offer"],
+  "kiosk": ["pos", "sale", "instore", "walkin"],
+  "bot": ["telegram", "shalbot", "ozbot"],
+  "telegram": ["bot"],
+  "payment": ["checkout", "razorpay", "pay"],
+  "checkout": ["payment", "razorpay", "order"],
+  "stock": ["inventory", "intake", "units"],
+  "inventory": ["stock", "sku", "units"],
+  "invoice": ["bill", "receipt"],
+  "login": ["auth", "session", "signin"],
+  "auth": ["login", "session"],
+  "admin": ["role", "permission", "gating"],
+  "instagram": ["ig", "social"],
+  "sale": ["kiosk", "checkout", "order"]
+}

@@ -22,6 +22,7 @@ import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts"
 import { handleRequestAction } from "../_shared/requestActions.ts";
 import { logActivity } from "../_shared/activityLog.ts";
 import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuSearch.ts";
+import { askChatbot, escalateChatbot } from "../_shared/chatbotClient.ts";
 
 const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["kiosk", "sale", "sell"], label: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" },
@@ -33,7 +34,82 @@ const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["note"], label: "📝 Add a note", callback_data: "maint:note" },
   { keywords: ["photo", "image", "picture"], label: "📷 Add photo to item", callback_data: "maint:addphoto" },
   { keywords: ["event", "event form", "registration"], label: "📋 Create event form", callback_data: "vouchers:eventform" },
+  { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
+
+// Every chat_id on this bot's allowlist currently maps to the same KB tier.
+// telegram_allowed_users_au has no column distinguishing Meenakshi (the
+// account owner) from any other staff chat_id that self-registers via the
+// "first 3 chats" auto-approval above — just chat_id/label/active — so
+// there is no reliable signal to promote any particular chat_id to the
+// broader "owner" tier yet. Defaulting everyone to the narrowest tier
+// ("sales") until that signal exists (e.g. a real role column) is
+// deliberate: getting this wrong the other way would leak owner-tier
+// (financial/strategic) KB content to kiosk staff. Known gap — see
+// chatbot/README.md.
+function resolveChatbotTierAu(_chatId: number): string {
+  return "sales";
+}
+
+function toTelegramTextAu(md: string): string {
+  return md
+    .replace(/```mermaid[\s\S]*?```/g, "[diagram — view in the web chatbot via admin.html for the full picture]")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/^#{1,3}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .trim();
+}
+
+async function handleHowWorksTextAu(supabase: any, chatId: number, text: string) {
+  const tier = resolveChatbotTierAu(chatId);
+  const result = await askChatbot(text, tier);
+
+  if (!result) {
+    await tgSend(chatId, "The chatbot isn't available yet (not deployed). Try again later.");
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  if (result.confident && result.matches.length) {
+    for (const m of result.matches) {
+      await tgSend(chatId, `${toTelegramTextAu(m.text)}\n\n(Source: ${m.source})`);
+    }
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  let weakSnippet: string | undefined;
+  if (result.matches.length) {
+    weakSnippet = result.matches[0].text;
+    await tgSend(chatId, `No confident local match. Closest related content:\n\n${toTelegramTextAu(weakSnippet)}\n\n(Source: ${result.matches[0].source})`);
+  } else {
+    await tgSend(chatId, "No confident local match found for that question.");
+  }
+
+  await tgSend(chatId, "Ask an external AI instead? (sends your question to OpenRouter)", {
+    inline_keyboard: [[
+      { text: "🤖 Yes, ask external AI", callback_data: "howworks:escalate:yes" },
+      { text: "✕ No", callback_data: "howworks:escalate:no" },
+    ]],
+  });
+  await saveSession(supabase, chatId, "howworks_awaiting_escalate", { howworksQuestion: text, howworksWeakSnippet: weakSnippet });
+}
+
+async function handleHowWorksEscalateAu(supabase: any, chatId: number, data: any, callbackData: string) {
+  if (callbackData === "howworks:escalate:no") {
+    await tgSend(chatId, "OK — not asking external AI.");
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  const tier = resolveChatbotTierAu(chatId);
+  const result = await escalateChatbot(data.howworksQuestion, data.howworksWeakSnippet, tier);
+  if (!result.ok) {
+    await tgSend(chatId, `Escalation failed: ${result.error}`);
+  } else {
+    await tgSend(chatId, `⚠️ Answered by external AI (${result.model}), not local docs — verify before relying on this.\n\n${toTelegramTextAu(result.answer)}`);
+  }
+  await saveSession(supabase, chatId, "idle", {});
+}
 
 async function tryMenuKeywordSearchAu(chatId: number, text: string): Promise<boolean> {
   if (isGreeting(text)) {
@@ -787,6 +863,8 @@ Deno.serve(async (req: Request) => {
     await handleGodown(supabase, chatId, state, data, callbackData);
   } else if (callbackData?.startsWith("maint:")) {
     await handleMaintenanceAu(supabase, chatId, callbackData, data);
+  } else if (callbackData?.startsWith("howworks:escalate:")) {
+    await handleHowWorksEscalateAu(supabase, chatId, data, callbackData);
   } else if (callbackData === "vouchers:menu") {
     await showVouchersMenu(chatId);
   } else if (callbackData === "vouchers:back") {
@@ -814,6 +892,8 @@ Deno.serve(async (req: Request) => {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text && state.startsWith("inv_")) {
     await handleInventoryTextAu(supabase, chatId, state, data, text);
+  } else if (text && state === "howworks_ask") {
+    await handleHowWorksTextAu(supabase, chatId, text);
   } else if (text && state === "maint_note_text") {
     await handleMaintenanceTextAu(supabase, chatId, text);
   } else if (photo?.length && state === "maint_addphoto_upload") {
@@ -1236,6 +1316,7 @@ async function showMaintenanceMenuAu(chatId: number) {
     inline_keyboard: [
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
       [{ text: "📷 Add photo to item", callback_data: "maint:addphoto" }],
+      [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });
@@ -1267,6 +1348,11 @@ async function handleMaintenanceAu(supabase: any, chatId: number, callbackData: 
   }
   if (callbackData.startsWith("maint:addphoto:pick:")) {
     await startAddPhotoAu(supabase, chatId, callbackData.slice("maint:addphoto:pick:".length));
+    return;
+  }
+  if (callbackData === "maint:howworks") {
+    await tgSend(chatId, "Type your question about how something works, and I'll look it up.");
+    await saveSession(supabase, chatId, "howworks_ask", {});
     return;
   }
 }

@@ -157,6 +157,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <button class="btn bgy sm" onclick="exportAllXL()">📊 Export All</button>
     <button class="btn bg sm" onclick="backupNow()">💾 Backup</button>
     <button class="btn bgy sm" onclick="openHelpGuide()">❓ Help Guide</button>
+    <button class="btn bgy sm" onclick="openChatbot()">🤖 Ask Chatbot</button>
     <button class="btn bgy sm" onclick="openChangePwd()">🔑 Password</button>
     <button class="btn br sm" onclick="doLogout()">🔒 Logout</button>
   </div>
@@ -1390,6 +1391,16 @@ function doLogout(){sessionStorage.removeItem('MSN_USER');window.location.href='
 function openHelpGuide(){
   const file=CU.username==='meenakshi'?'help-meenakshi.html':'help-shalini.html';
   window.open(file,'_blank');
+}
+// Opens the internal "how does this work" chatbot — no login of its own,
+// it reuses the session_token already sitting in CU (from this page's own
+// login) via the URL fragment, which a browser never sends to any server or
+// records in request logs (unlike a query string). CHATBOT_URL is the
+// chatbot app's own host (not yet deployed as of this writing — see
+// chatbot/README.md; Phase 5/hosting is still outstanding).
+const CHATBOT_URL='https://chatbot.meensha.in/';
+function openChatbot(){
+  window.open(`${CHATBOT_URL}#session_token=${encodeURIComponent(CU.session_token)}`,'_blank');
 }
 
 // ═══════════════════════════════════════════════

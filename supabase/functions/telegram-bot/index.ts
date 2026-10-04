@@ -13,6 +13,7 @@ import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts"
 import { handleRequestAction } from "../_shared/requestActions.ts";
 import { logActivity } from "../_shared/activityLog.ts";
 import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuSearch.ts";
+import { askChatbot, escalateChatbot } from "../_shared/chatbotClient.ts";
 
 const MENU_ACTIONS: MenuAction[] = [
   { keywords: ["kiosk", "sale", "sell", "checkout"], label: "🛍️ Kiosk mode", callback_data: "kiosk:start" },
@@ -28,7 +29,88 @@ const MENU_ACTIONS: MenuAction[] = [
   { keywords: ["insta", "instagram", "insta link"], label: "🔗 Insta link", callback_data: "maint:iglink" },
   { keywords: ["voucher", "coupon", "discount", "promo", "discount code"], label: "🎟️ Create voucher", callback_data: "maint:voucher" },
   { keywords: ["event", "event form", "registration form", "event registration"], label: "📋 Create event form", callback_data: "maint:eventform" },
+  { keywords: ["how does", "how it works", "explain", "how works"], label: "❓ How does this work?", callback_data: "maint:howworks" },
 ];
+
+// Every chat_id on this bot's allowlist currently maps to the same KB tier.
+// telegram_allowed_users has no column distinguishing Shalini (the account
+// owner) from any other staff chat_id that might get allowlisted later —
+// just chat_id/label/active — so there is no reliable signal to promote any
+// particular chat_id to the broader "owner" tier yet. Defaulting everyone to
+// the narrowest tier ("sales") until that signal exists (e.g. a real role
+// column) is deliberate: getting this wrong in the other direction would
+// leak owner-tier (financial/strategic) KB content to kiosk staff, which is
+// exactly what this feature's role-scoping exists to prevent. Known gap —
+// see chatbot/README.md.
+function resolveChatbotTier(_chatId: number): string {
+  return "sales";
+}
+
+// Converts a KB chunk's markdown to plain Telegram text — Telegram has no
+// HTML/SVG rendering for inline content, so headings/bold/mermaid fences
+// are stripped rather than converted; a mermaid block becomes a short note
+// pointing at the web view (admin.html's chatbot button) instead.
+function toTelegramText(md: string): string {
+  return md
+    .replace(/```mermaid[\s\S]*?```/g, "[diagram — view in the web chatbot via admin.html for the full picture]")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/^#{1,3}\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .trim();
+}
+
+async function handleHowWorksText(supabase: SB, chatId: number, text: string) {
+  const tier = resolveChatbotTier(chatId);
+  const result = await askChatbot(text, tier);
+
+  if (!result) {
+    await tgSend(chatId, "The chatbot isn't available yet (not deployed). Try again later.");
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  if (result.confident && result.matches.length) {
+    for (const m of result.matches) {
+      await tgSend(chatId, `${toTelegramText(m.text)}\n\n(Source: ${m.source})`);
+    }
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+
+  let weakSnippet: string | undefined;
+  if (result.matches.length) {
+    weakSnippet = result.matches[0].text;
+    await tgSend(chatId, `No confident local match. Closest related content:\n\n${toTelegramText(weakSnippet)}\n\n(Source: ${result.matches[0].source})`);
+  } else {
+    await tgSend(chatId, "No confident local match found for that question.");
+  }
+
+  await tgSend(chatId, "Ask an external AI instead? (sends your question to OpenRouter)", {
+    inline_keyboard: [[
+      { text: "🤖 Yes, ask external AI", callback_data: "howworks:escalate:yes" },
+      { text: "✕ No", callback_data: "howworks:escalate:no" },
+    ]],
+  });
+  await saveSession(supabase, chatId, "howworks_awaiting_escalate", { howworksQuestion: text, howworksWeakSnippet: weakSnippet });
+}
+
+async function handleHowWorksEscalate(supabase: SB, chatId: number, data: SessionData, callbackData: string) {
+  if (callbackData === "howworks:escalate:no") {
+    await tgSend(chatId, "OK — not asking external AI.");
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  // "howworks:escalate:yes" — only reachable by this explicit tap, never
+  // auto-fired after a no-confident-match answer above.
+  const tier = resolveChatbotTier(chatId);
+  const result = await escalateChatbot(data.howworksQuestion, data.howworksWeakSnippet, tier);
+  if (!result.ok) {
+    await tgSend(chatId, `Escalation failed: ${result.error}`);
+  } else {
+    await tgSend(chatId, `⚠️ Answered by external AI (${result.model}), not local docs — verify before relying on this.\n\n${toTelegramText(result.answer)}`);
+  }
+  await saveSession(supabase, chatId, "idle", {});
+}
 
 // Checked before the Gemini natural-language fallback wherever free text
 // shows up with no active flow expecting it. Returns true if it handled the
@@ -175,6 +257,8 @@ Deno.serve(async (req: Request) => {
     await handleEventPhotoToggle(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("maint:")) {
     await handleMaintenance(supabase, chatId, callbackData, data);
+  } else if (callbackData?.startsWith("howworks:escalate:")) {
+    await handleHowWorksEscalate(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("iglink:")) {
     await handleIglink(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("voucher:type:")) {
@@ -201,6 +285,8 @@ Deno.serve(async (req: Request) => {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text && state.startsWith("inv_")) {
     await handleInventoryText(supabase, chatId, state, data, text);
+  } else if (text && state === "howworks_ask") {
+    await handleHowWorksText(supabase, chatId, text);
   } else if (text && state === "maint_note_text") {
     await handleMaintenanceText(supabase, chatId, text);
   } else if (text && state === "maint_aucost_amount") {
@@ -283,6 +369,7 @@ async function showMaintenanceMenu(chatId: number) {
       [{ text: "🔗 Insta link", callback_data: "maint:iglink" }],
       [{ text: "🎟️ Create voucher", callback_data: "maint:voucher" }],
       [{ text: "📋 Create event form", callback_data: "maint:eventform" }],
+      [{ text: "❓ How does this work?", callback_data: "maint:howworks" }],
       [{ text: "◀ Back to menu", callback_data: "maint:back" }],
     ],
   });
@@ -321,6 +408,11 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
   if (callbackData === "maint:eventform") {
     await tgSend(chatId, "Event title? (e.g. AFWWA Exhibition)");
     await saveSession(supabase, chatId, "eventform_title", {});
+    return;
+  }
+  if (callbackData === "maint:howworks") {
+    await tgSend(chatId, "Type your question about how something works, and I'll look it up.");
+    await saveSession(supabase, chatId, "howworks_ask", {});
     return;
   }
   if (callbackData === "maint:aucost") {
