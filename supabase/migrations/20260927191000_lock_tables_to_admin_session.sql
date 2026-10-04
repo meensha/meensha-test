@@ -29,11 +29,12 @@ BEGIN
     EXECUTE format('DROP POLICY IF EXISTS "open" ON public.%I', t);
     EXECUTE format('DROP POLICY IF EXISTS all_anon ON public.%I', t);
     EXECUTE format('DROP POLICY IF EXISTS all_auth ON public.%I', t);
+    EXECUTE format('DROP POLICY IF EXISTS admin_session ON public.%I', t);
     EXECUTE format('CREATE POLICY admin_session ON public.%I FOR ALL TO anon '
                    'USING ((SELECT has_admin_session())) WITH CHECK ((SELECT has_admin_session()))', t);
   END LOOP;
 END $$;
 
 -- Storefront reads these through public_skus / public_units now.
-DROP POLICY "Public read SKUs" ON public.inventory_skus;
-DROP POLICY "Public read units" ON public.inventory_units;
+DROP POLICY IF EXISTS "Public read SKUs" ON public.inventory_skus;
+DROP POLICY IF EXISTS "Public read units" ON public.inventory_units;
