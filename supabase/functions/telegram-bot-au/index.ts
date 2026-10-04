@@ -17,7 +17,7 @@
 //   - Reports: lightweight, AU-scoped only (this bot's own region) — the
 //     fuller cross-region audit/tech-health view lives in @meenshabot, not here.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { askGemini } from "../_shared/askGemini.ts";
+import { askGemini, extractInvoiceData, type InvoiceDraft } from "../_shared/askGemini.ts";
 import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
 import { handleRequestAction } from "../_shared/requestActions.ts";
 import { logActivity } from "../_shared/activityLog.ts";
@@ -26,7 +26,8 @@ import { askChatbot, escalateChatbot } from "../_shared/chatbotClient.ts";
 
 const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["kiosk", "sale", "sell"], label: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" },
-  { keywords: ["enter inventory", "vendor", "vendor purchase", "stock intake", "intake"], label: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" },
+  { keywords: ["enter inventory", "vendor", "vendor purchase"], label: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" },
+  { keywords: ["stock intake", "intake", "invoice", "scan invoice", "vendor invoice"], label: "📦 Stock Intake", callback_data: "si:start" },
   { keywords: ["reports", "report", "sales report", "stock summary"], label: "📊 Reports", callback_data: "reports:start" },
   { keywords: ["voucher", "coupon", "discount", "promo"], label: "🎟️ Vouchers", callback_data: "vouchers:menu" },
   { keywords: ["godown", "warehouse", "reconcile"], label: "📦 Godown check", callback_data: "godown:start" },
@@ -212,6 +213,7 @@ async function showTopMenu(chatId: number) {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" }],
       [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
+      [{ text: "📦 Stock Intake", callback_data: "si:start" }],
       [{ text: "📊 Reports", callback_data: "reports:start" }],
       [{ text: "🎟️ Vouchers", callback_data: "vouchers:menu" }],
       [{ text: "📦 Godown check", callback_data: "godown:start" }],
@@ -866,6 +868,8 @@ Deno.serve(async (req: Request) => {
     await handleSalesHistory(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("inv:")) {
     await handleInventoryAu(supabase, chatId, state, data, callbackData);
+  } else if (callbackData?.startsWith("si:")) {
+    await handleStockIntakeAu(supabase, chatId, state, data, callbackData);
   } else if (callbackData?.startsWith("godown:")) {
     await handleGodown(supabase, chatId, state, data, callbackData);
   } else if (callbackData?.startsWith("maint:")) {
@@ -895,10 +899,14 @@ Deno.serve(async (req: Request) => {
     await handleGodownPhoto(supabase, chatId, data, photo);
   } else if (photo?.length && state === "inv_item_photos") {
     await handleInventoryPhotoAu(supabase, chatId, data, photo);
+  } else if (photo?.length && state.startsWith("si_")) {
+    await handleStockIntakePhotoAu(supabase, chatId, state, data, photo);
   } else if (text && state.startsWith("godown_")) {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text && state.startsWith("inv_")) {
     await handleInventoryTextAu(supabase, chatId, state, data, text);
+  } else if (text && state.startsWith("si_")) {
+    await handleStockIntakeTextAu(supabase, chatId, state, data, text);
   } else if (text && state === "howworks_ask") {
     await handleHowWorksTextAu(supabase, chatId, text);
   } else if (text && state === "maint_note_text") {
@@ -1811,4 +1819,448 @@ async function suggestMrpAu(supabase: any, name: string, material: string | null
   } catch {
     return null;
   }
+}
+
+// ── Stock Intake (guided, Gemini-vision front-end to Vendor Purchase) ──────
+// Ported from telegram-bot/index.ts's handleStockIntake — same design: invoice
+// photo(s) -> Gemini extracts a draft -> staff confirms/fixes -> vendor
+// matched via the same search/create flow as Vendor Purchase (inv:*) above ->
+// per-item photo-count loop with optional discrepancy flagging -> good items
+// go through the SAME submit_purchase_intake_batch RPC (region "australia",
+// admin approval, nothing live until then); discrepancy items are inserted
+// straight into vendor_issues (direct insert via service role, no new RPC)
+// and a plain-text vendor message is drafted at the end, ready to paste into
+// WhatsApp. Vendor cost on the invoice is always INR (₹), same convention as
+// Vendor Purchase above, even though this is the AU bot. No shipping/ViaSetu
+// step — stops once the message is drafted.
+const SI_EXIT_ROW_AU = [{ text: "✕ Exit", callback_data: "si:exit" }];
+
+async function handleStockIntakeAu(supabase: any, chatId: number, state: string, data: any, callbackData: string) {
+  if (callbackData === "si:start") {
+    data = { invoicePhotos: [] };
+    await tgSend(chatId, "📦 Stock Intake — send a photo of the vendor's invoice (send more than one if it's multi-page), then type 'done'.", {
+      inline_keyboard: [SI_EXIT_ROW_AU],
+    });
+    await saveSession(supabase, chatId, "si_invoice_photos", data);
+    return;
+  }
+  if (callbackData === "si:exit") {
+    await tgSend(chatId, "Exited Stock Intake — nothing was saved.");
+    await showTopMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+  if (callbackData === "si:confirm") {
+    await startSiVendorMatchAu(supabase, chatId, data);
+    return;
+  }
+  if (callbackData === "si:fix") {
+    const buttons = [
+      [{ text: "Vendor name", callback_data: "si:fixfield:vendor_name" }, { text: "Invoice #", callback_data: "si:fixfield:invoice_number" }],
+      [{ text: "Date", callback_data: "si:fixfield:date" }, { text: "Total", callback_data: "si:fixfield:total" }],
+      ...data.draft.items.map((it: any, i: number) => [{ text: `Item ${i + 1}: ${it.description}`.slice(0, 60), callback_data: `si:fixitem:${i}` }]),
+      [{ text: "◀ Back", callback_data: "si:back" }],
+      SI_EXIT_ROW_AU,
+    ];
+    await tgSend(chatId, "Fix which field?", { inline_keyboard: buttons });
+    await saveSession(supabase, chatId, "si_fix_pick", data);
+    return;
+  }
+  if (callbackData === "si:back") {
+    await showSiDraftAu(supabase, chatId, data);
+    return;
+  }
+  if (callbackData.startsWith("si:fixfield:")) {
+    data.fixField = callbackData.split(":")[2];
+    await tgSend(chatId, `New value for ${data.fixField.replace("_", " ")}?`, { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_fix_value", data);
+    return;
+  }
+  if (callbackData.startsWith("si:fixitem:")) {
+    data.fixItemIdx = parseInt(callbackData.split(":")[2], 10);
+    await tgSend(chatId, "Fix which part of this item?", {
+      inline_keyboard: [
+        [{ text: "Description", callback_data: "si:fixitemfield:description" }, { text: "HSN", callback_data: "si:fixitemfield:hsn" }],
+        [{ text: "Qty", callback_data: "si:fixitemfield:qty" }, { text: "Rate", callback_data: "si:fixitemfield:rate" }],
+        [{ text: "Amount", callback_data: "si:fixitemfield:amount" }],
+        [{ text: "◀ Back", callback_data: "si:fix" }],
+        SI_EXIT_ROW_AU,
+      ],
+    });
+    await saveSession(supabase, chatId, "si_fix_item_pick", data);
+    return;
+  }
+  if (callbackData.startsWith("si:fixitemfield:")) {
+    data.fixItemField = callbackData.split(":")[2];
+    await tgSend(chatId, `New value?`, { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_fix_item_value", data);
+    return;
+  }
+  if (callbackData.startsWith("si:vendor:")) {
+    const vendorId = callbackData.split(":")[2];
+    const { data: v } = await supabase.from("vendors").select("id,name,vendor_id").eq("id", vendorId).single();
+    if (!v) { await tgSend(chatId, "That vendor is gone — try search again."); return; }
+    data.vendor_uuid = v.id;
+    data.vendor_name = v.name;
+    data.vendor_code = v.vendor_id;
+    await startSiItemLoopAu(supabase, chatId, data);
+    return;
+  }
+  if (callbackData === "si:newvendor") {
+    data.newVendor = {};
+    await tgSend(chatId, "New vendor — Name?", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_vendor_new_name", data);
+    return;
+  }
+  if (callbackData === "si:disc:yes") {
+    await tgSend(chatId, "What kind of discrepancy?", {
+      inline_keyboard: [
+        [{ text: "📉 Short count", callback_data: "si:disctype:shortage" }, { text: "⚠️ Defective", callback_data: "si:disctype:defective" }],
+        [{ text: "🔄 Wrong item", callback_data: "si:disctype:wrong_item" }],
+        SI_EXIT_ROW_AU,
+      ],
+    });
+    await saveSession(supabase, chatId, "si_disc_type_wait", data);
+    return;
+  }
+  if (callbackData === "si:disc:no") {
+    await finishSiItemAu(supabase, chatId, data);
+    return;
+  }
+  if (callbackData.startsWith("si:disctype:")) {
+    data.curDisc = { type: callbackData.split(":")[2] };
+    const qty = data.draft.items[data.siIdx].qty;
+    await tgSend(chatId, `How many of the ${qty} are affected?`, { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_disc_affected", data);
+    return;
+  }
+  if (callbackData === "si:finalize") {
+    await finalizeSiPurchaseAu(supabase, chatId, data);
+    return;
+  }
+}
+
+async function showSiDraftAu(supabase: any, chatId: number, data: any) {
+  const d = data.draft;
+  const lines = d.items.map((it: any, i: number) => `${i + 1}. ${it.description}${it.hsn ? ` (HSN ${it.hsn})` : ""} — qty ${it.qty} x ₹${it.rate} = ₹${it.amount}`).join("\n");
+  await tgSend(
+    chatId,
+    `Here's what I read off the invoice:\n\nVendor: ${d.vendor_name || "(not read)"}\nInvoice #: ${d.invoice_number || "(not read)"}\nDate: ${d.date || "(not read)"}\n\n${lines || "(no items read)"}\n\nTotal: ₹${d.total ?? "(not read)"}\n\nLook right?`,
+    {
+      inline_keyboard: [
+        [{ text: "✅ Looks good", callback_data: "si:confirm" }],
+        [{ text: "✏️ Fix a field", callback_data: "si:fix" }],
+        SI_EXIT_ROW_AU,
+      ],
+    },
+  );
+  await saveSession(supabase, chatId, "si_show_draft", data);
+}
+
+async function startSiVendorMatchAu(supabase: any, chatId: number, data: any) {
+  const name = data.draft.vendor_name?.trim();
+  if (name) {
+    const { data: matches } = await supabase.from("vendors").select("id,name,company_name,vendor_id").or(`name.ilike.%${name}%,company_name.ilike.%${name}%`).limit(8);
+    if (matches?.length) {
+      const buttons = matches.map((v: any) => [{ text: `${v.name}${v.company_name ? " (" + v.company_name + ")" : ""}`, callback_data: `si:vendor:${v.id}` }]);
+      buttons.push([{ text: "➕ New Vendor", callback_data: "si:newvendor" }]);
+      buttons.push(SI_EXIT_ROW_AU);
+      await tgSend(chatId, `Matched vendor "${name}" against existing vendors:`, { inline_keyboard: buttons });
+      await saveSession(supabase, chatId, "si_vendor_pick", data);
+      return;
+    }
+  }
+  await tgSend(chatId, `No existing vendor matched "${name || "(blank)"}" — search by name/WhatsApp, or add new:`, {
+    inline_keyboard: [[{ text: "➕ New Vendor", callback_data: "si:newvendor" }], SI_EXIT_ROW_AU],
+  });
+  await saveSession(supabase, chatId, "si_vendor_search", data);
+}
+
+async function startSiItemLoopAu(supabase: any, chatId: number, data: any) {
+  data.siIdx = 0;
+  data.siResults = [];
+  data.discrepancies = [];
+  delete data.newVendor;
+  await showSiItemPromptAu(supabase, chatId, data);
+}
+
+async function showSiItemPromptAu(supabase: any, chatId: number, data: any) {
+  const item = data.draft.items[data.siIdx];
+  data.curSiPhotos = [];
+  await tgSend(chatId, `Item ${data.siIdx + 1}/${data.draft.items.length}: ${item.description} — expected ${item.qty}. Send ${item.qty} photo(s), then type 'done'.`, {
+    inline_keyboard: [SI_EXIT_ROW_AU],
+  });
+  await saveSession(supabase, chatId, "si_item_photos", data);
+}
+
+async function finishSiItemAu(supabase: any, chatId: number, data: any) {
+  const item = data.draft.items[data.siIdx];
+  data.siResults.push({ description: item.description, hsn: item.hsn, qty: item.qty, rate: item.rate, photos: data.curSiPhotos || [] });
+  delete data.curSiPhotos;
+  await advanceSiItemAu(supabase, chatId, data);
+}
+
+async function advanceSiItemAu(supabase: any, chatId: number, data: any) {
+  data.siIdx += 1;
+  if (data.siIdx < data.draft.items.length) {
+    await showSiItemPromptAu(supabase, chatId, data);
+  } else {
+    await showSiSummaryAu(supabase, chatId, data);
+  }
+}
+
+async function showSiSummaryAu(supabase: any, chatId: number, data: any) {
+  const goodLines = data.siResults.map((it: any, i: number) => `${i + 1}. ${it.description} — qty ${it.qty} x ₹${it.rate}`).join("\n") || "(none)";
+  const discLines = data.discrepancies.map((dc: any, i: number) =>
+    `${i + 1}. ${dc.description} — ${dc.type.replace("_", " ")}, ${dc.affectedQty} affected, credit ₹${dc.credit}: ${dc.reason}`
+  ).join("\n") || "(none)";
+  const invoiceTotal = data.draft.total ?? data.draft.items.reduce((a: number, it: any) => a + it.amount, 0);
+  const creditTotal = data.discrepancies.reduce((a: number, dc: any) => a + (dc.credit || 0), 0);
+  const adjustedTotal = invoiceTotal - creditTotal;
+  data.adjustedTotal = adjustedTotal;
+  await tgSend(
+    chatId,
+    `Summary — Vendor: ${data.vendor_name}\n\nGood items:\n${goodLines}\n\nDiscrepancies:\n${discLines}\n\nInvoice total: ₹${invoiceTotal}\nLess discrepancy credits: ₹${creditTotal}\nAdjusted total due: ₹${adjustedTotal}`,
+    { inline_keyboard: [[{ text: "✅ Finalize", callback_data: "si:finalize" }], SI_EXIT_ROW_AU] },
+  );
+  await saveSession(supabase, chatId, "si_summary", data);
+}
+
+async function finalizeSiPurchaseAu(supabase: any, chatId: number, data: any) {
+  const goodItems = (data.siResults as any[]).filter((it) => it.qty > 0);
+  if (goodItems.length) {
+    const items = goodItems.map((it) => ({
+      proposed_name: it.description,
+      proposed_material: null,
+      proposed_variant: it.hsn ? `HSN ${it.hsn}` : null,
+      proposed_sale_price: null,
+      purchase_price: it.rate,
+      qty: it.qty,
+      photo_urls: it.photos || [],
+      is_defective: false,
+      defect_qty: null,
+      defect_reason: null,
+    }));
+    const payment = { mode: "vendor_invoice", amount_paid: data.adjustedTotal, split: null };
+    const { error } = await supabase.rpc("submit_purchase_intake_batch", {
+      p_vendor_uuid: data.vendor_uuid, p_items: items, p_payment: payment,
+      p_submitted_by: `chat_id:${chatId}`, p_region: "australia",
+    });
+    if (error) {
+      await tgSend(chatId, "Couldn't submit the good items — try again, or check with admin.");
+      return;
+    }
+    await logActivity(supabase, "au", chatId, "stock_intake", `${data.vendor_name}, ${items.length} items (guided)`);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  for (const dc of data.discrepancies as any[]) {
+    await supabase.from("vendor_issues").insert({
+      vendor_uuid: data.vendor_uuid,
+      vendor_code: data.vendor_code,
+      sku_id: null,
+      batch: null,
+      unit_ids: [],
+      issue_date: today,
+      issue_type: dc.type,
+      description: `${dc.description} — ${dc.reason}${dc.photo ? `\nPhoto: ${dc.photo}` : ""} (from Stock Intake, invoice ${data.draft.invoice_number || "n/a"})`,
+      status: "open",
+      created_by: "telegram_bot",
+    });
+  }
+
+  await tgSend(chatId, `✅ ${goodItems.length} item(s) submitted for approval. ${data.discrepancies.length} discrepancy item(s) logged to Vendor Issues.`);
+
+  if ((data.discrepancies as any[]).length) {
+    const vendorMsg = buildSiVendorMessageAu(data);
+    await tgSend(chatId, vendorMsg);
+  }
+
+  await showTopMenu(chatId);
+  await saveSession(supabase, chatId, "idle", {});
+}
+
+// Plain copy-paste text, no wrapper/instructional lines around it — this IS
+// the message, ready to paste into WhatsApp to the vendor.
+function buildSiVendorMessageAu(data: any): string {
+  const lines = (data.discrepancies as any[]).map((dc) =>
+    `- ${dc.description} (${dc.type.replace("_", " ")}, ${dc.affectedQty} pc): ${dc.reason} — credit ₹${dc.credit}`
+  );
+  const creditTotal = (data.discrepancies as any[]).reduce((a, dc) => a + (dc.credit || 0), 0);
+  return `Hello, as discussed, returning the following from invoice ${data.draft.invoice_number || ""}:\n${lines.join("\n")}\n\nValue adjusted: ₹${creditTotal}. Next payment will reflect this.`;
+}
+
+async function handleStockIntakeTextAu(supabase: any, chatId: number, state: string, data: any, text: string) {
+  if (state === "si_invoice_photos") {
+    if (text.trim().toLowerCase() === "done") {
+      if (!data.invoicePhotos?.length) { await tgSend(chatId, "Send at least one invoice photo first, then type 'done'."); return; }
+      await tgSend(chatId, "Reading the invoice…");
+      const draft = await extractInvoiceData(supabase, data.invoicePhotos);
+      delete data.invoicePhotos;
+      if (!draft) {
+        await tgSend(chatId, "Couldn't read that invoice (no AI key configured, or the image wasn't clear) — try again with a clearer photo, or use Vendor Purchase instead.");
+        await showTopMenu(chatId);
+        await saveSession(supabase, chatId, "idle", {});
+        return;
+      }
+      data.draft = draft;
+      await showSiDraftAu(supabase, chatId, data);
+    }
+    return;
+  }
+  if (state === "si_fix_value") {
+    const field = data.fixField;
+    if (field === "total") data.draft.total = parseFloat(text) || data.draft.total;
+    else data.draft[field] = text.trim();
+    delete data.fixField;
+    await showSiDraftAu(supabase, chatId, data);
+    return;
+  }
+  if (state === "si_fix_item_value") {
+    const item = data.draft.items[data.fixItemIdx];
+    const field = data.fixItemField;
+    if (["qty", "rate", "amount"].includes(field)) item[field] = parseFloat(text) || item[field];
+    else item[field] = text.trim();
+    delete data.fixItemField;
+    delete data.fixItemIdx;
+    await showSiDraftAu(supabase, chatId, data);
+    return;
+  }
+  if (state === "si_vendor_search") {
+    const q = text.trim();
+    const { data: matches } = await supabase.from("vendors").select("id,name,company_name,vendor_id").or(`name.ilike.%${q}%,company_name.ilike.%${q}%,wa_number.ilike.%${q}%`).limit(8);
+    if (!matches?.length) {
+      await tgSend(chatId, `No vendors matched "${q}".`, { inline_keyboard: [[{ text: "➕ New Vendor", callback_data: "si:newvendor" }], SI_EXIT_ROW_AU] });
+      return;
+    }
+    const buttons = matches.map((v: any) => [{ text: `${v.name}${v.company_name ? " (" + v.company_name + ")" : ""}`, callback_data: `si:vendor:${v.id}` }]);
+    buttons.push([{ text: "➕ New Vendor", callback_data: "si:newvendor" }]);
+    buttons.push(SI_EXIT_ROW_AU);
+    await tgSend(chatId, `Matches for "${q}":`, { inline_keyboard: buttons });
+    return;
+  }
+  if (state === "si_vendor_new_name") {
+    if (!text.trim()) { await tgSend(chatId, "Name can't be empty — vendor name?"); return; }
+    data.newVendor.name = text.trim();
+    await tgSend(chatId, "Company name? Type 'skip' if none.", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_vendor_new_company", data);
+    return;
+  }
+  if (state === "si_vendor_new_company") {
+    data.newVendor.company_name = text.trim().toLowerCase() === "skip" ? null : text.trim();
+    await tgSend(chatId, "WhatsApp number? Type 'skip' if none.", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_vendor_new_wa", data);
+    return;
+  }
+  if (state === "si_vendor_new_wa") {
+    data.newVendor.wa_number = text.trim().toLowerCase() === "skip" ? null : text.trim();
+    await tgSend(chatId, "Place? Type 'skip' if none.", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_vendor_new_place", data);
+    return;
+  }
+  if (state === "si_vendor_new_place") {
+    data.newVendor.place = text.trim().toLowerCase() === "skip" ? null : text.trim();
+    const { data: vid } = await supabase.rpc("next_vendor_id");
+    const { data: created, error } = await supabase.from("vendors").insert({
+      vendor_id: vid, name: data.newVendor.name, company_name: data.newVendor.company_name,
+      wa_number: data.newVendor.wa_number, place: data.newVendor.place, status: "active",
+    }).select().single();
+    if (error || !created) { await tgSend(chatId, "Couldn't save that vendor — try again."); return; }
+    data.vendor_uuid = created.id;
+    data.vendor_name = created.name;
+    data.vendor_code = created.vendor_id;
+    await tgSend(chatId, `✅ Vendor added: ${created.name} (${vid})`);
+    await startSiItemLoopAu(supabase, chatId, data);
+    return;
+  }
+  if (state === "si_item_photos") {
+    if (text.trim().toLowerCase() === "done") {
+      const item = data.draft.items[data.siIdx];
+      const n = data.curSiPhotos?.length || 0;
+      if (!n) { await tgSend(chatId, "Send at least one photo first, then type 'done'."); return; }
+      if (n !== item.qty) { await tgSend(chatId, `Note: sent ${n}, invoice says ${item.qty} — continuing with ${n}.`); }
+      await tgSend(chatId, "Any discrepancy on this item (short count / defective / wrong item)?", {
+        inline_keyboard: [[{ text: "⚠️ Yes", callback_data: "si:disc:yes" }, { text: "No", callback_data: "si:disc:no" }], SI_EXIT_ROW_AU],
+      });
+      await saveSession(supabase, chatId, "si_disc_check", data);
+    }
+    return;
+  }
+  if (state === "si_disc_affected") {
+    const n = parseInt(text, 10);
+    const item = data.draft.items[data.siIdx];
+    data.curDisc.affectedQty = (!n || n <= 0) ? item.qty : Math.min(n, item.qty);
+    await tgSend(chatId, "Send a photo of the issue.", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_disc_photo", data);
+    return;
+  }
+  if (state === "si_disc_reason") {
+    data.curDisc.reason = text.trim();
+    await tgSend(chatId, "Expected credit/return value (₹)?", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_disc_credit", data);
+    return;
+  }
+  if (state === "si_disc_credit") {
+    data.curDisc.credit = parseFloat(text) || 0;
+    const item = data.draft.items[data.siIdx];
+    const disc = data.curDisc;
+    data.discrepancies.push({
+      description: item.description, type: disc.type, affectedQty: disc.affectedQty, reason: disc.reason, credit: disc.credit, photo: disc.photo,
+    });
+    const goodQty = item.qty - disc.affectedQty;
+    if (goodQty > 0) {
+      data.siResults.push({ description: item.description, hsn: item.hsn, qty: goodQty, rate: item.rate, photos: data.curSiPhotos || [] });
+    }
+    delete data.curDisc;
+    delete data.curSiPhotos;
+    await advanceSiItemAu(supabase, chatId, data);
+    return;
+  }
+}
+
+async function handleStockIntakePhotoAu(supabase: any, chatId: number, state: string, data: any, photoSizes: any[]) {
+  const largest = photoSizes[photoSizes.length - 1];
+  if (state === "si_invoice_photos") {
+    const b64 = await downloadTelegramPhotoBase64Au(largest.file_id);
+    if ("error" in b64) { await tgSend(chatId, `Couldn't read that photo — ${b64.error}`); return; }
+    data.invoicePhotos = [...(data.invoicePhotos || []), b64];
+    await saveSession(supabase, chatId, "si_invoice_photos", data);
+    await tgSend(chatId, `Photo ${data.invoicePhotos.length} received. Send another page, or type 'done'.`);
+    return;
+  }
+  if (state === "si_item_photos") {
+    const result = await uploadTelegramPhotoGodown(largest.file_id, "item-photos", `${Date.now()}-stock-intake-telegram-au.jpg`);
+    if ("error" in result) { await tgSend(chatId, `Couldn't save that photo — ${result.error}`); return; }
+    data.curSiPhotos = [...(data.curSiPhotos || []), result.url];
+    await saveSession(supabase, chatId, "si_item_photos", data);
+    const item = data.draft.items[data.siIdx];
+    await tgSend(chatId, `Photo ${data.curSiPhotos.length}/${item.qty} saved. Send another, or type 'done'.`);
+    return;
+  }
+  if (state === "si_disc_photo") {
+    const result = await uploadTelegramPhotoGodown(largest.file_id, "item-photos", `${Date.now()}-stock-intake-discrepancy-au.jpg`);
+    if ("error" in result) { await tgSend(chatId, `Couldn't save that photo — ${result.error}`); return; }
+    data.curDisc.photo = result.url;
+    await tgSend(chatId, "Reason/remark?", { inline_keyboard: [SI_EXIT_ROW_AU] });
+    await saveSession(supabase, chatId, "si_disc_reason", data);
+    return;
+  }
+}
+
+// For Stock Intake's invoice-reading step only — same rationale as the
+// India bot's downloadTelegramPhotoBase64: Gemini vision needs raw bytes
+// inline (base64), not a storage URL, and invoice photos aren't kept in
+// storage (only the extracted data + per-item photos, via
+// uploadTelegramPhotoGodown unchanged, persist past this step).
+async function downloadTelegramPhotoBase64Au(fileId: string): Promise<{ mimeType: string; data: string } | { error: string }> {
+  const fileRes = await fetch(`${TG_API}/getFile?file_id=${fileId}`);
+  const fileJson = await fileRes.json();
+  const filePath = fileJson?.result?.file_path;
+  if (!filePath) return { error: `Telegram getFile failed: ${JSON.stringify(fileJson).slice(0, 200)}` };
+  const imgRes = await fetch(`https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`);
+  if (!imgRes.ok) return { error: `Telegram file download failed: ${imgRes.status}` };
+  const buf = new Uint8Array(await imgRes.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < buf.length; i++) binary += String.fromCharCode(buf[i]);
+  return { mimeType: "image/jpeg", data: btoa(binary) };
 }

@@ -100,3 +100,62 @@ Reply with ONLY one JSON object, no markdown, no explanation:
     return lookupResult; // fall back to the raw data if every provider call fails
   }
 }
+
+// ── Vision extraction (Stock Intake guided flow) ───────────────────────────
+// Separate from askGemini()'s fixed-lookup Q&A router above — this sends the
+// invoice photo itself to Gemini (inline base64, same
+// generativelanguage.googleapis.com endpoint callGemini() already uses, just
+// a vision-capable model + image parts) and asks for structured JSON back.
+// OpenRouter is only ever used for text in this codebase (see callLLM()
+// above), so vision always goes straight to Gemini — reads settings.gemini_key
+// fresh, same lookup pattern as callLLM()/suggestMrp().
+export type InvoiceLineItem = {
+  description: string;
+  hsn?: string | null;
+  qty: number;
+  rate: number;
+  amount: number;
+};
+export type InvoiceDraft = {
+  vendor_name: string | null;
+  invoice_number: string | null;
+  date: string | null;
+  items: InvoiceLineItem[];
+  total: number | null;
+};
+
+export async function extractInvoiceData(
+  supabase: SB,
+  images: { mimeType: string; data: string }[],
+): Promise<InvoiceDraft | null> {
+  if (!images.length) return null;
+  const { data: keyRow } = await supabase.from("settings").select("value").eq("key", "gemini_key").maybeSingle();
+  const apiKey = keyRow?.value;
+  if (!apiKey) return null;
+
+  const prompt = `You are reading one or more photos of a vendor invoice for a saree wholesale business. Extract: vendor name, invoice number, date (YYYY-MM-DD if you can tell), line items (description, HSN code if visible, quantity, rate, amount), and the grand total.
+Reply with ONLY one JSON object, no markdown, no explanation, in exactly this shape:
+{"vendor_name":string|null,"invoice_number":string|null,"date":string|null,"items":[{"description":string,"hsn":string|null,"qty":number,"rate":number,"amount":number}],"total":number|null}
+If a field isn't visible or legible, use null for that field. Omit a line item only if it's completely unreadable.`;
+
+  // deno-lint-ignore no-explicit-any
+  const parts: any[] = [{ text: prompt }];
+  for (const img of images) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: [{ parts }] }) },
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if (!raw) return null;
+    const jsonText = raw.replace(/^```json\s*|```\s*$/g, "").trim();
+    const parsed = JSON.parse(jsonText);
+    if (!Array.isArray(parsed.items)) return null;
+    return parsed as InvoiceDraft;
+  } catch {
+    return null;
+  }
+}
