@@ -48,13 +48,13 @@ sequenceDiagram
     participant Site as index.html
     participant DB as Supabase (validate_coupon / consume_coupon)
 
-    C->>Site: enters code (or arrives via ?coupon=<code> link)
+    C->>Site: enters code (or arrives via a "?coupon=" deep link)
     Site->>DB: validate_coupon(code, wa, region)
     DB-->>Site: valid / invalid + reason (not found, wrong region, expired, already used, WA mismatch)
     Site->>C: shows discount applied, or the specific rejection reason
     C->>Site: proceeds to checkout (Razorpay or WhatsApp)
     Site->>DB: consume_coupon(code, wa) — on confirmed order
-    DB-->>Site: locked code marked used; public code only flips to used if single_use
+    DB-->>Site: locked code marked used — public code only flips to used if single_use
 ```
 
 ## Redemption — kiosk (Telegram bots)

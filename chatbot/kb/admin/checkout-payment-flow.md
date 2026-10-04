@@ -54,6 +54,15 @@ anything, so a duplicate delivery doesn't double-record a sale.
 
 ## Price integrity
 
-The price a customer actually pays is always the server-side total computed at payment-link
-creation time, not anything editable in the browser — the Edge Function builds the Razorpay
-request with its own computed total, not a number trusted from the client.
+The price a customer actually pays is the server-side total computed at payment-link creation
+time, not anything editable in the browser — `create-payment-link` recomputes it from
+`inventory_skus.sale_price` for each unit in the cart, and re-validates any coupon through the
+same `validate_coupon` function the storefront itself calls. The client's own total figure is
+never read.
+
+This wasn't always true. Until 2026-10-04, the function took the browser-submitted total
+directly and only re-checked stock availability, not price — a customer could have edited the
+total in dev tools before clicking "Pay" and been charged less than the real cart value. Found
+and fixed the same day, verified live against a real SKU before being considered closed. Noted
+here because it's a useful example of the general principle: anything the browser sends is an
+input to double-check, not a fact to trust, for any flow that moves real money.
