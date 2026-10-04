@@ -25,8 +25,7 @@ import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuS
 
 const MENU_ACTIONS_AU: MenuAction[] = [
   { keywords: ["kiosk", "sale", "sell"], label: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" },
-  { keywords: ["stock intake", "draft", "intake"], label: "📦 Stock intake (draft)", callback_data: "intake:start" },
-  { keywords: ["enter inventory", "vendor", "vendor purchase"], label: "➕ Enter inventory (vendor purchase)", callback_data: "inv:start" },
+  { keywords: ["enter inventory", "vendor", "vendor purchase", "stock intake", "intake"], label: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" },
   { keywords: ["reports", "report", "sales report", "stock summary"], label: "📊 Reports", callback_data: "reports:start" },
   { keywords: ["voucher", "coupon", "discount", "promo"], label: "🎟️ Vouchers", callback_data: "vouchers:menu" },
   { keywords: ["godown", "warehouse", "reconcile"], label: "📦 Godown check", callback_data: "godown:start" },
@@ -41,7 +40,7 @@ async function tryMenuKeywordSearchAu(chatId: number, text: string): Promise<boo
     await tgSend(chatId, "👋 Hi! Type a keyword like \"event\", \"voucher\", or \"photo\" to jump straight to that menu, or tap a button below:", {
       inline_keyboard: [
         [{ text: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" }],
-        [{ text: "📦 Stock intake (draft)", callback_data: "intake:start" }],
+        [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
         [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
       ],
     });
@@ -129,8 +128,7 @@ async function showTopMenu(chatId: number) {
   await tgSend(chatId, "🇦🇺 *Meensha Australia*\nWhat would you like to do?", {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" }],
-      [{ text: "📦 Stock intake (draft)", callback_data: "intake:start" }],
-      [{ text: "➕ Enter inventory (vendor purchase)", callback_data: "inv:start" }],
+      [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
       [{ text: "📊 Reports", callback_data: "reports:start" }],
       [{ text: "🎟️ Vouchers", callback_data: "vouchers:menu" }],
       [{ text: "📦 Godown check", callback_data: "godown:start" }],
@@ -1389,7 +1387,7 @@ async function handleInventoryAu(supabase: any, chatId: number, state: string, d
     return;
   }
   if (callbackData === "inv:exit") {
-    await tgSend(chatId, "Exited Enter Inventory — nothing was saved.");
+    await tgSend(chatId, "Exited Vendor purchase — nothing was saved.");
     await showTopMenu(chatId);
     await saveSession(supabase, chatId, "idle", {});
     return;

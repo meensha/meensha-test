@@ -16,7 +16,7 @@ import { isGreeting, type MenuAction, searchMenuActions } from "../_shared/menuS
 
 const MENU_ACTIONS: MenuAction[] = [
   { keywords: ["kiosk", "sale", "sell", "checkout"], label: "🛍️ Kiosk mode", callback_data: "kiosk:start" },
-  { keywords: ["inventory", "enter inventory", "purchase", "vendor"], label: "➕ Enter inventory", callback_data: "inv:start" },
+  { keywords: ["inventory", "enter inventory", "purchase", "vendor"], label: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" },
   { keywords: ["maintenance"], label: "🔧 Maintenance", callback_data: "maint:menu" },
   { keywords: ["godown", "warehouse", "reconcile"], label: "📦 Godown check", callback_data: "godown:start" },
   { keywords: ["history", "sales history", "past sales"], label: "🧾 Sales history", callback_data: "hist:start" },
@@ -38,7 +38,7 @@ async function tryMenuKeywordSearch(chatId: number, text: string): Promise<boole
     await tgSend(chatId, "👋 Hi! Type a keyword like \"event\", \"voucher\", or \"photo\" to jump straight to that menu, or tap a button below:", {
       inline_keyboard: [
         [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
-        [{ text: "➕ Enter inventory", callback_data: "inv:start" }],
+        [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
         [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
       ],
     });
@@ -260,7 +260,7 @@ async function showTopMenu(chatId: number) {
   await tgSend(chatId, "What would you like to do?", {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
-      [{ text: "➕ Enter inventory", callback_data: "inv:start" }],
+      [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
       [{ text: "🔧 Maintenance", callback_data: "maint:menu" }],
     ],
   });
@@ -1992,7 +1992,7 @@ async function handleInventory(
   }
 
   if (callbackData === "inv:exit") {
-    await tgSend(chatId, "Exited Enter Inventory — nothing was saved.");
+    await tgSend(chatId, "Exited Vendor purchase — nothing was saved.");
     await showTopMenu(chatId);
     await saveSession(supabase, chatId, "idle", {});
     return;
