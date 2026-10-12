@@ -14,9 +14,11 @@ type SendFn = (chatId: number, text: string, keyboard?: unknown) => Promise<void
 type SaveFn = (supabase: SB, chatId: number, state: string, data: Record<string, unknown>) => Promise<void>;
 
 // The tactic list below is drawn from a real competitor benchmark (Stage 1,
-// Oct 2026) of comparable small/solo handloom-saree accounts — not generic
-// social-media advice. Pass this to every caption prompt so suggestions
-// actually draw on what's working for peer-scale accounts, not just tone.
+// Oct 2026 initial pass; refreshed Oct 12 2026 against theloomsaree,
+// tavissah.sarees and darisabydevashree) of comparable small/solo
+// handloom-saree accounts — not generic social-media advice. Pass this to
+// every caption prompt so suggestions actually draw on what's working for
+// peer-scale accounts, not just tone.
 export const POST_BRAND_VOICE = `Meensha is run by two sisters, curating heritage handloom sarees — "Heritage. Handloom." Warm, personal, proud of the weavers, never generic corporate copy.
 
 Real patterns from comparable small/solo handloom-saree accounts (use whichever fits this specific post naturally — don't force all of them in):
@@ -24,7 +26,9 @@ Real patterns from comparable small/solo handloom-saree accounts (use whichever 
 - Shalini's own story: having seen the breadth of the country across her life, in all its beauty — a genuine, firsthand connection to India's diverse weaving traditions region by region. Use this occasionally where it fits a specific piece's regional origin, not every post.
 - Scarcity framing ONLY when the real stock count below is genuinely low (2 or fewer) — never invent urgency that isn't true.
 - Tying a post to the current season or an upcoming festival, when it genuinely fits.
-- Clear, friendly next-step ("DM to order", "link in bio") rather than leaving it implicit.`;
+- Clear, friendly next-step ("DM to order", "link in bio") rather than leaving it implicit.
+- A craft/heritage fact woven in naturally (what makes this weave or region's technique distinct) reads as shareable, not salesy — peer accounts use this to earn saves/shares that reach beyond their own followers, not just likes from existing ones.
+- Occasionally invite the customer to tag Meensha in their own photo wearing it ("tag us when it arrives") — every peer account treats customer reposts as its biggest free-reach channel, since it's shown to the buyer's own followers, not just Meensha's.`;
 
 // Returns false (and sends a plain "nothing to suggest" message) instead of
 // throwing when there's no eligible item — callers (interactive menu, cron
