@@ -270,6 +270,8 @@ Deno.serve(async (req: Request) => {
     await handleMaintenance(supabase, chatId, callbackData, data);
   } else if (callbackData?.startsWith("socialboost:")) {
     await handleSocialBoost(supabase, chatId, callbackData);
+  } else if (callbackData?.startsWith("socialapprove:")) {
+    await handleSocialApprove(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("howworks:escalate:")) {
     await handleHowWorksEscalate(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("iglink:")) {
@@ -547,6 +549,34 @@ async function handleSocialBoost(supabase: SB, chatId: number, callbackData: str
   }
   await tgSend(chatId, "Marked as done.");
   await sendSocialBoostNudge(chatId);
+}
+
+// ═══════════════════════════════════════════════
+// SOCIAL MEDIA — approval replies to an ad-hoc Yes/No ask (e.g. the Oct 2026
+// peer-benchmark backlog items). Stateless — no session needed, just logs
+// which way Shalini answered so it shows up in the activity digest, and
+// tells her what's needed next rather than fabricating content on her behalf.
+// ═══════════════════════════════════════════════
+async function handleSocialApprove(supabase: SB, chatId: number, callbackData: string) {
+  const parts = callbackData.split(":"); // socialapprove:<topic>:<yes|no>
+  const topic = parts[1];
+  const answer = parts[2];
+  await logActivity(supabase, "india", chatId, "social_approval", `${topic}:${answer}`);
+  if (answer !== "yes") {
+    await tgSend(chatId, "No problem — let us know if you'd like a different version, or skip it for now.");
+    return;
+  }
+  if (topic === "highlights") {
+    await tgSend(
+      chatId,
+      "Great! To set these up we need from you:\n\n1️⃣ 'Our Story' — a couple of lines about you two + Meensha (or just say 'use what's already in the bio') and a photo you like\n2️⃣ 'Testimonials' — any customer message/review screenshots you have handy\n\nSend them here whenever you have a moment and we'll get the highlights live.",
+    );
+  } else if (topic === "repost") {
+    await tgSend(
+      chatId,
+      "Great! Simplest way: whenever a customer tags @meensha_fabrics in their story or post wearing a saree, just share/repost it to your own story (and save it under a 'Customers' highlight if you like). No approval needed each time — go ahead whenever it happens.",
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════
