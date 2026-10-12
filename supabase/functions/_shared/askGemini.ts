@@ -43,7 +43,7 @@ async function callOpenRouter(apiKey: string, model: string, prompt: string): Pr
 
 // Tries OpenRouter first when configured, silently falls back to Gemini —
 // callers never see which provider actually answered.
-async function callLLM(supabase: SB, prompt: string): Promise<string> {
+export async function callLLM(supabase: SB, prompt: string): Promise<string> {
   const { data: rows } = await supabase.from("settings").select("key,value").in("key", ["openrouter_key", "openrouter_model", "gemini_key"]);
   const byKey: Record<string, string> = {};
   (rows || []).forEach((r: { key: string; value: string }) => byKey[r.key] = r.value);

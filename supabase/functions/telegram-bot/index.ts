@@ -8,7 +8,8 @@
 // Supabase auto-provides SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { askGemini, extractInvoiceData, type InvoiceDraft } from "../_shared/askGemini.ts";
+import { askGemini, callLLM, extractInvoiceData, type InvoiceDraft } from "../_shared/askGemini.ts";
+import { finalizePostSuggestion, handlePostSuggestionText, showPostSuggestion, suggestPost } from "../_shared/postSuggestion.ts";
 import { LOOKUP_CATALOG_REGIONAL, runLookup } from "../_shared/knowledgeBase.ts";
 import { handleRequestAction } from "../_shared/requestActions.ts";
 import { logActivity } from "../_shared/activityLog.ts";
@@ -277,6 +278,8 @@ Deno.serve(async (req: Request) => {
     await handleVoucherType(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("eventform:type:")) {
     await handleEventformType(supabase, chatId, data, callbackData);
+  } else if (callbackData?.startsWith("postsuggest:")) {
+    await handleMaintenance(supabase, chatId, callbackData, data);
   } else if (callbackData?.startsWith("req:")) {
     const actorFrom = update.callback_query?.from;
     const actor = [actorFrom?.first_name, actorFrom?.last_name].filter(Boolean).join(" ") || actorFrom?.username || `Chat ${chatId}`;
@@ -295,6 +298,8 @@ Deno.serve(async (req: Request) => {
     await handleAddPhotoText(supabase, chatId, data, text);
   } else if (text && state === "maint_addphoto_search") {
     await showAddPhotoPicker(supabase, chatId, text.trim());
+  } else if (text && state === "maint_postsuggest_active") {
+    await handlePostSuggestionText(supabase, chatId, data, text, callLLM, tgSend, saveSession);
   } else if (text && state.startsWith("godown_")) {
     await handleGodownText(supabase, chatId, state, data, text);
   } else if (text && state.startsWith("inv_")) {
@@ -384,6 +389,7 @@ async function showMaintenanceMenu(chatId: number) {
       [{ text: "📝 Add a note", callback_data: "maint:note" }],
       [{ text: "💰 Pending AU costs", callback_data: "maint:aucost" }],
       [{ text: "📷 Add photo to item", callback_data: "maint:addphoto" }],
+      [{ text: "📣 Suggest a post", callback_data: "maint:postsuggest" }],
       [{ text: "🔳 Set UPI QR code", callback_data: "maint:setqr" }],
       [{ text: "🔗 Insta link", callback_data: "maint:iglink" }],
       [{ text: "🎟️ Create voucher", callback_data: "maint:voucher" }],
@@ -457,6 +463,29 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
   }
   if (callbackData.startsWith("maint:addphoto:pick:")) {
     await startAddPhoto(supabase, chatId, callbackData.slice("maint:addphoto:pick:".length));
+    return;
+  }
+  if (callbackData === "maint:postsuggest") {
+    await suggestPostWrapped(supabase, chatId);
+    return;
+  }
+  if (callbackData === "postsuggest:video") {
+    await finalizePostSuggestionWrapped(supabase, chatId, data, "video");
+    return;
+  }
+  if (callbackData === "postsuggest:photo") {
+    await finalizePostSuggestionWrapped(supabase, chatId, data, "photo");
+    return;
+  }
+  if (callbackData === "postsuggest:poster") {
+    await tgSend(chatId, "Poster generation isn't wired up yet — pick 🖼️ Use product photo or 🎥 Video for now.");
+    await showPostSuggestion(chatId, data, tgSend);
+    return;
+  }
+  if (callbackData === "postsuggest:event:toggle") {
+    data.postDraft.eventAttached = !data.postDraft.eventAttached;
+    await saveSession(supabase, chatId, "maint_postsuggest_active", data);
+    await showPostSuggestion(chatId, data, tgSend);
     return;
   }
 }
@@ -676,6 +705,23 @@ async function handleAddPhotoText(supabase: SB, chatId: number, data: SessionDat
   }
   await showMaintenanceMenu(chatId);
   await saveSession(supabase, chatId, "idle", {});
+}
+
+// ═══════════════════════════════════════════════
+// MAINTENANCE → SUGGEST A POST (social media, Stage 2)
+// ═══════════════════════════════════════════════
+// Core logic lives in _shared/postSuggestion.ts, shared with the scheduled
+// nudge (post-suggestion-nudge, pg_cron) so a proactive push and a
+// manually-triggered suggestion are exactly the same code path. These are
+// thin wrappers binding this bot's own tgSend/saveSession/callLLM/logActivity.
+async function suggestPostWrapped(supabase: SB, chatId: number) {
+  const ok = await suggestPost(supabase, chatId, callLLM, tgSend, saveSession);
+  if (!ok) await showMaintenanceMenu(chatId);
+}
+
+async function finalizePostSuggestionWrapped(supabase: SB, chatId: number, data: SessionData, format: "video" | "photo") {
+  await finalizePostSuggestion(supabase, chatId, data, format, callLLM, tgSend, saveSession, logActivity);
+  await showMaintenanceMenu(chatId);
 }
 
 async function handleMaintenanceText(supabase: SB, chatId: number, text: string) {
