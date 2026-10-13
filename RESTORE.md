@@ -47,7 +47,7 @@ python3 scripts/restore_meensha.py --stamp <STAMP> --region all --apply --storag
 
 ## 4. Edge functions
 ```bash
-for f in activity-summary-digest agent-report auth-log-digest chatbot create-payment-link daily-health-check daily-region-summary daily-request-reminders event-photo-submit generate-invoice-pdf log-auth-attempt notify-new-request pending-cost-digest post-suggestion-nudge razorpay-webhook request-password-reset returns-pending-digest social-actions-reminder start-customer-signup telegram-bot telegram-bot-au telegram-bot-monitor todo-worker-digest verify-customer-signup verify-password-reset; do
+for f in activity-summary-digest agent-report auth-log-digest chatbot create-payment-link daily-health-check daily-region-summary daily-request-reminders event-photo-submit generate-invoice-pdf log-auth-attempt notify-new-request pending-cost-digest patch-audit post-suggestion-nudge razorpay-webhook request-password-reset returns-pending-digest social-actions-reminder start-customer-signup telegram-bot telegram-bot-au telegram-bot-monitor todo-worker-digest verify-customer-signup verify-password-reset; do
   supabase functions deploy $f --project-ref <ref> --no-verify-jwt
 done
 ```
@@ -67,7 +67,7 @@ India = Shalini's bot (`telegram-bot`), Australia = `telegram-bot-au`, Monitor =
 Apply each cron SQL: `setup/add_daily_health_check_cron.sql`, `add_pending_cost_digest_cron.sql`, `add_returns_pending_digest_cron.sql`, `add_saree_requests_cron.sql`, `add_todo_worker_digest_cron.sql`, `add_post_suggestion_nudge_cron.sql` (Mon/Thu 09:30 IST posting nudge), `add_session_autoclose_cron.sql` (closes idle bot sessions after 30 min), `add_social_actions_reminder_cron.sql` (08:30 IST daily social reminder until done). The activity-summary, auth-log, daily-summary (India/AU) jobs are recorded in the backup's `extras/cron_jobs.json`.
 
 ## 7b. Patch Tuesday (weekly security check, home server)
-Runs on the home server, container CT102 `meensha-monitor`: `/opt/patch-tuesday/patch_tuesday.py` (copy: `scripts/patch_tuesday.py`), systemd units `patch-tuesday.timer` (Tue 01:30 UTC = 07:00 IST) and `patch-tuesday-watchdog.timer` (04:00 and 07:00 UTC), key in `/etc/patch-tuesday.env` (`AGENT_REPORT_KEY`, mode 600). Reports: `/opt/patch-tuesday/reports/<date>/`. To rebuild: copy the script, create the two services and two timers (`ExecStart=/usr/bin/python3 /opt/patch-tuesday/patch_tuesday.py`, the watchdog adds `--if-missing`), write the env file, `systemctl enable --now` both timers.
+Runs on the home server, container CT102 `meensha-monitor`: `/opt/patch-tuesday/patch_tuesday.py` (copy: `scripts/patch_tuesday.py`), systemd units `patch-tuesday.timer` (Tue 01:30 UTC = 07:00 IST) and `patch-tuesday-watchdog.timer` (04:00 and 07:00 UTC), key in `/etc/patch-tuesday.env` (`AGENT_REPORT_KEY`, mode 600). Reports: `/opt/patch-tuesday/reports/<date>/`. The inside checks call the key-gated edge function `patch-audit` (needs the same `AGENT_REPORT_KEY` secret; deploy with `--no-verify-jwt`). To rebuild: copy the script, create the two services and two timers (`ExecStart=/usr/bin/python3 /opt/patch-tuesday/patch_tuesday.py`, the watchdog adds `--if-missing`), write the env file, `systemctl enable --now` both timers.
 
 ## 8. Social accounts (manual)
 Follow `Meensha-social/SOCIAL-CONFIG.md` (profile, bio, links, highlights, Page link). Open steps and owners: TODO.md → "Social media strategy".

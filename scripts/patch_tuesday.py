@@ -91,7 +91,7 @@ def check_site():
         ctx = ssl.create_default_context()
         with socket.create_connection(("meensha.in", 443), timeout=15) as sock, ctx.wrap_socket(sock, server_hostname="meensha.in") as ss:
             exp = datetime.datetime.strptime(ss.getpeercert()["notAfter"], "%b %d %H:%M:%S %Y %Z")
-        days = (exp - datetime.datetime.utcnow()).days
+        days = (exp - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)).days
         if days < 14: add("high", "TLS certificate expires soon", f"{days} days left")
         elif days < 30: add("medium", "TLS certificate renewal due", f"{days} days left")
     except Exception as e:
@@ -208,6 +208,15 @@ def check_anon_exposure(d=None):
             add("critical", f"Anonymous users can read sensitive-looking column(s) of '{t}'", ", ".join(sens))
         elif has_rows:
             add("info", f"'{t}' is readable anonymously ({len(cols)} columns)")
+    c, body, _ = http(f"{SB}/rest/v1/settings?select=key", headers=H)
+    if c == 200:
+        try:
+            names = [x["key"] for x in json.loads(body)]
+        except Exception:
+            names = []
+        bad = [n for n in names if re.search(r"(key|token|secret|pass)", n, re.I)]
+        if bad:
+            add("critical", "Anonymous users can read secret-looking settings", ", ".join(bad))
     c, body, _ = http(f"{SB}/rest/v1/inventory_skus?select=cost&limit=1", headers=H)
     if c == 200 and body not in (b"[]", b""):
         add("critical", "Anonymous users can read purchase cost (inventory_skus.cost)", "")
@@ -220,20 +229,69 @@ def check_agent_report():
         add("high", "agent-report endpoint is not locked", f"unauthenticated call returned {c}, expected 401")
 
 
-def telegram(text):
-    key = None
+def load_key():
     try:
         for line in open("/etc/patch-tuesday.env"):
             if line.startswith("AGENT_REPORT_KEY="):
-                key = line.split("=", 1)[1].strip()
+                return line.split("=", 1)[1].strip()
     except Exception:
-        return False
+        pass
+    return None
+
+
+def telegram(text):
+    key = load_key()
     if not key:
         return False
     c, _, _ = http(f"{SB}/functions/v1/agent-report", method="POST",
                    headers={"x-agent-key": key, "Content-Type": "application/json"},
                    data=json.dumps({"monitor_only": True, "text": text[:3800]}).encode())
     return c == 200
+
+
+def check_inside():
+    """Read-only inside view via the key-gated patch-audit function. Returns the AI triage text."""
+    key = load_key()
+    if not key:
+        add("info", "Inside checks skipped (no key on this host)"); return ""
+    c, body, _ = http(f"{SB}/functions/v1/patch-audit", method="POST", headers={"x-agent-key": key}, timeout=150)
+    if c != 200:
+        add("medium", "Inside checks (patch-audit) failed to run", f"status {c}"); return ""
+    d = json.loads(body)
+    for t in d["rls_off"]:
+        add("high" if t["anon_priv"] else "low", f"Table '{t['t']}' has row-level security OFF", "anonymous role has privileges" if t["anon_priv"] else "no anonymous privileges")
+    for p in d["open_policies"]:
+        writes = p["cmd"] in ("INSERT", "UPDATE", "DELETE", "ALL")
+        if writes and p["t"] != "page_views":
+            add("high", f"Open write policy on '{p['t']}' ({p['cmd']})", f"{p['p']} for {p['roles']}")
+        else:
+            add("info", f"Wide-open policy on '{p['t']}' ({p['cmd']})", f"{p['p']} for {p['roles']} (expected for public read / page-view logging)")
+    add("info", f"{len(d['anon_secdef'])} SECURITY DEFINER functions are callable anonymously (review each is meant to be public)", ", ".join(x["f"] for x in d["anon_secdef"])[:300])
+    for j in d["cron"]:
+        if not j["active"]:
+            add("medium", f"Cron job '{j['jobname']}' is inactive")
+        elif j["failed_7d"]:
+            add("medium", f"Cron job '{j['jobname']}' failed {j['failed_7d']}x in 7 days")
+        elif j["last_status"] not in ("succeeded", None):
+            add("medium", f"Cron job '{j['jobname']}' last status: {j['last_status']}")
+    for b in d["buckets"]:
+        if b["id"] == "invoices" and b["public"]:
+            add("critical", "Storage bucket 'invoices' is PUBLIC")
+    pub = [b["id"] for b in d["buckets"] if b["public"]]
+    add("info", f"{len(pub)} public storage buckets", ", ".join(pub))
+    if d["secret_settings"]:
+        add("medium", "API keys are stored as plain rows in the settings table (protected only by row-level security)",
+            ", ".join(x["key"] for x in d["secret_settings"]) + " — safer as Supabase secrets", known=True)
+    if int(d["stuck_sessions"] or 0):
+        add("low", f"{d['stuck_sessions']} bot conversation(s) stuck open for 45+ minutes (auto-close not working?)")
+    for b in d["bots"]:
+        try:
+            last = datetime.datetime.fromisoformat(str(b["last_msg"]).replace("Z", "+00:00"))
+            if (datetime.datetime.now(datetime.timezone.utc) - last).days > 14:
+                add("info", f"Bot '{b['bot']}' has had no messages for {(datetime.datetime.now(datetime.timezone.utc) - last).days} days")
+        except Exception:
+            pass
+    return d.get("triage", "")
 
 
 def main():
@@ -249,6 +307,7 @@ def main():
     if d_full: check_secrets(d_full)
     n_tables = check_anon_exposure(d_shallow)
     check_agent_report()
+    triage = check_inside()
     for d in (d_shallow, d_full):
         if d: shutil.rmtree(d, ignore_errors=True)
 
@@ -265,9 +324,9 @@ def main():
     order = ["critical", "high", "medium", "low", "info"]
     findings.sort(key=lambda f: order.index(f["severity"]))
     counts = {s: sum(1 for f in findings if f["severity"] == s) for s in order}
-    report = {"date": today, "host": socket.gethostname(), "generated_utc": datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    report = {"date": today, "host": socket.gethostname(), "generated_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
               "scope": {"sitemap_urls": n_urls, "internal_files_probed": n_internal, "anon_tables_probed": n_tables},
-              "counts": counts, "findings": findings, "new_since_last": len(new), "resolved_since_last": len(resolved)}
+              "counts": counts, "triage": triage, "findings": findings, "new_since_last": len(new), "resolved_since_last": len(resolved)}
     json.dump(report, open(os.path.join(out, "report.json"), "w"), indent=1)
 
     lines = [f"PATCH TUESDAY {today} (home server)", f"critical {counts['critical']} | high {counts['high']} | medium {counts['medium']} | low {counts['low']} | info {counts['info']}"]
@@ -277,6 +336,8 @@ def main():
             lines.append(f"- [{f['severity'].upper()}]{' (known, open)' if f['known'] else ''} {f['title']}" + (f": {f['detail']}" if f["detail"] else ""))
     if counts["critical"] + counts["high"] + counts["medium"] + counts["low"] == 0:
         lines.append("All clear: site, public exposure, repo secrets, anonymous database access and report endpoint checks passed.")
+    if triage:
+        lines.append("AI triage (unverified suggestion):\n" + triage)
     lines.append(f"Scope: {n_urls} sitemap URLs, {n_internal} internal files probed, {n_tables} DB objects probed anonymously. Detect-and-report only; fixes need approval.")
     text = "\n".join(lines)
     open(os.path.join(out, "report.txt"), "w").write(text + "\n")
