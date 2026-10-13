@@ -46,7 +46,7 @@ Shalini gets a separate daily 08:30 IST Telegram reminder (flow diagram, links, 
 ## Security & weekly supervised audit
 
 Status 2026-10-13: **no weekly audit or Tuesday supervisor exists yet** (only a one-off GSC reminder routine and an unrelated homelab heartbeat are scheduled).
-- [ ] `[URGENT][OWNER]` `docs/Project Brief v3.md` lists plaintext logins (admin/owner/sales, pattern `name@123`) and is in public GitHub history (`meensha/meensha-test`). Rotate all those passwords in the app, then remove the file; scrubbing history needs a force-push (confirm first).
+- [ ] `[URGENT][OWNER]` `docs/Project Brief v3.md` lists plaintext logins (admin/owner/sales accounts) and is in public GitHub history (`meensha/meensha-test`). Rotate all those passwords in the app, then remove the file; scrubbing history needs a force-push (confirm first).
 - [ ] Anonymous key can read `inventory_skus.cost` (purchase prices) per the 2026-09-27 audit — verify whether the 2026-10-04 lock-down fixed it
 - [ ] Set up the weekly Tuesday pipeline: Supervisor → Security agent (read-only audit) → Builder agent (fixes on a branch) → QA agent (nothing broken) → Supervisor report to Telegram. Needs go-ahead (autonomous, touches production).
 - [ ] Full-stack security/vulnerability review, Builder↔Security loop until cleared and confirmed by the Supervisor
