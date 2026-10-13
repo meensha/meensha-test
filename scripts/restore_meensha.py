@@ -6,7 +6,8 @@ It never deletes anything. Rows are inserted with ON CONFLICT DO NOTHING, so res
 a healthy database changes nothing; it fills gaps / rebuilds an empty database. To repair a
 damaged table, empty that table by hand first, then restore it.
 
-  restore_meensha.py --list                          list backups (timestamp, rows, chain check)
+  restore_meensha.py --list                          list local backups (timestamp, rows, chain check)
+  restore_meensha.py --fetch latest --region all     copy the newest home-server backup here, then dry run
   restore_meensha.py --stamp 20261013T132116Z --region all          dry run, everything
   restore_meensha.py --stamp <stamp> --region india                 dry run, India only
   restore_meensha.py --stamp <stamp> --region australia --apply     really restore Australia
@@ -16,7 +17,7 @@ Regions: tables with a `region` column are filtered by it ('india' / 'australia'
 name ends in _au belong to australia; every other table (inventory, settings, ...) is SHARED and
 is restored only with --region all.
 Target project = the one linked in the supabase CLI (`supabase link --project-ref <ref>`); pass the same
---ref for the storage step. To restore into a NEW project, link that project first. Needs: supabase CLI logged in, gpg, macOS `security` (passphrase in Keychain).
+--ref for the storage step. To restore into a NEW project, link that project first. Needs: supabase CLI logged in, gpg with your private key (server backups), macOS `security` (passphrases in Keychain), ssh access to the home server for --fetch.
 """
 import argparse, json, os, subprocess, sys, tarfile, tempfile, urllib.parse, urllib.request
 
@@ -25,11 +26,42 @@ KEYCHAIN_SERVICE = "meensha-backup"
 CHUNK = 200
 
 
-def passphrase():
-    r = subprocess.run(["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-w"], capture_output=True, text=True)
-    if r.returncode != 0:
-        sys.exit("Backup passphrase not found in the Keychain (service 'meensha-backup').")
-    return r.stdout.strip()
+def passphrases():
+    out = []
+    for svc in ("meensha-backup-gpgkey", KEYCHAIN_SERVICE):     # private-key passphrase, then legacy symmetric
+        r = subprocess.run(["security", "find-generic-password", "-s", svc, "-w"], capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            out.append(r.stdout.strip())
+    if not out:
+        sys.exit("No backup passphrase found in the Keychain (meensha-backup-gpgkey / meensha-backup).")
+    return out
+
+
+def decrypt(src, dst):
+    """Works for server backups (encrypted to the public key; needs the private key in this Mac's gpg keyring)
+    and for older symmetric backups made by backup_meensha.py."""
+    for pw in passphrases():
+        r = subprocess.run(["gpg", "--batch", "--yes", "--pinentry-mode", "loopback", "--passphrase-fd", "0", "-d", "-o", dst, src],
+                           input=pw.encode(), capture_output=True)
+        if r.returncode == 0:
+            return
+    sys.exit("Could not decrypt: the matching private key (or passphrase) is not available on this Mac.")
+
+
+def fetch_from_server(stamp):
+    """Copy a backup folder from the home server (CT102 /srv/meensha-backups) into BACKUP_DIR."""
+    host = "root@192.168.1.10"
+    if stamp == "latest":
+        out = subprocess.run(["ssh", "-o", "BatchMode=yes", host, "pct exec 102 -- ls /srv/meensha-backups"], capture_output=True, text=True).stdout.split()
+        stamps = sorted(x for x in out if x.startswith("2"))
+        if not stamps: sys.exit("No backups found on the home server.")
+        stamp = stamps[-1]
+    os.makedirs(BACKUP_DIR, mode=0o700, exist_ok=True)
+    cmd = f'ssh -o BatchMode=yes {host} "pct exec 102 -- tar -C /srv/meensha-backups -cf - {stamp}" | tar -xf - -C "{BACKUP_DIR}"'
+    if subprocess.run(cmd, shell=True).returncode != 0:
+        sys.exit("Fetch from the home server failed.")
+    print(f"Fetched {stamp} from the home server into {BACKUP_DIR}")
+    return stamp
 
 
 def sql(ref, query):
@@ -65,9 +97,12 @@ def main():
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--storage", action="store_true")
     ap.add_argument("--ref", default="eglanmhhcccsuhbxywua")
+    ap.add_argument("--fetch", metavar="STAMP|latest", help="first copy that backup from the home server")
     a = ap.parse_args()
 
     log = os.path.join(BACKUP_DIR, "BACKUP-LOG.jsonl")
+    if a.fetch:
+        a.stamp = fetch_from_server(a.fetch)
     if a.list or not a.stamp:
         subprocess.run([sys.executable, os.path.join(os.path.dirname(__file__), "backup_meensha.py"), "--verify"])
         return
@@ -82,8 +117,7 @@ def main():
 
     work = tempfile.mkdtemp(prefix="meensha-restore-")
     tarpath = os.path.join(work, "b.tar.gz")
-    subprocess.run(["gpg", "--batch", "--yes", "--pinentry-mode", "loopback", "--passphrase-fd", "0", "-d", "-o", tarpath, arch],
-                   input=passphrase().encode(), check=True, capture_output=True)
+    decrypt(arch, tarpath)
     with tarfile.open(tarpath) as t:
         t.extractall(work)
     root = os.path.join(work, "meensha-backup")

@@ -38,7 +38,9 @@ Shalini gets a separate daily 08:30 IST Telegram reminder (flow diagram, links, 
 - [x] 2026-10-13 Website restore point on home-server Gitea: tag `website-restore-2026-10-13`, branch `site-restore-template`
 - [x] 2026-10-13 First full data backup, both regions (42 tables, 818 rows, 111 files), encrypted, hash-chained, timestamped; `scripts/backup_meensha.py --verify` = CHAIN VALID
 - [x] 2026-10-13 Restore script with region filter (`scripts/restore_meensha.py`); dry run verified, `--apply` not yet exercised on a real empty project
-- [ ] Schedule the backup nightly (decision: on this Mac via launchd, or on the home server CT100)
+- [x] 2026-10-13 Nightly backup moved to the home server (CT102, 03:30 IST), encrypted to Dheeraj's public key, hash-chained, Monitor report each night. First server backup 20261013T155720Z: 42 tables, 819 rows, 111 files; fetched to the Mac, decrypted and dry-run restored OK.
+- [ ] `[URGENT][OWNER]` Copy `~/Documents/MeenshaBackupKey/` (private key + passphrase from Keychain item `meensha-backup-gpgkey`) to a password manager or USB. Without it the backups cannot be opened if the Mac is lost.
+- [ ] Second off-box copy of the server backups (they are only on CT102 plus whatever is fetched to the Mac and Syncthing'd). No automatic pruning yet; disk has ~4 GB free, ~30 MB per backup; the Monitor warns below 1.5 GB free.
 - [ ] Access decision: currently the Keychain passphrase on Dheeraj's Mac login; wanted = viewable/restorable via the app login `shameen` (super_admin). Needs a private backups bucket + an admin-only "Backups" tab.
 - [ ] Do one full restore rehearsal into a throwaway Supabase project and record the result in RESTORE.md
 - [ ] Note: Syncthing is send-receive, so a deletion on one side deletes on the other. Make the backups folder send-only from this Mac or keep a versioned copy on CT100.
