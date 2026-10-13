@@ -88,7 +88,7 @@ Reply with ONLY one JSON object, no markdown, no explanation:
   }
 
   if (routed.action === "clarify") return routed.question || "Could you clarify what you mean?";
-  if (routed.action === "decline") return routed.reason || "I can only answer stock, sales, and site-health questions.";
+  if (routed.action === "decline") return "I can help with stock, prices, sales and low stock. Try for example: \"ajrakh stock\", \"price of kalamkari\", \"sales this week\" or \"what's low on stock\".";
   if (routed.action !== "lookup" || !routed.name) return "Sorry, couldn't process that.";
 
   const lookupResult = await runLookup(supabase, routed.name as LookupName, routed.params || {});

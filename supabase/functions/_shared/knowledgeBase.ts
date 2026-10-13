@@ -47,19 +47,20 @@ async function itemLookup(supabase: SB, params: { query?: string; region?: strin
   if (!q) return "No search term given.";
   let query = supabase
     .from("inventory_skus")
-    .select("id,name,display_material,display_variant,sale_price_inr,sale_price_aud,india_available,au_available")
+    .select("id,name,display_material,display_variant,sale_price,sale_price_aud,india_available,au_available")
     .or(`name.ilike.%${q}%,display_material.ilike.%${q}%,display_variant.ilike.%${q}%`)
     .limit(8);
   if (params.region === "india") query = query.eq("india_available", true);
   if (params.region === "australia") query = query.eq("au_available", true);
-  const { data: skus } = await query;
+  const { data: skus, error } = await query;
+  if (error) return `Sorry, the stock lookup hit an error (${String(error.message || error).slice(0, 80)}). Please tell Dheeraj.`;
   if (!skus?.length) return `No items matching "${q}".`;
   const ids = skus.map((s: any) => s.id);
   const { data: units } = await supabase.from("inventory_units").select("sku_id,status").in("sku_id", ids);
   const lines = skus.map((s: any) => {
     const avail = (units || []).filter((u: any) => u.sku_id === s.id && u.status === "available").length;
     const regions = [s.india_available && "🇮🇳", s.au_available && "🇦🇺"].filter(Boolean).join(" ");
-    return `${s.name}${s.display_variant ? " (" + s.display_variant + ")" : ""} — ${avail} available ${regions} — ₹${s.sale_price_inr || 0}${s.sale_price_aud ? " / A$" + s.sale_price_aud : ""}`;
+    return `${s.name}${s.display_variant ? " (" + s.display_variant + ")" : ""} — ${avail} available ${regions} — ₹${s.sale_price || 0}${s.sale_price_aud ? " / A$" + s.sale_price_aud : ""}`;
   });
   return lines.join("\n");
 }
