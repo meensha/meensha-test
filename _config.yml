@@ -1,0 +1,31 @@
+# GitHub Pages (Jekyll) build config.
+# The whole repo is the website, so anything not listed here is publicly served.
+# Keep internal docs, SQL, scripts and server code OUT of the published site.
+# docs/MEDIUM_POST_02_draft.md and docs/ARTISANS_BLOG_DRAFT_01.md stay served:
+# admin.html's Content Drafts viewer fetches them.
+exclude:
+  - "setup"
+  - "supabase"
+  - "scripts"
+  - "chatbot/kb"
+  - "chatbot/server"
+  - "chatbot/README.md"
+  - "TODO.md"
+  - "RESTORE.md"
+  - "README.md"
+  - "STAGING_SEPARATION_PROPOSAL.md"
+  - "IDEA.md"
+  - "docs/BLOG_DRAFT_building_meensha.md"
+  - "docs/INSTAGRAM_INSIGHTS_SETUP.md"
+  - "docs/MASTER_PLAN_2026-07-12.md"
+  - "docs/MEENSHA_AUTH_SECURITY_HANDOFF.md"
+  - "docs/MEENSHA_HANDOFF_2026-08-11.md"
+  - "docs/MEENSHA_HANDOFF_2026-08-15.md"
+  - "docs/MEENSHA_HANDOFF_2026-08-16.md"
+  - "docs/MEENSHA_HANDOFF_2026-08-27.md"
+  - "docs/MEENSHA_MONITORING.md"
+  - "docs/PRICE_TAG_PRINT_REDESIGN.md"
+  - "docs/Project Brief v3.md"
+  - "docs/README.md"
+  - "docs/TELEGRAM_BOT_BUILD_PLAN.md"
+  - "docs/initial_plan.md"
