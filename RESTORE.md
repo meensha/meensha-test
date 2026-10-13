@@ -66,8 +66,8 @@ India = Shalini's bot (`telegram-bot`), Australia = `telegram-bot-au`, Monitor =
 ## 7. Scheduled jobs (pg_cron)
 Apply each cron SQL: `setup/add_daily_health_check_cron.sql`, `add_pending_cost_digest_cron.sql`, `add_returns_pending_digest_cron.sql`, `add_saree_requests_cron.sql`, `add_todo_worker_digest_cron.sql`, `add_post_suggestion_nudge_cron.sql` (Mon/Thu 09:30 IST posting nudge), `add_session_autoclose_cron.sql` (closes idle bot sessions after 30 min), `add_social_actions_reminder_cron.sql` (08:30 IST daily social reminder until done). The activity-summary, auth-log, daily-summary (India/AU) jobs are recorded in the backup's `extras/cron_jobs.json`.
 
-## 7b. Weekly supervised audit (scheduled tasks on Dheeraj's Mac)
-Tasks `meensha-weekly-audit` (Tue 07:00 IST) and `meensha-weekly-audit-watchdog` (Tue 09:30/12:30) live in the Claude app, not in git. Recreate them from `Meensha/audits/PIPELINE.md` (copy kept on the home server via Syncthing). Run reports: `Meensha/audits/<date>/`.
+## 7b. Patch Tuesday (weekly security check, home server)
+Runs on the home server, container CT102 `meensha-monitor`: `/opt/patch-tuesday/patch_tuesday.py` (copy: `scripts/patch_tuesday.py`), systemd units `patch-tuesday.timer` (Tue 01:30 UTC = 07:00 IST) and `patch-tuesday-watchdog.timer` (04:00 and 07:00 UTC), key in `/etc/patch-tuesday.env` (`AGENT_REPORT_KEY`, mode 600). Reports: `/opt/patch-tuesday/reports/<date>/`. To rebuild: copy the script, create the two services and two timers (`ExecStart=/usr/bin/python3 /opt/patch-tuesday/patch_tuesday.py`, the watchdog adds `--if-missing`), write the env file, `systemctl enable --now` both timers.
 
 ## 8. Social accounts (manual)
 Follow `Meensha-social/SOCIAL-CONFIG.md` (profile, bio, links, highlights, Page link). Open steps and owners: TODO.md → "Social media strategy".
