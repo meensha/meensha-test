@@ -7,7 +7,7 @@
 // deno-lint-ignore no-explicit-any
 type SB = any;
 
-export type LookupName = "item_lookup" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending" | "visit_stats" | "chat_transcript";
+export type LookupName = "item_lookup" | "stock_summary" | "top_sellers" | "sales_summary" | "low_stock" | "tech_health" | "pnl_summary" | "returns_pending" | "visit_stats" | "chat_transcript";
 
 export interface LookupDef {
   name: LookupName;
@@ -19,6 +19,8 @@ export interface LookupDef {
 // gets everything, including cross-region and financial data.
 export const LOOKUP_CATALOG_REGIONAL: LookupDef[] = [
   { name: "item_lookup", description: "Find stock count and price for a product by name/material/variant", params: { query: "search text, e.g. 'ajrak' or 'kalamkari dupatta'" } },
+  { name: "stock_summary", description: "Overall stock totals: how many pieces and designs are available, how many are low or out of stock (use for 'how many sarees', 'total stock', or a bare 'stock')", params: {} },
+  { name: "top_sellers", description: "Best-selling designs by number sold and revenue (use for 'what is selling best', 'top sellers', 'bestsellers')", params: { period: "'week' | 'month' | 'all' (default all)" } },
   { name: "sales_summary", description: "Sales total/count for a time period", params: { period: "'today' | 'week' | 'month'" } },
   { name: "low_stock", description: "Items with 2 or fewer units available", params: {} },
   { name: "returns_pending", description: "Faulty/defective items flagged and awaiting return to the vendor", params: {} },
@@ -26,6 +28,8 @@ export const LOOKUP_CATALOG_REGIONAL: LookupDef[] = [
 
 export const LOOKUP_CATALOG_FULL: LookupDef[] = [
   { name: "item_lookup", description: "Find stock count and price for a product by name/material/variant, across both India and Australia", params: { query: "search text, e.g. 'ajrak' or 'kalamkari dupatta'", region: "'india' | 'australia' | 'all' (default all)" } },
+  { name: "stock_summary", description: "Overall stock totals per region: pieces and designs available, low and out of stock", params: { region: "'india' | 'australia' | 'all' (default all)" } },
+  { name: "top_sellers", description: "Best-selling designs by number sold and revenue", params: { period: "'week' | 'month' | 'all' (default all)", region: "'india' | 'australia' | 'all' (default all)" } },
   { name: "sales_summary", description: "Sales total/count for a time period, across both regions", params: { period: "'today' | 'week' | 'month'", region: "'india' | 'australia' | 'all' (default all)" } },
   { name: "low_stock", description: "Items with 2 or fewer units available, either region", params: {} },
   { name: "tech_health", description: "Live tech-stack status: website, Supabase, Razorpay, GitHub, with response times and a few key stats", params: {} },
@@ -65,16 +69,61 @@ async function itemLookup(supabase: SB, params: { query?: string; region?: strin
   return lines.join("\n");
 }
 
+const REGION_OF = (src: string | null) => (src === "telegram_au" ? "australia" : "india");
+
 async function salesSummary(supabase: SB, params: { period?: string; region?: string }): Promise<string> {
   const period = params.period || "today";
   const from = periodStart(period);
   const region = params.region || "all";
-  let query = supabase.from("sales").select("total,source").gte("date", from);
-  if (region === "india") query = query.eq("source", "telegram");
-  if (region === "australia") query = query.eq("source", "telegram_au");
-  const { data: rows } = await query;
-  const total = (rows || []).reduce((a: number, r: any) => a + Number(r.total || 0), 0);
-  return `${(rows || []).length} sale(s) since ${from}, total ₹${total.toLocaleString("en-IN")} (region: ${region})`;
+  const { data: rows } = await supabase.from("sales").select("total,source").gte("date", from);
+  const by: Record<string, { n: number; total: number }> = { india: { n: 0, total: 0 }, australia: { n: 0, total: 0 } };
+  (rows || []).forEach((r: any) => { const k = REGION_OF(r.source); by[k].n++; by[k].total += Number(r.total || 0); });
+  const fmt = (k: string) => `${by[k].n} sale(s), total ${k === "australia" ? "A$" : "₹"}${by[k].total.toLocaleString("en-IN")}`;
+  if (region === "india") return `India: ${fmt("india")} since ${from}`;
+  if (region === "australia") return `Australia: ${fmt("australia")} since ${from}`;
+  return `Since ${from} — India: ${fmt("india")}; Australia: ${fmt("australia")}`;
+}
+
+async function stockSummary(supabase: SB, params: { region?: string }): Promise<string> {
+  const region = params.region || "all";
+  const { data: skus } = await supabase.from("inventory_skus").select("id,india_available,au_available").limit(1000);
+  const { data: units } = await supabase.from("inventory_units").select("sku_id,status").eq("status", "available");
+  const counts: Record<string, number> = {};
+  (units || []).forEach((u: any) => { counts[u.sku_id] = (counts[u.sku_id] || 0) + 1; });
+  const line = (label: string, flag: "india_available" | "au_available") => {
+    const mine = (skus || []).filter((s: any) => s[flag]);
+    if (!mine.length) return `${label}: no stock entered yet.`;
+    const pieces = mine.reduce((a: number, s: any) => a + (counts[s.id] || 0), 0);
+    const inStock = mine.filter((s: any) => (counts[s.id] || 0) > 0).length;
+    const low = mine.filter((s: any) => (counts[s.id] || 0) > 0 && (counts[s.id] || 0) <= 2).length;
+    const out = mine.length - inStock;
+    return `${label}: ${pieces} pieces available across ${inStock} designs (${low} low with 2 or fewer, ${out} out of stock).`;
+  };
+  if (region === "india") return line("India", "india_available");
+  if (region === "australia") return line("Australia", "au_available");
+  return [line("India", "india_available"), line("Australia", "au_available")].join("\n");
+}
+
+async function topSellers(supabase: SB, params: { period?: string; region?: string }): Promise<string> {
+  const period = params.period || "all";
+  const region = params.region || "all";
+  let q = supabase.from("sales").select("items,source,date");
+  if (period !== "all") q = q.gte("date", periodStart(period));
+  const { data: rows } = await q;
+  const agg: Record<string, { n: number; rev: number }> = {};
+  (rows || []).forEach((r: any) => {
+    if (region !== "all" && REGION_OF(r.source) !== region) return;
+    let items = r.items; if (typeof items === "string") { try { items = JSON.parse(items); } catch { items = []; } }
+    (Array.isArray(items) ? items : []).forEach((it: any) => {
+      const name = String(it.name || "Unknown").trim();
+      const a = (agg[name] = agg[name] || { n: 0, rev: 0 });
+      a.n += Number(it.qty || 1); a.rev += Number(it.price || 0) - Number(it.discount || 0);
+    });
+  });
+  const top = Object.entries(agg).sort((a, b) => b[1].n - a[1].n || b[1].rev - a[1].rev).slice(0, 5);
+  if (!top.length) return `No sales recorded${period === "all" ? "" : " in that period"}.`;
+  const cur = region === "australia" ? "A$" : "₹";
+  return `Top sellers (${period === "all" ? "all time" : "last " + period}):\n` + top.map(([name, a], i) => `${i + 1}. ${name} — ${a.n} sold, ${cur}${a.rev.toLocaleString("en-IN")}`).join("\n");
 }
 
 async function lowStock(supabase: SB): Promise<string> {
@@ -210,6 +259,8 @@ async function visitStats(supabase: SB): Promise<string> {
 export async function runLookup(supabase: SB, name: LookupName, params: Record<string, string>): Promise<string> {
   switch (name) {
     case "item_lookup": return itemLookup(supabase, params);
+    case "stock_summary": return stockSummary(supabase, params);
+    case "top_sellers": return topSellers(supabase, params);
     case "sales_summary": return salesSummary(supabase, params);
     case "low_stock": return lowStock(supabase);
     case "tech_health": return techHealth(supabase);
