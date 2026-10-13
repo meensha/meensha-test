@@ -6,12 +6,8 @@
 // on every run. Relays a plain-text status to both the India bot's owner
 // chat and MeenshaMonitor.
 //
-// Deployed with the DEFAULT verify_jwt (true) — unlike Telegram/Razorpay
-// webhooks, there's no external caller here that's unable to supply a
-// Supabase JWT, so this isn't left fully public. The calling cloud agent
-// is given only the public anon key (same key already embedded
-// client-side in index.html/admin.html — not a secret) as its
-// Authorization bearer, never a service-role credential.
+// Gated by the x-agent-key header (secret AGENT_REPORT_KEY) — see below. The
+// old "JWT verification is on" assumption was wrong: the endpoint was open.
 //
 // Required secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_MONITOR_BOT_TOKEN.
 // Supabase auto-provides SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
@@ -20,7 +16,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
-  const { text } = await req.json();
+  // Shared-secret check: this function relays messages to the owner's Telegram,
+  // so it must not be callable by anyone who finds the URL. (Deployed with
+  // --no-verify-jwt; the key below is the real gate, kept in the Keychain
+  // service "meensha-agent-report-key" on Dheeraj's Mac and as a Supabase secret.)
+  const expected = Deno.env.get("AGENT_REPORT_KEY");
+  if (!expected || req.headers.get("x-agent-key") !== expected) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  // monitor_only: true skips Shalini's bot (used for security-audit reports,
+  // which are for Dheeraj/MeenshaMonitor only).
+  const { text, monitor_only } = await req.json();
   if (!text) return new Response("text required", { status: 400 });
 
   const supabase = createClient(
@@ -31,7 +37,7 @@ Deno.serve(async (req: Request) => {
   const results: Record<string, boolean> = {};
 
   try {
-    const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN");
+    const botToken = monitor_only ? undefined : Deno.env.get("TELEGRAM_BOT_TOKEN");
     const { data: allowedRows } = await supabase.from("telegram_allowed_users").select("chat_id").eq("active", true);
     if (botToken) {
       for (const row of allowedRows ?? []) {

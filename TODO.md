@@ -45,10 +45,10 @@ Shalini gets a separate daily 08:30 IST Telegram reminder (flow diagram, links, 
 
 ## Security & weekly supervised audit
 
-Status 2026-10-13: **no weekly audit or Tuesday supervisor exists yet** (only a one-off GSC reminder routine and an unrelated homelab heartbeat are scheduled).
+Status 2026-10-13: weekly Tuesday supervised pipeline now scheduled (first run 2026-10-20). Approvals needed from Dheeraj for anything it marks NEEDS APPROVAL.
 - [ ] `[URGENT][OWNER]` `docs/Project Brief v3.md` lists plaintext logins (admin/owner/sales accounts) and is in public GitHub history (`meensha/meensha-test`). Rotate all those passwords in the app, then remove the file; scrubbing history needs a force-push (confirm first).
 - [ ] Anonymous key can read `inventory_skus.cost` (purchase prices) per the 2026-09-27 audit — verify whether the 2026-10-04 lock-down fixed it
-- [ ] Set up the weekly Tuesday pipeline: Supervisor → Security agent (read-only audit) → Builder agent (fixes on a branch) → QA agent (nothing broken) → Supervisor report to Telegram. Needs go-ahead (autonomous, touches production).
+- [x] 2026-10-13 Weekly Tuesday pipeline created: Supervisor → Security agent (read-only) → Builder (fixes on a branch, low-risk code/doc items only) → QA agent (independent) → Supervisor merges only QA-PASS items, re-checks live, rolls back on regression, reports to Telegram Monitor only. Scheduled tasks `meensha-weekly-audit` (Tue 07:00 IST) + `meensha-weekly-audit-watchdog` (Tue 09:30 and 12:30, resumes if stalled). Definition: `Meensha/audits/PIPELINE.md`; reports stay out of the public repos. First scheduled run: Tue 2026-10-20.
 - [ ] Full-stack security/vulnerability review, Builder↔Security loop until cleared and confirmed by the Supervisor
 
 ## Queued (not started)

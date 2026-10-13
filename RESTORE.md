@@ -53,7 +53,7 @@ done
 ```
 
 ## 5. Secrets (names only; set with `supabase secrets set NAME=value`)
-`TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN_AU`, `TELEGRAM_MONITOR_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_WEBHOOK_SECRET_AU`, `TELEGRAM_WEBHOOK_SECRET_MONITOR`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RESEND_API_KEY`, `CHATBOT_API_SECRET`, `CHATBOT_BACKEND_URL`. (`SUPABASE_*` are provided automatically.)
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN_AU`, `TELEGRAM_MONITOR_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_WEBHOOK_SECRET_AU`, `TELEGRAM_WEBHOOK_SECRET_MONITOR`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RESEND_API_KEY`, `AGENT_REPORT_KEY` (also in Dheeraj's Keychain as `meensha-agent-report-key`), `CHATBOT_API_SECRET`, `CHATBOT_BACKEND_URL`. (`SUPABASE_*` are provided automatically.)
 
 ## 6. Telegram webhooks (one per bot)
 ```bash
@@ -65,6 +65,9 @@ India = Shalini's bot (`telegram-bot`), Australia = `telegram-bot-au`, Monitor =
 
 ## 7. Scheduled jobs (pg_cron)
 Apply each cron SQL: `setup/add_daily_health_check_cron.sql`, `add_pending_cost_digest_cron.sql`, `add_returns_pending_digest_cron.sql`, `add_saree_requests_cron.sql`, `add_todo_worker_digest_cron.sql`, `add_post_suggestion_nudge_cron.sql` (Mon/Thu 09:30 IST posting nudge), `add_session_autoclose_cron.sql` (closes idle bot sessions after 30 min), `add_social_actions_reminder_cron.sql` (08:30 IST daily social reminder until done). The activity-summary, auth-log, daily-summary (India/AU) jobs are recorded in the backup's `extras/cron_jobs.json`.
+
+## 7b. Weekly supervised audit (scheduled tasks on Dheeraj's Mac)
+Tasks `meensha-weekly-audit` (Tue 07:00 IST) and `meensha-weekly-audit-watchdog` (Tue 09:30/12:30) live in the Claude app, not in git. Recreate them from `Meensha/audits/PIPELINE.md` (copy kept on the home server via Syncthing). Run reports: `Meensha/audits/<date>/`.
 
 ## 8. Social accounts (manual)
 Follow `Meensha-social/SOCIAL-CONFIG.md` (profile, bio, links, highlights, Page link). Open steps and owners: TODO.md → "Social media strategy".
