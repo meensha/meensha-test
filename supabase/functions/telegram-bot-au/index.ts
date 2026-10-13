@@ -210,7 +210,7 @@ async function saveSession(supabase: any, chatId: number, state: string, data: o
 }
 
 async function showTopMenu(chatId: number) {
-  await tgSend(chatId, "🇦🇺 *Meensha Australia*\nWhat would you like to do?", {
+  await tgSend(chatId, "🇦🇺 *Meensha Australia*\nWhat would you like to do?\n(Or just type a question, e.g. \"ajrakh stock\" or \"sales this week\".)", {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode (sale)", callback_data: "kiosk:start" }],
       [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],

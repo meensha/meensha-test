@@ -300,6 +300,10 @@ Deno.serve(async (req: Request) => {
     await handleAddPhotoText(supabase, chatId, data, text);
   } else if (text && state === "maint_addphoto_search") {
     await showAddPhotoPicker(supabase, chatId, text.trim());
+  } else if (text && state === "social_reply") {
+    await logActivity(supabase, "india", chatId, "social_reply", `${data.topic}: ${text.slice(0, 300)}`);
+    await tgSend(chatId, "Got it, thank you — noted. (If it's the 'use what's already there' answer: that's already covered, the Our Story graphic uses the existing bio text.)");
+    await saveSession(supabase, chatId, "idle", {});
   } else if (text && state === "maint_postsuggest_active") {
     await handlePostSuggestionText(supabase, chatId, data, text, callLLM, tgSend, saveSession);
   } else if (text && state.startsWith("godown_")) {
@@ -366,7 +370,7 @@ async function saveSession(supabase: SB, chatId: number, state: string, data: Se
 }
 
 async function showTopMenu(chatId: number) {
-  await tgSend(chatId, "What would you like to do?", {
+  await tgSend(chatId, "What would you like to do?\n(Or just type a question, e.g. \"ajrakh stock\" or \"sales this week\".)", {
     inline_keyboard: [
       [{ text: "🛍️ Kiosk mode", callback_data: "kiosk:start" }],
       [{ text: "🧾 Vendor purchase (batch + payment)", callback_data: "inv:start" }],
@@ -471,6 +475,17 @@ async function handleMaintenance(supabase: SB, chatId: number, callbackData: str
     await suggestPostWrapped(supabase, chatId);
     return;
   }
+  if (callbackData === "postsuggest:open") {
+    const { data: pending } = await supabase.from("settings").select("value").eq("key", `postsuggest_pending_${chatId}`).maybeSingle();
+    if (!pending?.value) {
+      await tgSend(chatId, "That suggestion has expired — tap Maintenance → 📣 Suggest a post for a fresh one.");
+      return;
+    }
+    const draftData = JSON.parse(pending.value);
+    await saveSession(supabase, chatId, "maint_postsuggest_active", draftData);
+    await showPostSuggestion(chatId, draftData, tgSend);
+    return;
+  }
   if (callbackData === "postsuggest:video") {
     await finalizePostSuggestionWrapped(supabase, chatId, data, "video");
     return;
@@ -567,6 +582,7 @@ async function handleSocialApprove(supabase: SB, chatId: number, callbackData: s
     return;
   }
   if (topic === "highlights") {
+    await saveSession(supabase, chatId, "social_reply", { topic: "highlights" });
     await tgSend(
       chatId,
       "Great! To set these up we need from you:\n\n1️⃣ 'Our Story' — a couple of lines about you two + Meensha (or just say 'use what's already in the bio') and a photo you like\n2️⃣ 'Testimonials' — any customer message/review screenshots you have handy\n\nSend them here whenever you have a moment and we'll get the highlights live.",
