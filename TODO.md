@@ -2,6 +2,55 @@
 
 Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to gitea/GitHub); update as items land.
 
+## Social media strategy (Instagram growth) — live tracker
+
+Goal: grow followers from OUTSIDE the current circle, zero ad spend. Peer benchmark + gap list: `Meensha-social/BRIEF.md` (reviewed 2026-10-12). Account setup record: `Meensha-social/SOCIAL-CONFIG.md`. Rules: draft only (owners post manually), never invent reviews/stock, India/Shalini + Monitor only (never the AU bot).
+`[OWNER]` / `[MANUAL]` items are for Shalini or Dheeraj to do — NOT for the autonomous TODO worker.
+Shalini gets a separate daily 08:30 IST Telegram reminder (flow diagram, links, Done buttons) until the five steps below are done; progress is stored in `settings.social_actions`.
+
+**Done**
+- [x] 2026-10-12 Peer benchmark (3 real accounts) and gap analysis
+- [x] 2026-10-12 Profile picture fixed (logo on black, no white edge), live
+- [x] 2026-10-12 Caption generator now uses craft-fact and customer-tag tactics (`_shared/postSuggestion.ts`)
+- [x] 2026-10-13 Posting rhythm live: pg_cron `meensha-post-suggestion-nudge` Mon+Thu 09:30 IST (session-independent, "Open today's suggestion" button)
+- [x] 2026-10-13 Idle bot chats auto-close after 30 min (pg_cron `meensha-session-autoclose`, India + AU)
+- [x] 2026-10-13 Tags and mentions already open to everyone (checked)
+- [x] 2026-10-13 Daily social reminder built and first one sent (08:30 IST cron `meensha-social-actions-reminder`)
+- [x] 2026-10-13 Homepage title now follows the tagline: "Meensha - Heritage . Handloom . Premium"
+
+**To do (each also in the daily reminder where marked ★)**
+- [ ] ★ `[OWNER]` Create Facebook Business Page "Meensha" (Clothing brand). Sent to Shalini 2026-10-13. Why: personal profile is linked; likely blocks the WhatsApp Channel link.
+- [ ] ★ `[OWNER]` Link the Page to Instagram (Edit profile > Page). After the Page exists.
+- [ ] ★ `[OWNER]` Add the WhatsApp Channel link (https://whatsapp.com/channel/0029VbC1rowCHDyn3aulnS2v) to the Instagram links. After the Page is linked.
+- [ ] ★ `[OWNER]` Post the "Our Story" graphic as a Story and save it to a new "Our Story" highlight (graphic sent to Shalini 2026-10-12; file `Meensha-social/assets/our_story_highlight.jpg`)
+- [ ] ★ `[OWNER]` Send 3-5 REAL customer feedback screenshots (with the customer's OK) for a Testimonials highlight. Nothing on Instagram or in the DB to use yet (reviews table empty, comments are one-word reactions); we do not invent reviews.
+- [ ] `[OWNER]` Customer-tag reposting habit: approved 2026-10-12; first real repost not yet seen (Tagged tab empty)
+- [ ] `[OWNER]` Use the Mon/Thu suggestion (never used yet; first nudge Thu 2026-10-15)
+- [ ] `[MANUAL]` Fix the Gemini carousel text (duplicated lines in middle and right panels) then re-run the logo step; panels in `Meensha-social/carousel/`
+- [ ] Collabs and Q&A/Policies highlight copy (Hermes can draft)
+- [ ] 2-week content plan: revise Hermes' plan to start Wed 2026-10-14 with real stock items from Shalini
+- [ ] Measure at +14 / +28 days: followers, reach, profile visits, Tagged tab, link clicks; course-correct after 3-4 days of trend
+- [ ] Poster/image generation: not built, would need a paid API (conflicts with zero cost) — decision needed
+- [ ] Instagram Graph API / view counts: needs the Facebook Page first, then Meta App Review (not started)
+
+## Backups & restore — see [RESTORE.md](RESTORE.md)
+
+- [x] 2026-10-13 Website restore point on home-server Gitea: tag `website-restore-2026-10-13`, branch `site-restore-template`
+- [x] 2026-10-13 First full data backup, both regions (42 tables, 818 rows, 111 files), encrypted, hash-chained, timestamped; `scripts/backup_meensha.py --verify` = CHAIN VALID
+- [x] 2026-10-13 Restore script with region filter (`scripts/restore_meensha.py`); dry run verified, `--apply` not yet exercised on a real empty project
+- [ ] Schedule the backup nightly (decision: on this Mac via launchd, or on the home server CT100)
+- [ ] Access decision: currently the Keychain passphrase on Dheeraj's Mac login; wanted = viewable/restorable via the app login `shameen` (super_admin). Needs a private backups bucket + an admin-only "Backups" tab.
+- [ ] Do one full restore rehearsal into a throwaway Supabase project and record the result in RESTORE.md
+- [ ] Note: Syncthing is send-receive, so a deletion on one side deletes on the other. Make the backups folder send-only from this Mac or keep a versioned copy on CT100.
+
+## Security & weekly supervised audit
+
+Status 2026-10-13: **no weekly audit or Tuesday supervisor exists yet** (only a one-off GSC reminder routine and an unrelated homelab heartbeat are scheduled).
+- [ ] `[URGENT][OWNER]` `docs/Project Brief v3.md` lists plaintext logins (admin/owner/sales, pattern `name@123`) and is in public GitHub history (`meensha/meensha-test`). Rotate all those passwords in the app, then remove the file; scrubbing history needs a force-push (confirm first).
+- [ ] Anonymous key can read `inventory_skus.cost` (purchase prices) per the 2026-09-27 audit — verify whether the 2026-10-04 lock-down fixed it
+- [ ] Set up the weekly Tuesday pipeline: Supervisor → Security agent (read-only audit) → Builder agent (fixes on a branch) → QA agent (nothing broken) → Supervisor report to Telegram. Needs go-ahead (autonomous, touches production).
+- [ ] Full-stack security/vulnerability review, Builder↔Security loop until cleared and confirmed by the Supervisor
+
 ## Queued (not started)
 
 - [ ] Instagram tiles on the storefront: the left-most tile should always show the actual latest post from Meensha's Instagram account (currently — confirm current behavior before building; may need Instagram Graph API access to pull real posts).

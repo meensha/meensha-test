@@ -270,6 +270,8 @@ Deno.serve(async (req: Request) => {
     await handleMaintenance(supabase, chatId, callbackData, data);
   } else if (callbackData?.startsWith("socialboost:")) {
     await handleSocialBoost(supabase, chatId, callbackData);
+  } else if (callbackData?.startsWith("socialact:")) {
+    await handleSocialActionDone(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("socialapprove:")) {
     await handleSocialApprove(supabase, chatId, callbackData);
   } else if (callbackData?.startsWith("howworks:escalate:")) {
@@ -572,6 +574,20 @@ async function handleSocialBoost(supabase: SB, chatId: number, callbackData: str
 // which way Shalini answered so it shows up in the activity digest, and
 // tells her what's needed next rather than fabricating content on her behalf.
 // ═══════════════════════════════════════════════
+// Done-taps from the daily social-media reminder (social-actions-reminder).
+// Checklist is settings.social_actions; the reminder stops once all are done.
+async function handleSocialActionDone(supabase: SB, chatId: number, callbackData: string) {
+  const id = callbackData.slice("socialact:done:".length);
+  const { data: row } = await supabase.from("settings").select("value").eq("key", "social_actions").maybeSingle();
+  // deno-lint-ignore no-explicit-any
+  const items: any[] = row?.value ? JSON.parse(row.value) : [];
+  const updated = items.map((i) => (i.id === id ? { ...i, done: true, done_at: new Date().toISOString() } : i));
+  await supabase.from("settings").upsert({ key: "social_actions", value: JSON.stringify(updated) }, { onConflict: "key" });
+  await logActivity(supabase, "india", chatId, "social_action_done", id);
+  const left = updated.filter((i) => !i.done);
+  await tgSend(chatId, left.length ? `✅ Marked done — ${left.length} left. Well done!` : "🎉 All social media steps are done — no more daily reminders. Great work!");
+}
+
 async function handleSocialApprove(supabase: SB, chatId: number, callbackData: string) {
   const parts = callbackData.split(":"); // socialapprove:<topic>:<yes|no>
   const topic = parts[1];
