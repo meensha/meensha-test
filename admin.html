@@ -1185,7 +1185,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 
 <!-- Instagram Modal -->
 <div class="mo hi" id="MO-IG"><div class="md">
-  <div class="mt2">📸 Add Instagram Post</div>
+  <div class="mt2" id="IG-TITLE">📸 Add Instagram Post</div>
   <div class="fg">
     <div class="fi" style="grid-column:1/-1"><label>Post URL *</label><input id="IG-URL" placeholder="https://instagram.com/p/..."></div>
     <div class="fi" style="grid-column:1/-1"><label>Caption</label><input id="IG-CAP" placeholder="Caption or description"></div>
@@ -1267,7 +1267,7 @@ async function uploadFile(bucket,file){
 // ═══════════════════════════════════════════════
 let CU=null,inv=[],sales=[],purch=[],ohs=[],revs=[],users=[],reqs=[],popups=[],igPosts=[];
 let vendors=[],skus=[],units=[],issues=[],vidRequests=[],shorthands={patterns:{},materials:{},variants:{}};
-let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,niCatImg=null,evTmpPh=[],igTmpPh=null,niTmpPh=[],audToInrRate=55;
+let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,editIgId=null,niCatImg=null,evTmpPh=[],igTmpPh=null,niTmpPh=[],audToInrRate=55;
 let editVendorId=null,editIssueId=null,currentVendorDetail=null;
 const fmt=n=>Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2});
 const sp=(m,d)=>Math.round(m*(1-d/100));
@@ -2121,8 +2121,8 @@ async function renderHome(){
   // Requests — H-REQ is now a static shortcut into the Requests tab (see tp-req), no longer populated here.
   // Events
   document.getElementById('EV-LIST').innerHTML=popups.length?popups.map(ev=>`<div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:11px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;"><div><strong style="font-size:13px;">${ev.title}</strong><span class="bx ${ev.status==='upcoming'?'bg2':'bgy2'}" style="margin-left:7px;">${ev.status}</span><br><span style="font-size:11px;color:var(--gy);">${ev.dates||''} · ${ev.location||''}</span></div><div style="display:flex;gap:4px;"><button class="btn bgy xs" onclick="editEv('${ev.id}')">✏️</button><button class="btn br xs" onclick="delEv('${ev.id}')">🗑️</button></div></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">No events yet.</p>';
-  // Instagram
-  document.getElementById('IG-LIST').innerHTML=igPosts.map(p=>`<div style="position:relative;background:#f0f0f0;border-radius:8px;overflow:hidden;aspect-ratio:1;">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;">📷</div>'}<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);padding:3px 6px;font-size:10px;color:#fff;">${p.caption||''}</div><button class="btn br xs" style="position:absolute;top:3px;right:3px;" onclick="delIg('${p.id}')">✕</button></div>`).join('');
+  // Instagram — draggable (reorder) + clickable (edit) cards
+  document.getElementById('IG-LIST').innerHTML=igPosts.map(p=>`<div draggable="true" data-id="${p.id}" ondragstart="igDragStart(event)" ondragover="igDragOver(event)" ondrop="igDrop(event)" ondragend="igDragEnd(event)" onclick="openIgModal('${p.id}')" title="Drag to reorder, click to edit" style="position:relative;background:#f0f0f0;border-radius:8px;overflow:hidden;aspect-ratio:1;cursor:grab;">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;pointer-events:none;">📷</div>'}<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);padding:3px 6px;font-size:10px;color:#fff;pointer-events:none;">${p.caption||''}</div><button class="btn br xs" style="position:absolute;top:3px;right:3px;" onclick="event.stopPropagation();delIg('${p.id}')">✕</button></div>`).join('');
 }
 
 function shipBadge(s){
@@ -4353,10 +4353,48 @@ async function delEv(id){if(!confirm('Delete event?'))return;await sbDel('popups
 // ═══════════════════════════════════════════════
 // INSTAGRAM
 // ═══════════════════════════════════════════════
-function openIgModal(){['IG-URL','IG-CAP'].forEach(id=>document.getElementById(id).value='');document.getElementById('IG-ORD').value=0;document.getElementById('IG-PHS').innerHTML='';igTmpPh=null;document.getElementById('MO-IG').classList.remove('hi');}
+function openIgModal(id){
+  editIgId=id||null;
+  const p=id?igPosts.find(x=>x.id===id):null;
+  document.getElementById('IG-TITLE').textContent=p?'✏️ Edit Instagram Post':'📸 Add Instagram Post';
+  document.getElementById('IG-URL').value=p?p.post_url||'':'';
+  document.getElementById('IG-CAP').value=p?p.caption||'':'';
+  document.getElementById('IG-ORD').value=p?p.display_order||0:0;
+  igTmpPh=p&&p.image_url?p.image_url:null;
+  document.getElementById('IG-PHS').innerHTML=igTmpPh?`<div class="pt"><img src="${igTmpPh}"></div>`:'';
+  document.getElementById('MO-IG').classList.remove('hi');
+}
 function handleIgPh(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{igTmpPh=ev.target.result;document.getElementById('IG-PHS').innerHTML=`<div class="pt"><img src="${igTmpPh}"></div>`;};r.readAsDataURL(f);}
-async function saveIg(){const url=document.getElementById('IG-URL').value.trim();if(!url){toast('URL required','var(--red)');return;}let imgUrl='';if(igTmpPh&&igTmpPh.startsWith('data:')){const blob=await fetch(igTmpPh).then(r=>r.blob());imgUrl=await uploadFile('item-photos',new File([blob],'ig.jpg',{type:'image/jpeg'}));}await sbIns('instagram_posts',{post_url:url,image_url:imgUrl,caption:document.getElementById('IG-CAP').value,display_order:parseInt(document.getElementById('IG-ORD').value)||0,active:true});igPosts=await sbQ('instagram_posts','?active=eq.true&order=display_order');renderHome();closeMo('MO-IG');toast('✅ Post added','#27ae60');}
+async function saveIg(){
+  const url=document.getElementById('IG-URL').value.trim();if(!url){toast('URL required','var(--red)');return;}
+  let imgUrl=igTmpPh&&!igTmpPh.startsWith('data:')?igTmpPh:'';
+  if(igTmpPh&&igTmpPh.startsWith('data:')){const blob=await fetch(igTmpPh).then(r=>r.blob());imgUrl=await uploadFile('item-photos',new File([blob],'ig.jpg',{type:'image/jpeg'}));}
+  const data={post_url:url,image_url:imgUrl,caption:document.getElementById('IG-CAP').value,display_order:parseInt(document.getElementById('IG-ORD').value)||0,active:true};
+  if(editIgId){await sbUpd('instagram_posts',`?id=eq.${editIgId}`,data);}else{await sbIns('instagram_posts',data);}
+  igPosts=await sbQ('instagram_posts','?active=eq.true&order=display_order');renderHome();closeMo('MO-IG');toast(editIgId?'✅ Post updated':'✅ Post added','#27ae60');
+}
 async function delIg(id){if(!confirm('Remove?'))return;await sbUpd('instagram_posts',`?id=eq.${id}`,{active:false});igPosts=igPosts.filter(p=>p.id!==id);renderHome();}
+
+// Drag-and-drop reordering for the Instagram grid — swaps display_order
+// between the dragged post and the one it's dropped on, persists both.
+let igDragId=null;
+function igDragStart(e){igDragId=e.currentTarget.dataset.id;e.currentTarget.style.opacity='0.4';}
+function igDragOver(e){e.preventDefault();}
+function igDragEnd(e){e.currentTarget.style.opacity='';}
+async function igDrop(e){
+  e.preventDefault();
+  const targetId=e.currentTarget.dataset.id;
+  if(!igDragId||igDragId===targetId)return;
+  const fromIdx=igPosts.findIndex(p=>p.id===igDragId);
+  const toIdx=igPosts.findIndex(p=>p.id===targetId);
+  if(fromIdx<0||toIdx<0)return;
+  const moved=igPosts.splice(fromIdx,1)[0];
+  igPosts.splice(toIdx,0,moved);
+  igPosts.forEach((p,i)=>p.display_order=i);
+  renderHome();
+  await Promise.all(igPosts.map(p=>sbUpd('instagram_posts',`?id=eq.${p.id}`,{display_order:p.display_order})));
+  toast('✅ Order updated','#27ae60');
+}
 
 // ═══════════════════════════════════════════════
 // PHOTOS
