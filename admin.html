@@ -1258,6 +1258,10 @@ let CU=null,inv=[],sales=[],purch=[],ohs=[],revs=[],users=[],reqs=[],popups=[],i
 let vendors=[],skus=[],units=[],issues=[],vidRequests=[],shorthands={patterns:{},materials:{},variants:{}};
 let invCtr=1000,siRC=0,phCtx=null,tmpPh=[],editIdx=-1,shipSaleId=null,editSaleId=null,editEvId=null,editIgId=null,niCatImg=null,evTmpPh=[],igTmpPh=null,niTmpPh=[],audToInrRate=55;
 let editVendorId=null,editIssueId=null,currentVendorDetail=null;
+// A sale recorded in AUD — either the AU Telegram bot or the kiosk PWA in
+// Australia/toggled-AU mode. Keep this as the one place that lists AU
+// source values so a new one only needs adding here, not at every call site.
+const isAuSale=s=>s.source==='telegram_au'||s.source==='kiosk_pwa_au';
 const fmt=n=>Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:0,maximumFractionDigits:2});
 const sp=(m,d)=>Math.round(m*(1-d/100));
 
@@ -2083,10 +2087,10 @@ async function markReturnSent(id){
 async function renderHome(){
   renderReturnsPending();
   renderNotes();
-  // AU bot sales are recorded in AUD — convert to INR (real FX rate, not the
-  // AUD Multiplier pricing markup) before summing, same as renderPnL().
-  const rev=sales.reduce((a,s)=>a+(s.source==='telegram_au'?(s.total||0)*audToInrRate:(s.total||0)),0);
-  const bal=sales.reduce((a,s)=>a+(s.source==='telegram_au'?(s.balance||0)*audToInrRate:(s.balance||0)),0);
+  // AU sales (bot or kiosk) are recorded in AUD — convert to INR (real FX
+  // rate, not the AUD Multiplier pricing markup) before summing, same as renderPnL().
+  const rev=sales.reduce((a,s)=>a+(isAuSale(s)?(s.total||0)*audToInrRate:(s.total||0)),0);
+  const bal=sales.reduce((a,s)=>a+(isAuSale(s)?(s.balance||0)*audToInrRate:(s.balance||0)),0);
   const avail=inv.reduce((a,i)=>a+(i.qty||0)-(i.sold||0),0);
   const costs=ohs.reduce((a,o)=>a+(o.total||0),0)+purch.reduce((a,p)=>a+(p.total||0),0);
   const profit=rev-costs;
@@ -4316,13 +4320,13 @@ async function markDelivered(id){if(!confirm('Mark delivered?'))return;await sbU
 // P&L
 // ═══════════════════════════════════════════════
 function renderPnL(){
-  // AU bot sales (source:'telegram_au') are recorded in AUD; every other
-  // source (storefront/manual/India bot) is already INR. Purchases are
-  // always INR (vendors are India-based) — convert AU revenue to INR here
-  // using the real AUD→INR rate (Settings), NOT the AUD Multiplier (that's
-  // a retail pricing markup, not a currency rate — using it here would
-  // silently misstate profit).
-  const rev=sales.reduce((a,s)=>a+(s.source==='telegram_au'?(s.total||0)*audToInrRate:(s.total||0)),0);const stockCost=purch.reduce((a,p)=>a+(p.total||0),0);const grossP=rev-stockCost;
+  // AU sales (source 'telegram_au' or the kiosk PWA's 'kiosk_pwa_au') are
+  // recorded in AUD; every other source (storefront/manual/India bot/kiosk)
+  // is already INR. Purchases are always INR (vendors are India-based) —
+  // convert AU revenue to INR here using the real AUD→INR rate (Settings),
+  // NOT the AUD Multiplier (that's a retail pricing markup, not a currency
+  // rate — using it here would silently misstate profit).
+  const rev=sales.reduce((a,s)=>a+(isAuSale(s)?(s.total||0)*audToInrRate:(s.total||0)),0);const stockCost=purch.reduce((a,p)=>a+(p.total||0),0);const grossP=rev-stockCost;
   const ohByCat={};const ohByTag={};ohs.filter(o=>o.cat!=='Stock Purchase').forEach(o=>{ohByCat[o.cat]=(ohByCat[o.cat]||0)+(o.total||0);(o.tags||[]).forEach(tg=>{ohByTag[tg]=(ohByTag[tg]||0)+(o.total||0);});});const totOH=Object.values(ohByCat).reduce((a,v)=>a+v,0);const netP=grossP-totOH;
   // Investment totals from purchases + overheads
   const sPaid=ohs.reduce((a,o)=>a+(o.shalini||0),0)+purch.reduce((a,p)=>a+(p.payment?.shalini||0),0);
