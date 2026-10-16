@@ -66,6 +66,8 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
   min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 4px;
 }
 .tb-brand{display:flex;align-items:center;gap:10px;flex:1;background:none;border:none;padding:0;cursor:pointer;text-align:left;}
+.tb-title-col{display:flex;flex-direction:column;gap:2px;flex:1;}
+.tb-menu-hint{font-size:10px;line-height:1;letter-spacing:.05em;color:var(--gold-light);opacity:.55;}
 .sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:199;display:none;}
 .sidebar-overlay.open{display:block;}
 .sidebar{
@@ -370,7 +372,10 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
   <div class="topbar" id="topbar" style="display:none;">
     <button class="tb-brand" onclick="toggleSidebar()">
       <img src="logo.svg" alt="Meensha">
-      <div class="tb-title">Kiosk<span id="tb-region-tag" style="display:none;font-size:11px;font-weight:600;opacity:.75;margin-left:6px;"></span></div>
+      <div class="tb-title-col">
+        <div class="tb-title">Kiosk<span id="tb-region-tag" style="display:none;font-size:11px;font-weight:600;opacity:.75;margin-left:6px;"></span></div>
+        <div class="tb-menu-hint" aria-hidden="true">☰</div>
+      </div>
     </button>
     <button class="tb-btn tb-cart" id="tb-cart-btn" onclick="goCart()">🧺 <span id="tb-cart-count">0</span><span class="badge" id="tb-cart-badge" style="display:none;"></span></button>
     <button class="tb-btn" id="tb-help-btn" onclick="openMaintHowWorks()" aria-label="Help / Ask me">💬</button>
@@ -861,10 +866,44 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <input type="file" accept="image/*" capture="environment" id="sii-photo-input" style="display:none;" onchange="onSiInvoicePhotoChosen(event)">
         <button class="btn btn-outline btn-block" onclick="document.getElementById('sii-photo-input').click()">📷 Add invoice photo</button>
         <div class="photo-thumb-row" id="sii-photos"></div>
+        <div class="hint" style="margin-top:14px;">No invoice to photograph, or the photo won't read?</div>
+        <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="startSiManualEntry()">✍️ Enter items manually instead</button>
       </div>
       <div class="bottombar">
         <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
         <button class="btn btn-primary btn-flex" id="sii-read-btn" onclick="readSiInvoice()">Read invoice ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: MANUAL ITEM ENTRY (parallel path to OCR — skips the
+         invoice photo/Gemini-read step, builds the same SI.draft.items shape
+         by hand, then rejoins the existing draft review flow at showSiDraft().
+         Mirrors scr-vp-item's proven manual-entry pattern, trimmed to the
+         fields the OCR'd draft itself carries: description/hsn/qty/rate.) -->
+    <section class="screen" id="scr-si-manual-item">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="simi-head">Add item</h1></div>
+        <div class="err-box" id="simi-err"></div>
+        <div class="field"><label>Item name *</label><input type="text" id="simi-name"></div>
+        <div class="field"><label>HSN code</label><input type="text" id="simi-hsn"></div>
+        <div class="field"><label>Rate per piece (₹) *</label><input type="number" id="simi-rate" min="0" inputmode="decimal"></div>
+        <div class="field"><label>Quantity *</label><input type="number" id="simi-qty" min="1" inputmode="numeric" value="1"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="cancelSiManualItem()">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" id="simi-save-btn" onclick="saveSiManualItem()">Save item ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: MANUAL ENTRY — ITEMS SO FAR (mirrors scr-vp-summary) -->
+    <section class="screen" id="scr-si-manual-summary">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Items so far</h1></div>
+        <div id="sims-items"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="addAnotherSiManualItem()">➕ Add item</button>
+        <button class="btn btn-primary btn-flex" onclick="finishSiManualEntry()">✅ Done — review ▶</button>
       </div>
     </section>
 
@@ -2723,6 +2762,64 @@ async function onSiInvoicePhotoChosen(e){
   siInvoicePhotosLocal.push({dataUrl,base64:dataUrl.split(',')[1],mimeType:file.type||'image/jpeg'});
   renderPhotoThumbs('sii-photos',siInvoicePhotosLocal,'removeSiInvoicePhoto');
 }
+
+// ───────── STOCK INTAKE: MANUAL ITEM ENTRY (no invoice/OCR) — builds the
+// same SI.draft shape (vendor_name/invoice_number/date/items[]/total) by
+// hand, then hands off to showSiDraft() so scr-si-fix/vendor-match/
+// scr-si-item/discrepancy/summary/submit all run exactly as the OCR path. ─────────
+function startSiManualEntry(){
+  SI={invoicePhotos:[],manualItems:[]}; VP=null;
+  startSiManualItemEntry();
+}
+function startSiManualItemEntry(){
+  document.getElementById('simi-err').style.display='none';
+  document.getElementById('simi-head').textContent='Add item';
+  document.getElementById('simi-name').value='';
+  document.getElementById('simi-hsn').value='';
+  document.getElementById('simi-rate').value='';
+  document.getElementById('simi-qty').value='1';
+  showScreen('scr-si-manual-item');
+}
+function cancelSiManualItem(){
+  if(SI.manualItems.length) showSiManualSummary();
+  else exitInventoryFlow();
+}
+function saveSiManualItem(){
+  const err=document.getElementById('simi-err');
+  err.style.display='none';
+  const show=(msg)=>{err.textContent=msg;err.style.display='block';};
+  const description=document.getElementById('simi-name').value.trim();
+  if(!description) return show("Name can't be empty — item name?");
+  const rate=parseFloat(document.getElementById('simi-rate').value);
+  if(!rate||rate<=0) return show('Enter a valid rate per piece (₹).');
+  const qty=parseInt(document.getElementById('simi-qty').value,10);
+  if(!qty||qty<=0) return show('Enter a valid quantity.');
+  const hsn=document.getElementById('simi-hsn').value.trim()||null;
+  SI.manualItems.push({description,hsn,qty,rate,amount:rate*qty});
+  showSiManualSummary();
+}
+function showSiManualSummary(){
+  const body=document.getElementById('sims-items');
+  body.innerHTML = SI.manualItems.length ? SI.manualItems.map((it,i)=>`
+    <div class="cart-line">
+      <div class="cl-top">
+        <div class="cl-name">${i+1}. ${esc(it.description)}</div>
+        <div class="cl-amt">₹${fmt(it.rate)} × ${it.qty}</div>
+      </div>
+      <div class="cl-actions">
+        <button class="btn btn-danger btn-sm btn-flex" onclick="removeSiManualItem(${i})">🗑️ Remove</button>
+      </div>
+    </div>`).join('') : '<div class="hint">No items added yet.</div>';
+  showScreen('scr-si-manual-summary');
+}
+function removeSiManualItem(i){ SI.manualItems.splice(i,1); showSiManualSummary(); }
+function addAnotherSiManualItem(){ startSiManualItemEntry(); }
+function finishSiManualEntry(){
+  if(!SI.manualItems.length){toast('Add at least one item first.');return;}
+  SI.draft={vendor_name:null,invoice_number:null,date:todayStr(),
+    items:SI.manualItems,total:SI.manualItems.reduce((a,it)=>a+it.amount,0)};
+  showSiDraft();
+}
 function removeSiInvoicePhoto(i){ siInvoicePhotosLocal.splice(i,1); renderPhotoThumbs('sii-photos',siInvoicePhotosLocal,'removeSiInvoicePhoto'); }
 
 async function extractInvoiceDataClient(images){
@@ -2999,12 +3096,34 @@ async function sbUpsertSetting(key,value){
   }catch{return false;}
 }
 function daysFromNowStr(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+
+// ───────── AI provider fallback (mirrors supabase/functions/_shared/askGemini.ts's
+// callGemini/callOpenRouter/callLLM) — tries OpenRouter first when
+// settings.openrouter_key is set, falls back to Gemini (settings.gemini_key)
+// if OpenRouter isn't configured or its call fails. ─────────
+async function fetchAiKeys(){
+  const rows=await sbGet('settings','?key=in.(openrouter_key,openrouter_model,gemini_key)&select=key,value');
+  const byKey={};
+  (rows||[]).forEach(r=>{byKey[r.key]=r.value;});
+  return byKey;
+}
+async function callOpenRouterText(apiKey,model,prompt){
+  const res=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},body:JSON.stringify({model,messages:[{role:'user',content:prompt}]})});
+  if(!res.ok)throw new Error(`OpenRouter error: ${res.status}`);
+  const data=await res.json();
+  return data?.choices?.[0]?.message?.content?.trim()||'';
+}
 async function callGeminiText(prompt){
   try{
-    const keyRows=await sbGet('settings','?key=eq.gemini_key&select=value');
-    const apiKey=keyRows?.[0]?.value;
-    if(!apiKey)return null;
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+    const byKey=await fetchAiKeys();
+    if(byKey.openrouter_key){
+      try{
+        const text=await callOpenRouterText(byKey.openrouter_key, byKey.openrouter_model||'openai/gpt-4o-mini', prompt);
+        if(text)return text;
+      }catch{ /* fall through to Gemini below */ }
+    }
+    if(!byKey.gemini_key)return null;
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${byKey.gemini_key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
     if(!res.ok)return null;
     const json=await res.json();
     return json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||null;
@@ -3081,9 +3200,8 @@ async function askMaintHowWorks(){
   const btn=document.getElementById('mhw-send-btn');
   input.disabled=true;btn.disabled=true;
 
-  const keyRows=await sbGet('settings','?key=eq.gemini_key&select=value');
-  const apiKey=keyRows?.[0]?.value;
-  if(!apiKey){
+  const byKey=await fetchAiKeys();
+  if(!byKey.openrouter_key && !byKey.gemini_key){
     input.disabled=false;btn.disabled=false;
     errBox.textContent="The chatbot isn't available yet (no AI key configured). Try again later, or ask Shalini/Meenakshi.";
     errBox.style.display='block';
@@ -3098,15 +3216,33 @@ async function askMaintHowWorks(){
   log.scrollTop=log.scrollHeight;
 
   try{
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({systemInstruction:{parts:[{text:MHW_SYSTEM_PROMPT}]},contents:MHW_TURNS}),
-    });
+    let text=null;
+    if(byKey.openrouter_key){
+      try{
+        // Translate MHW_TURNS' Gemini shape (role:'user'/'model', parts:[{text}])
+        // into OpenRouter's chat-completions shape (role:'user'/'assistant', content).
+        const messages=[{role:'system',content:MHW_SYSTEM_PROMPT}, ...MHW_TURNS.map(t=>({role:t.role==='model'?'assistant':'user',content:t.parts[0].text}))];
+        const orRes=await fetch('https://openrouter.ai/api/v1/chat/completions',{
+          method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${byKey.openrouter_key}`},
+          body:JSON.stringify({model:byKey.openrouter_model||'openai/gpt-4o-mini',messages}),
+        });
+        if(!orRes.ok)throw new Error('bad status');
+        const orJson=await orRes.json();
+        text=orJson?.choices?.[0]?.message?.content?.trim()||null;
+      }catch{ text=null; /* fall through to Gemini below */ }
+    }
+    if(!text){
+      if(!byKey.gemini_key)throw new Error('no fallback key');
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${byKey.gemini_key}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({systemInstruction:{parts:[{text:MHW_SYSTEM_PROMPT}]},contents:MHW_TURNS}),
+      });
+      if(!res.ok)throw new Error('bad status');
+      const json=await res.json();
+      text=json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if(!text)throw new Error('empty reply');
+    }
     document.getElementById('mhw-thinking')?.remove();
-    if(!res.ok)throw new Error('bad status');
-    const json=await res.json();
-    const text=json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    if(!text)throw new Error('empty reply');
     MHW_TURNS.push({role:'model',parts:[{text}]});
     renderMhwLog();
   }catch{
