@@ -93,6 +93,9 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .sidebar-children{max-height:0;overflow:hidden;transition:max-height .2s ease;display:flex;flex-direction:column;}
 .sidebar-group.open .sidebar-children{max-height:240px;}
 .sidebar-children .sidebar-item{padding-left:34px;font-size:14px;color:rgba(247,243,236,.75);}
+/* Maintenance group has 12 children — taller than the shared 240px cap. */
+#sg-maintenance.open .sidebar-children{max-height:620px;}
+.sidebar{overflow-y:auto;}
 
 main{flex:1;display:flex;flex-direction:column;position:relative;}
 .screen{display:none;flex:1;flex-direction:column;animation:fadein .18s ease;}
@@ -227,6 +230,16 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
 .cart-total-strip .lbl{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:rgba(247,243,236,.6);}
 .cart-total-strip .amt{font-size:22px;font-weight:700;color:var(--gold-light);}
 
+/* ───────────────────────── Sales history ───────────────────────── */
+.hist-row{
+  width:100%;text-align:left;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:12px;
+  padding:13px 14px;margin-bottom:11px;cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:center;
+}
+.hist-row:active{transform:scale(.99);}
+.hist-row .cl-name{font-size:16px;font-weight:600;color:var(--warm-white);}
+.hist-row .cl-sub{font-size:13px;color:rgba(247,243,236,.5);margin-top:2px;}
+.hist-row .cl-amt{font-size:16px;font-weight:700;color:var(--gold-light);white-space:nowrap;}
+
 /* ───────────────────────── Discount picker ───────────────────────── */
 .disc-opt{
   width:100%;text-align:left;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:12px;
@@ -291,6 +304,43 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
 }
 @keyframes spin{to{transform:rotate(360deg);}}
 .center-wait{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;color:rgba(247,243,236,.6);}
+
+/* ───────────────────────── Vendor Purchase / Stock Intake ───────────────────────── */
+.photo-thumb-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.photo-thumb{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid var(--gold-dim);background:var(--dark2);}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.photo-thumb .rm{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;font-size:12px;line-height:1;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;padding:0;}
+.pair-btns{display:flex;gap:10px;}
+.pay-btn.sel{border-color:var(--gold-light);background:var(--gold-dim);}
+.vendor-msg-box{width:100%;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;color:var(--warm-white);padding:12px;font-size:14px;resize:vertical;}
+
+/* ───────────────────────── Share visiting card (sidebar + modal) ───────────────────────── */
+.card-stack{position:relative;width:26px;height:20px;flex:none;}
+.card-stack .cs-card{
+  position:absolute;width:18px;height:13px;border-radius:3px;
+  border:1px solid var(--gold-light);background:var(--dark2);
+  transition:transform .18s ease;
+}
+.card-stack .cs-card:nth-child(1){top:5px;left:0;z-index:1;}
+.card-stack .cs-card:nth-child(2){top:2.5px;left:4px;z-index:2;}
+.card-stack .cs-card:nth-child(3){top:0;left:8px;z-index:3;background:var(--gold-dim);}
+.sidebar-item:hover .cs-card:nth-child(1),.sidebar-item:active .cs-card:nth-child(1){transform:translate(-3px,3px) rotate(-8deg);}
+.sidebar-item:hover .cs-card:nth-child(2),.sidebar-item:active .cs-card:nth-child(2){transform:translateY(-1px);}
+.sidebar-item:hover .cs-card:nth-child(3),.sidebar-item:active .cs-card:nth-child(3){transform:translate(3px,-3px) rotate(8deg);}
+
+.vc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:none;align-items:center;justify-content:center;padding:20px;}
+.vc-overlay.open{display:flex;}
+.vc-modal{
+  background:var(--dark2);border:1px solid var(--gold-dim);border-radius:16px;
+  width:100%;max-width:400px;max-height:90vh;overflow-y:auto;padding:20px;position:relative;
+}
+.vc-modal .vc-close{position:absolute;top:10px;right:10px;background:none;border:none;color:rgba(247,243,236,.6);font-size:20px;cursor:pointer;padding:6px;line-height:1;}
+.vc-modal h2{font-family:'Cinzel',serif;font-size:16px;color:var(--gold-light);margin-bottom:14px;padding-right:24px;}
+.vc-modal iframe{width:100%;aspect-ratio:7/4;border:none;border-radius:12px;background:var(--dark);margin-bottom:16px;display:block;}
+
+/* ───────────────────────── Potential customers ───────────────────────── */
+.pc-req-detail{margin-top:8px;padding-top:8px;border-top:1px solid var(--gold-dim);display:flex;flex-direction:column;gap:8px;}
+.pc-req-row{padding:4px 0;}
 </style>
 </head>
 <body>
@@ -299,7 +349,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
   <div class="topbar" id="topbar" style="display:none;">
     <button class="tb-brand" onclick="toggleSidebar()">
       <img src="logo.svg" alt="Meensha">
-      <div class="tb-title">Kiosk</div>
+      <div class="tb-title">Kiosk<span id="tb-region-tag" style="display:none;font-size:11px;font-weight:600;opacity:.75;margin-left:6px;"></span></div>
     </button>
     <button class="tb-btn tb-cart" id="tb-cart-btn" onclick="goCart()">🧺 <span id="tb-cart-count">0</span><span class="badge" id="tb-cart-badge" style="display:none;"></span></button>
     <button class="tb-btn" onclick="confirmLogout()">Logout</button>
@@ -320,6 +370,46 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       <div class="sidebar-children">
         <button class="sidebar-item" onclick="startNewSale();">New Sale</button>
         <button class="sidebar-item" onclick="closeSidebar();goCart();">Current Cart</button>
+        <button class="sidebar-item" onclick="closeSidebar();openSalesHistory();">Sales history</button>
+      </div>
+    </div>
+
+    <div class="sidebar-group" id="sg-inventory">
+      <button class="sidebar-item" onclick="toggleSidebarGroup('sg-inventory')">
+        <span>📦 Inventory</span><span class="chev">›</span>
+      </button>
+      <div class="sidebar-children">
+        <button class="sidebar-item" onclick="closeSidebar();startVendorPurchase();">Vendor Purchase</button>
+        <button class="sidebar-item" onclick="closeSidebar();startStockIntake();">Stock Intake</button>
+      </div>
+    </div>
+
+    <div class="sidebar-group" id="sg-maintenance">
+      <button class="sidebar-item" onclick="toggleSidebarGroup('sg-maintenance')">
+        <span>🔧 Maintenance</span><span class="chev">›</span>
+      </button>
+      <div class="sidebar-children">
+        <button class="sidebar-item" onclick="closeSidebar();openMaintHowWorks();">❓ How does this work?</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintGodown();">📦 Godown check</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintNote();">📝 Add a note</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintAucost();">💰 Pending AU costs</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintAddPhoto();">📷 Add photo to item</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintPostSuggest();">📣 Suggest a post</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintSetQr();">🔳 Set UPI QR code</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintIglink();">🔗 Insta link</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintVoucher();">🎟️ Create voucher</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintEventPromo();">🎉 Create event/promotion</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintShareCard();">📇 Share visiting card</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintEvPhoto();">📸 Event photo submissions</button>
+      </div>
+    </div>
+
+    <div class="sidebar-group" id="sg-potential-customers">
+      <button class="sidebar-item" onclick="toggleSidebarGroup('sg-potential-customers')">
+        <span>📋 Potential Customers</span><span class="chev">›</span>
+      </button>
+      <div class="sidebar-children">
+        <button class="sidebar-item" onclick="closeSidebar();openPotentialCustomers();">View list</button>
       </div>
     </div>
 
@@ -328,10 +418,31 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <span>👤 Account</span><span class="chev">›</span>
       </button>
       <div class="sidebar-children">
+        <div id="sg-account-region" style="display:none;padding:4px 20px 12px;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:rgba(247,243,236,.5);margin-bottom:8px;">Active region</div>
+          <div class="pair-btns">
+            <button class="btn btn-ghost btn-sm btn-flex" id="region-btn-india" onclick="setActiveRegion('india')">🇮🇳 India</button>
+            <button class="btn btn-ghost btn-sm btn-flex" id="region-btn-australia" onclick="setActiveRegion('australia')">🇦🇺 AU</button>
+            <button class="btn btn-ghost btn-sm btn-flex" id="region-btn-all" onclick="setActiveRegion('all')">🌐 All</button>
+          </div>
+        </div>
+        <button class="sidebar-item" id="sg-sharecard-item" style="display:none;" onclick="openShareCardModal();">
+          <span class="card-stack"><span class="cs-card"></span><span class="cs-card"></span><span class="cs-card"></span></span>
+          <span>Share my Visiting Card</span>
+        </button>
         <button class="sidebar-item danger" onclick="closeSidebar();confirmLogout();">Logout</button>
       </div>
     </div>
   </nav>
+
+  <div class="vc-overlay" id="vc-overlay" onclick="if(event.target===this)closeShareCardModal();">
+    <div class="vc-modal">
+      <button class="vc-close" onclick="closeShareCardModal()">✕</button>
+      <h2>📇 Share my Visiting Card</h2>
+      <iframe id="vc-frame" src="about:blank" title="Visiting card"></iframe>
+      <div id="vc-body"></div>
+    </div>
+  </div>
 
   <main>
 
@@ -455,7 +566,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
           <button class="btn btn-primary btn-block btn-sm" onclick="submitDiscountCode()">Apply code</button>
         </div>
         <div class="disc-inline" id="disc-custom-box">
-          <div class="field" style="margin-bottom:10px;"><label>Custom discount (₹)</label><input type="number" id="disc-custom-input" min="0" inputmode="decimal"></div>
+          <div class="field" style="margin-bottom:10px;"><label>Custom discount (<span id="disc-custom-cur">₹</span>)</label><input type="number" id="disc-custom-input" min="0" inputmode="decimal"></div>
           <button class="btn btn-primary btn-block btn-sm" onclick="submitDiscountCustom()">Apply discount</button>
         </div>
         <div class="disc-inline" id="disc-event-box">
@@ -487,7 +598,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     <section class="screen" id="scr-payment">
       <div class="scr-body">
         <div class="scr-head"><h1>Payment mode</h1></div>
-        <div class="pay-grid">
+        <div class="pay-grid" id="pay-grid">
           <button class="pay-btn" onclick="choosePayMode('cash')">💵 Cash</button>
           <button class="pay-btn" onclick="choosePayMode('upi')">📲 UPI Direct</button>
           <button class="pay-btn" onclick="choosePayMode('razorpay')">💳 Razorpay</button>
@@ -539,6 +650,610 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       </div>
     </section>
 
+    <!-- SALES HISTORY LIST -->
+    <section class="screen" id="scr-history-list">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Sales history</h1></div>
+        <div id="history-list-body"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <!-- SALE SUMMARY -->
+    <section class="screen" id="scr-history-detail">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="history-detail-inv"></h1><p id="history-detail-sub"></p></div>
+        <div id="history-detail-items"></div>
+        <div class="confirm-totals" id="history-detail-totals"></div>
+        <div class="success-actions" id="history-detail-actions" style="margin-top:18px;"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="historyBack()">◀ Back to list</button>
+      </div>
+    </section>
+
+    <!-- VENDOR SEARCH (shared by Vendor Purchase + Stock Intake, same as the
+         bot's inv_vendor_search / si_vendor_search states) -->
+    <section class="screen" id="scr-vendor-search">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Find vendor</h1><p id="vs-sub">Search vendor by name or WhatsApp number</p></div>
+        <div class="search-row">
+          <input type="text" id="vs-search" placeholder="Name or WhatsApp number…" oninput="onVendorSearch()">
+        </div>
+        <div id="vs-results"></div>
+        <button class="disc-opt" onclick="goVendorNew()"><span>➕ New Vendor</span></button>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
+      </div>
+    </section>
+
+    <!-- NEW VENDOR -->
+    <section class="screen" id="scr-vendor-new">
+      <div class="scr-body">
+        <div class="scr-head"><h1>New vendor</h1></div>
+        <div class="err-box" id="vn-err"></div>
+        <div class="field"><label>Name *</label><input type="text" id="vn-name"></div>
+        <div class="field"><label>Company name</label><input type="text" id="vn-company"></div>
+        <div class="field"><label>WhatsApp number</label><input type="tel" id="vn-wa" inputmode="numeric"></div>
+        <div class="field"><label>Place</label><input type="text" id="vn-place"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-vendor-search')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" id="vn-save-btn" onclick="saveNewVendor()">Save & Continue ▶</button>
+      </div>
+    </section>
+
+    <!-- VENDOR PURCHASE: ITEM ENTRY (mirrors handleInventory's
+         inv_item_name → inv_item_photos → inv_item_defect_* states) -->
+    <section class="screen" id="scr-vp-item">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="vpi-head">Add item</h1></div>
+        <div class="err-box" id="vpi-err"></div>
+        <div class="field"><label>Item name *</label><input type="text" id="vpi-name"></div>
+        <div class="field"><label>Material</label><input type="text" id="vpi-material"></div>
+        <div class="field"><label>Variant</label><input type="text" id="vpi-variant"></div>
+        <div class="field"><label>Cost per piece (₹) *</label><input type="number" id="vpi-cost" min="0" inputmode="decimal" onblur="suggestVpMrp()"></div>
+        <div class="field"><label>Quantity *</label><input type="number" id="vpi-qty" min="1" inputmode="numeric" value="1" onblur="suggestVpMrp()"></div>
+        <div class="field">
+          <label>Sale price (₹)</label>
+          <input type="number" id="vpi-mrp" min="0" inputmode="decimal">
+          <div class="hint" id="vpi-suggest"></div>
+        </div>
+        <div class="field">
+          <label>Photos (1–4) *</label>
+          <input type="file" accept="image/*" capture="environment" id="vpi-photo-input" style="display:none;" onchange="onVpPhotoChosen(event)">
+          <button class="btn btn-outline btn-block" onclick="document.getElementById('vpi-photo-input').click()">📷 Add photo</button>
+          <div class="photo-thumb-row" id="vpi-photos"></div>
+        </div>
+        <div class="field">
+          <label>Any defective pieces in this batch?</label>
+          <div class="pair-btns">
+            <button class="btn btn-ghost btn-flex" id="vpi-defect-no" onclick="setVpDefect(false)">No</button>
+            <button class="btn btn-ghost btn-flex" id="vpi-defect-yes" onclick="setVpDefect(true)">⚠️ Yes</button>
+          </div>
+          <div id="vpi-defect-box" style="display:none;margin-top:12px;">
+            <div class="field"><label>How many are defective?</label><input type="number" id="vpi-defect-qty" min="1"></div>
+            <div class="field"><label>Reason</label><input type="text" id="vpi-defect-reason"></div>
+          </div>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="cancelVpItem()">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" id="vpi-save-btn" onclick="saveVpItem()">Save item ▶</button>
+      </div>
+    </section>
+
+    <!-- VENDOR PURCHASE: SUMMARY (mirrors showInvSummary) -->
+    <section class="screen" id="scr-vp-summary">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Purchase so far</h1><p id="vps-vendor"></p></div>
+        <div id="vps-items"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="addAnotherVpItem()">➕ Add item</button>
+        <button class="btn btn-primary btn-flex" onclick="goVpAmount()">✅ Confirm & submit ▶</button>
+      </div>
+    </section>
+
+    <!-- VENDOR PURCHASE: PAYMENT (amount → mode → split, mirrors
+         inv_payment_amount / inv_payment_mode / inv_payment_split) -->
+    <section class="screen" id="scr-vp-amount">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Amount paid</h1></div>
+        <div class="field"><label>Amount paid (₹) *</label><input type="number" id="vpa-amount" min="0" inputmode="decimal"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-vp-summary')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" onclick="submitVpAmount()">Continue ▶</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scr-vp-mode">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Payment mode</h1></div>
+        <div class="pay-grid">
+          <button class="pay-btn" onclick="chooseVpMode('UPI')">📲 UPI</button>
+          <button class="pay-btn" onclick="chooseVpMode('Cash')">💵 Cash</button>
+          <button class="pay-btn" onclick="chooseVpMode('Bank Transfer')">🏦 Bank Transfer</button>
+          <button class="pay-btn" onclick="chooseVpMode('Cheque')">🧾 Cheque</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-vp-amount')">◀ Back</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scr-vp-split">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Split</h1><p id="vpsp-sub"></p></div>
+        <div class="field"><label>Shalini's share (₹)</label><input type="number" id="vpsp-shalini" min="0" placeholder="Leave blank for an even 50/50 split"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-vp-mode')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" onclick="submitVpSplit()">Continue ▶</button>
+      </div>
+    </section>
+
+    <!-- VENDOR PURCHASE: FINAL CONFIRM (mirrors showFinalConfirm) -->
+    <section class="screen" id="scr-vp-confirm">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Submit this purchase?</h1><p>This submits for admin approval — nothing is live inventory until approved.</p></div>
+        <div class="confirm-customer" id="vpc-summary"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-vp-split')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" id="vpc-submit-btn" onclick="submitVpPurchase()">✅ Submit</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scr-vp-done">
+      <div class="success-wrap">
+        <div class="success-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="success-inv" id="vpd-msg">Submitted for approval</div>
+        <div class="success-actions">
+          <button class="btn btn-primary btn-block" onclick="startVendorPurchase();">🧾 New purchase</button>
+          <button class="btn btn-ghost btn-block" onclick="closeSidebar();goItems();">◀ Back to kiosk</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: INVOICE PHOTOS (mirrors si_invoice_photos) -->
+    <section class="screen" id="scr-si-invoice">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📦 Stock Intake</h1><p>Send a photo of the vendor's invoice (send more than one if it's multi-page)</p></div>
+        <input type="file" accept="image/*" capture="environment" id="sii-photo-input" style="display:none;" onchange="onSiInvoicePhotoChosen(event)">
+        <button class="btn btn-outline btn-block" onclick="document.getElementById('sii-photo-input').click()">📷 Add invoice photo</button>
+        <div class="photo-thumb-row" id="sii-photos"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
+        <button class="btn btn-primary btn-flex" id="sii-read-btn" onclick="readSiInvoice()">Read invoice ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: DRAFT REVIEW (mirrors showSiDraft) -->
+    <section class="screen" id="scr-si-draft">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Here's what I read off the invoice</h1><p>Look right?</p></div>
+        <div id="sid-body"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goSiFix()">✏️ Fix a field</button>
+        <button class="btn btn-primary btn-flex" onclick="confirmSiDraft()">✅ Looks good ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: FIX A FIELD (mirrors si:fix / si:fixfield / si:fixitem*) -->
+    <section class="screen" id="scr-si-fix">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Fix the invoice draft</h1></div>
+        <div class="field"><label>Vendor name</label><input type="text" id="sif-vendor"></div>
+        <div class="field"><label>Invoice #</label><input type="text" id="sif-invnum"></div>
+        <div class="field"><label>Date</label><input type="text" id="sif-date" placeholder="YYYY-MM-DD"></div>
+        <div class="field"><label>Total (₹)</label><input type="number" id="sif-total"></div>
+        <div class="label-sm" style="margin:16px 0 8px;display:block;">Line items</div>
+        <div id="sif-items"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showSiDraft()">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" onclick="saveSiFix()">Save ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: PER-ITEM PHOTOS (mirrors showSiItemPrompt / si_item_photos) -->
+    <section class="screen" id="scr-si-item">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="sic-head"></h1><p id="sic-sub"></p></div>
+        <input type="file" accept="image/*" capture="environment" id="sic-photo-input" style="display:none;" onchange="onSiItemPhotoChosen(event)">
+        <button class="btn btn-outline btn-block" onclick="document.getElementById('sic-photo-input').click()">📷 Add photo</button>
+        <div class="photo-thumb-row" id="sic-photos"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
+        <button class="btn btn-primary btn-flex" onclick="finishSiItemPhotos()">Done ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: DISCREPANCY YES/NO (mirrors si:disc:yes / si:disc:no) -->
+    <section class="screen" id="scr-si-discyn">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Any discrepancy?</h1><p id="sidy-sub">Short count / defective / wrong item on this item?</p></div>
+        <div class="pair-btns">
+          <button class="btn btn-ghost btn-flex" onclick="siDiscNo()">No</button>
+          <button class="btn btn-ghost btn-flex" onclick="siDiscYes()">⚠️ Yes</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: DISCREPANCY DETAIL (mirrors si:disctype / si_disc_affected
+         / si_disc_photo / si_disc_reason / si_disc_credit) -->
+    <section class="screen" id="scr-si-disc">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Discrepancy</h1><p id="sidc-sub"></p></div>
+        <div class="field"><label>Type</label>
+          <div class="pay-grid" style="margin-top:6px;">
+            <button class="pay-btn" id="sidc-type-shortage" onclick="setSiDiscType('shortage')">📉 Short count</button>
+            <button class="pay-btn" id="sidc-type-defective" onclick="setSiDiscType('defective')">⚠️ Defective</button>
+            <button class="pay-btn" id="sidc-type-wrong_item" onclick="setSiDiscType('wrong_item')">🔄 Wrong item</button>
+          </div>
+        </div>
+        <div class="field"><label>How many affected?</label><input type="number" id="sidc-affected" min="1"></div>
+        <div class="field">
+          <label>Photo of the issue *</label>
+          <input type="file" accept="image/*" capture="environment" id="sidc-photo-input" style="display:none;" onchange="onSiDiscPhotoChosen(event)">
+          <button class="btn btn-outline btn-block" onclick="document.getElementById('sidc-photo-input').click()">📷 Add photo</button>
+          <div class="photo-thumb-row" id="sidc-photos"></div>
+        </div>
+        <div class="field"><label>Reason *</label><input type="text" id="sidc-reason"></div>
+        <div class="field"><label>Expected credit/return value (₹)</label><input type="number" id="sidc-credit" min="0"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
+        <button class="btn btn-primary btn-flex" onclick="saveSiDisc()">Save ▶</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: SUMMARY (mirrors showSiSummary) -->
+    <section class="screen" id="scr-si-summary">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Summary</h1><p id="sis-vendor"></p></div>
+        <div id="sis-good"></div>
+        <div id="sis-disc"></div>
+        <div class="confirm-totals" id="sis-totals"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitInventoryFlow()">✕ Exit</button>
+        <button class="btn btn-primary btn-flex" onclick="finalizeSiPurchase()">✅ Finalize</button>
+      </div>
+    </section>
+
+    <!-- STOCK INTAKE: DONE (mirrors finalizeSiPurchase's closing messages +
+         buildSiVendorMessage()) -->
+    <section class="screen" id="scr-si-done">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Done</h1><p id="sidn-msg"></p></div>
+        <div id="sidn-vendormsg-wrap" style="display:none;">
+          <div class="label-sm" style="margin-bottom:8px;display:block;">Message for vendor (copy & send)</div>
+          <textarea id="sidn-vendormsg" class="vendor-msg-box" rows="6" readonly></textarea>
+          <button class="btn btn-outline btn-block" style="margin-top:10px;" onclick="copySiVendorMsg()">📋 Copy message</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Back to kiosk</button>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════ MAINTENANCE ═══════════════════════ -->
+
+    <!-- HOW DOES THIS WORK (mirrors handleHowWorksText) -->
+    <section class="screen" id="scr-maint-howworks">
+      <div class="scr-body">
+        <div class="scr-head"><h1>❓ How does this work?</h1><p>Ask a question and I'll look it up.</p></div>
+        <div class="field"><label>Your question</label><input type="text" id="mhw-q" placeholder="e.g. how do I add a discount?"></div>
+        <div id="mhw-answer"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+        <button class="btn btn-primary btn-flex" onclick="askMaintHowWorks()">Ask ▶</button>
+      </div>
+    </section>
+
+    <!-- ADD A NOTE (mirrors handleMaintenanceText → bot_notes insert) -->
+    <section class="screen" id="scr-maint-note">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📝 Add a note</h1></div>
+        <div class="field"><label>Note</label><input type="text" id="mn-text" placeholder="Type your note"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" id="mn-save-btn" onclick="saveMaintNote()">Save ▶</button>
+      </div>
+    </section>
+
+    <!-- PENDING AU COSTS (mirrors showAucostPicker / startAucost / handleMaintenanceAucostText) -->
+    <section class="screen" id="scr-maint-aucost-list">
+      <div class="scr-body">
+        <div class="scr-head"><h1>💰 Pending AU costs</h1><p>AU items waiting on a purchase cost</p></div>
+        <div id="mac-list"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-aucost-amount">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="maa-head"></h1><p>Purchase price in INR (sourcing cost)</p></div>
+        <div class="field"><label>Amount (₹)</label><input type="number" id="maa-amount" min="0" inputmode="decimal"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-maint-aucost-list')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" id="maa-save-btn" onclick="saveMaintAucost()">Save ▶</button>
+      </div>
+    </section>
+
+    <!-- ADD PHOTO TO ITEM (mirrors showAddPhotoPicker / startAddPhoto / handleAddPhotoUpload) -->
+    <section class="screen" id="scr-maint-addphoto-list">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📷 Add photo to item</h1></div>
+        <div class="search-row"><input type="text" id="map-search" placeholder="Search by name…" oninput="renderMaintAddPhotoList()"></div>
+        <div id="map-list"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-addphoto-upload">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="mapu-head"></h1><p>Add as many photos as you like</p></div>
+        <input type="file" accept="image/*" capture="environment" id="mapu-photo-input" style="display:none;" onchange="onMaintAddPhotoChosen(event)">
+        <button class="btn btn-outline btn-block" onclick="document.getElementById('mapu-photo-input').click()">📷 Add photo</button>
+        <div class="photo-thumb-row" id="mapu-photos"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-maint-addphoto-list')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" id="mapu-done-btn" onclick="finishMaintAddPhoto()">✅ Done</button>
+      </div>
+    </section>
+
+    <!-- SUGGEST A POST (mirrors _shared/postSuggestion.ts) -->
+    <section class="screen" id="scr-maint-postsuggest">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📣 Suggest a post</h1><p id="mps-item"></p></div>
+        <div id="mps-photo"></div>
+        <div class="field"><label>Caption</label><textarea id="mps-caption" rows="5" class="vendor-msg-box" readonly></textarea></div>
+        <div class="field"><label>Revise it (e.g. "shorter", "more playful")</label><input type="text" id="mps-revise-input" placeholder="Type a revision instruction"></div>
+        <button class="btn btn-outline btn-block" id="mps-revise-btn" onclick="reviseMaintPostSuggest()">↻ Revise caption</button>
+        <div class="pay-grid" style="margin-top:16px;">
+          <button class="pay-btn" onclick="finalizeMaintPostSuggest('video')">🎥 Video</button>
+          <button class="pay-btn" onclick="finalizeMaintPostSuggest('photo')">🖼️ Use product photo</button>
+        </div>
+        <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="toast('Poster generation isn\'t wired up yet — pick Video or Use product photo for now.')">🎨 Generate poster</button>
+        <div id="mps-event-row" style="margin-top:14px;"></div>
+        <div id="mps-result" style="margin-top:14px;"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <!-- SET UPI QR CODE (mirrors handleMaintenanceQrPhoto) -->
+    <section class="screen" id="scr-maint-setqr">
+      <div class="scr-body">
+        <div class="scr-head"><h1>🔳 Set UPI QR code</h1><p>Upload the UPI QR code image — it'll be shown for every UPI Direct sale from now on.</p></div>
+        <input type="file" accept="image/*" capture="environment" id="msq-photo-input" style="display:none;" onchange="onMaintSetQrChosen(event)">
+        <button class="btn btn-outline btn-block" onclick="document.getElementById('msq-photo-input').click()">📷 Choose QR image</button>
+        <div class="photo-thumb-row" id="msq-photos"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+        <button class="btn btn-primary btn-flex" id="msq-save-btn" onclick="saveMaintSetQr()" disabled>Save ▶</button>
+      </div>
+    </section>
+
+    <!-- INSTA LINK (mirrors showIglinkItemPicker / askIglinkCaption / handleIglinkCaptionText) -->
+    <section class="screen" id="scr-maint-iglink-pick">
+      <div class="scr-body">
+        <div class="scr-head"><h1>🔗 Insta link</h1><p>Pick an item to generate a shop link for</p></div>
+        <div class="search-row"><input type="text" id="mig-search" placeholder="Search…" oninput="renderMaintIglinkList()"></div>
+        <div id="mig-list"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-iglink-caption">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="migc-head"></h1></div>
+        <div class="field"><label>Caption text for this Insta post</label><input type="text" id="migc-caption" placeholder="Type the caption"></div>
+        <div id="migc-result"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-maint-iglink-pick')">◀ Back</button>
+        <button class="btn btn-primary btn-flex" onclick="generateMaintIglink()">Generate ▶</button>
+      </div>
+    </section>
+
+    <!-- CREATE VOUCHER (mirrors handleVoucherText → admin_create_coupon, same RPC admin.html's Coupons tab uses) -->
+    <section class="screen" id="scr-maint-voucher">
+      <div class="scr-body">
+        <div class="scr-head"><h1>🎟️ Create voucher</h1></div>
+        <div class="err-box" id="mv-err"></div>
+        <div class="field"><label>Voucher code *</label><input type="text" id="mv-code" placeholder="e.g. DIWALI200" autocapitalize="characters"></div>
+        <div class="field"><label>Discount type</label>
+          <div class="pair-btns">
+            <button class="btn btn-ghost btn-flex" id="mv-type-percent" onclick="setMvType('percent')">% Percent off</button>
+            <button class="btn btn-ghost btn-flex" id="mv-type-flat" onclick="setMvType('flat')">₹ Flat amount</button>
+          </div>
+        </div>
+        <div class="field"><label id="mv-value-label">Discount value</label><input type="number" id="mv-value" min="0" inputmode="decimal"></div>
+        <div class="field"><label>Customer name (optional — leave blank for a public code)</label><input type="text" id="mv-name"></div>
+        <div class="field"><label>Customer WhatsApp (optional)</label><input type="tel" id="mv-wa" inputmode="numeric"></div>
+        <div class="field"><label>Valid for how many days?</label><input type="number" id="mv-days" min="1" value="7"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" id="mv-save-btn" onclick="saveMaintVoucher()">Create ▶</button>
+      </div>
+    </section>
+
+    <!-- CREATE EVENT / PROMOTION — consolidates the bot's two separate menu
+         items (maint:eventform, maint:eventpromo): both call the exact same
+         admin_create_voucher_event RPC (p_kind defaults to 'event' server-side),
+         so one screen with a Kind picker covers both faithfully. See report
+         for the full reasoning. -->
+    <section class="screen" id="scr-maint-eventpromo">
+      <div class="scr-body">
+        <div class="scr-head"><h1>🎉 Create event or promotion</h1><p>Creates a shareable registration link — each visitor who registers gets their own voucher.</p></div>
+        <div class="err-box" id="mep-err"></div>
+        <div class="field"><label>What are you creating?</label>
+          <div class="pair-btns">
+            <button class="btn btn-ghost btn-flex" id="mep-kind-event" onclick="setMepKind('event')">📅 Event</button>
+            <button class="btn btn-ghost btn-flex" id="mep-kind-promotion" onclick="setMepKind('promotion')">🏷️ Promotion</button>
+          </div>
+        </div>
+        <div class="field"><label>Title *</label><input type="text" id="mep-title" placeholder="e.g. AFWWA Exhibition"></div>
+        <div class="field"><label>Discount type</label>
+          <div class="pair-btns">
+            <button class="btn btn-ghost btn-flex" id="mep-type-percent" onclick="setMepType('percent')">% Percent off</button>
+            <button class="btn btn-ghost btn-flex" id="mep-type-flat" onclick="setMepType('flat')">₹ Flat amount</button>
+          </div>
+        </div>
+        <div class="field"><label id="mep-value-label">Discount value</label><input type="number" id="mep-value" min="0" inputmode="decimal"><div class="field" style="margin:4px 0 0;"><span id="mep-value-hint" style="font-size:13px;color:rgba(247,243,236,.5);"></span></div></div>
+        <div class="field"><label>Valid for how many days after registering?</label><input type="number" id="mep-days" min="1" value="7"></div>
+        <div id="mep-result"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" id="mep-save-btn" onclick="saveMaintEventPromo()">Create ▶</button>
+      </div>
+    </section>
+
+    <!-- SHARE VISITING CARD (mirrors maint:sharecard) -->
+    <section class="screen" id="scr-maint-sharecard">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📇 Share visiting card</h1></div>
+        <div class="disc-inline open">Your Meensha digital visiting card — forward this link to a customer or contact:<br><br><span style="word-break:break-all;" id="msc-link"></span></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+        <button class="btn btn-primary btn-flex" onclick="copyMaintShareCard()">📋 Copy link</button>
+      </div>
+    </section>
+
+    <!-- EVENT PHOTO SUBMISSIONS (mirrors handleEventPhotoToggle) -->
+    <section class="screen" id="scr-maint-evphoto">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📸 Event photo submissions</h1><p id="mevp-status"></p></div>
+        <div class="pair-btns">
+          <button class="btn btn-primary btn-flex" onclick="setMaintEvPhoto(true)">🟢 Turn ON</button>
+          <button class="btn btn-danger btn-flex" onclick="setMaintEvPhoto(false)">🔴 Turn OFF</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <!-- POTENTIAL CUSTOMERS (sidebar: 📋 Potential Customers → View list) -->
+    <section class="screen" id="scr-pc-list">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📋 Potential Customers</h1><p>Shared visiting cards &amp; follow-ups</p></div>
+        <div id="pc-list-body"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <section class="screen" id="scr-pc-followup">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Follow up note</h1><p id="pcf-who"></p></div>
+        <div class="field"><label>Note</label><input type="text" id="pcf-text" placeholder="Follow-up note"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-pc-list')">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" onclick="savePcFollowup()">Save ▶</button>
+      </div>
+    </section>
+
+    <!-- GODOWN CHECK (mirrors handleGodown's full EOD/spot-check/discrepancy state machine) -->
+    <section class="screen" id="scr-maint-godown-menu">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📦 Godown check</h1><p>What do you want to do?</p></div>
+        <button class="disc-opt" onclick="startMaintGodownEod()"><span>📊 End-of-day reconciliation</span></button>
+        <button class="disc-opt" onclick="startMaintGodownSpot()"><span>🔍 Spot check an item</span></button>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitMaintGodown()">✕ Exit</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-godown-spotsearch">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Spot check</h1><p>Type an item name to search</p></div>
+        <div class="search-row"><input type="text" id="mgd-spot-search" placeholder="Item name…" oninput="searchMaintGodownSpot()"></div>
+        <div id="mgd-spot-results"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitMaintGodown()">✕ Exit</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-godown-item">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="mgdi-name"></h1></div>
+        <div id="mgdi-body" style="margin-bottom:18px;"></div>
+        <p style="margin-bottom:12px;color:rgba(247,243,236,.75);">Does the physical count match?</p>
+        <div class="pair-btns">
+          <button class="btn btn-ghost btn-flex" onclick="godownDiscrepancy()">⚠️ Discrepancy</button>
+          <button class="btn btn-primary btn-flex" onclick="godownMatch()">✅ Matches</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitMaintGodown()">✕ Exit</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-godown-disctype">
+      <div class="scr-body">
+        <div class="scr-head"><h1>What kind of discrepancy?</h1></div>
+        <div class="pay-grid">
+          <button class="pay-btn" onclick="setMaintGodownDiscType('shortage')">📉 Missing</button>
+          <button class="pay-btn" onclick="setMaintGodownDiscType('damage')">🔨 Damaged</button>
+          <button class="pay-btn" onclick="setMaintGodownDiscType('other')">📈 Extra</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitMaintGodown()">✕ Exit</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-godown-unitpick">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="mgdu-head"></h1><p>Optional — tap Done to skip</p></div>
+        <div class="unit-grid" id="mgdu-grid"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="exitMaintGodown()">✕ Exit</button>
+        <button class="btn btn-primary btn-flex" id="mgdu-done-btn" onclick="finishMaintGodownUnitPick()">Done (0 selected) ▶</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-maint-godown-note">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Add a note or photo</h1><p>Optional — tap Skip to finish without one</p></div>
+        <div class="field"><label>Note</label><input type="text" id="mgdn-text" placeholder="Describe the discrepancy"></div>
+        <input type="file" accept="image/*" capture="environment" id="mgdn-photo-input" style="display:none;" onchange="onMaintGodownNotePhotoChosen(event)">
+        <button class="btn btn-outline btn-block" onclick="document.getElementById('mgdn-photo-input').click()">📷 Attach photo</button>
+        <div class="photo-thumb-row" id="mgdn-photos"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="finishMaintGodownDiscrepancy(true)">⏭ Skip</button>
+        <button class="btn btn-primary btn-flex" onclick="finishMaintGodownDiscrepancy(false)">✅ Done</button>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -561,8 +1276,152 @@ async function sbInsert(table,data){try{const r=await fetch(`${SB}/rest/v1/${tab
 async function rpcA(name,body){try{const r=await fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:AHDR(),body:JSON.stringify(body||{})});return r.ok?(await r.json()):null;}catch{return null;}}
 async function rpcP(name,body){try{const r=await fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:HDR(),body:JSON.stringify(body||{})});return r.ok?(await r.json()):null;}catch{return null;}}
 
+// Photo upload to Supabase Storage — same compress-then-upload pattern as
+// admin.html's compressImage()/uploadFile() (item-photos bucket, 1200px/0.8
+// JPEG re-encode), needed here for Vendor Purchase + Stock Intake photos.
+async function compressImage(file,maxDim=1200,quality=0.8){
+  try{
+    const bitmap=await createImageBitmap(file);
+    let{width,height}=bitmap;
+    if(width>maxDim||height>maxDim){const s=maxDim/Math.max(width,height);width=Math.round(width*s);height=Math.round(height*s);}
+    const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+    canvas.getContext('2d').drawImage(bitmap,0,0,width,height);
+    const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
+    return blob?new File([blob],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'}):file;
+  }catch{return file;}
+}
+async function uploadFile(bucket,file){
+  const compressed=await compressImage(file);
+  const nm=Date.now()+'-'+compressed.name.replace(/[^a-zA-Z0-9.]/g,'_');
+  const r=await fetch(`${SB}/storage/v1/object/${bucket}/${nm}`,{method:'POST',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':compressed.type,'x-upsert':'true'},body:compressed});
+  if(!r.ok)throw new Error('Upload failed');
+  return `${SB}/storage/v1/object/public/${bucket}/${nm}`;
+}
+function readFileAsDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file);});}
+function renderPhotoThumbs(containerId,photos,removeFn){
+  document.getElementById(containerId).innerHTML=photos.map((p,i)=>
+    `<div class="photo-thumb"><img src="${p.dataUrl||p.url}"><button class="rm" onclick="${removeFn}(${i})">✕</button></div>`
+  ).join('');
+}
+
 function fmt(n){return (Math.round((n||0)*100)/100).toLocaleString('en-IN');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toastT);window.__toastT=setTimeout(()=>t.classList.remove('show'),2600);}
+
+// ═══════════════════════════════════════════════
+// REGION — users.region (from login()) is 'india'/'australia' (locked) or
+// null (shameen: toggle between India/Australia/All). ACTIVE_REGION holds
+// the toggle's current value for the null case only; it's deliberately kept
+// outside S so resetSale() (called between every sale) never wipes it.
+// ═══════════════════════════════════════════════
+let ACTIVE_REGION='india';
+function effRegion(){ return (CU && CU.region) ? CU.region : ACTIVE_REGION; }
+// AU currency/format matches telegram-bot-au/index.ts's fmtAud() exactly
+// (A$ + 2 decimals, no thousands grouping) — not kiosk's own en-IN fmt().
+// 'All' (shameen, untoggled catalog-wide view) has no single currency of its
+// own; judgment call: default to ₹/INR, same as the pre-region-split kiosk.
+function fmtMoney(n){ return effRegion()==='australia' ? 'A$'+(n??0).toFixed(2) : '₹'+fmt(n); }
+function curSymbol(){ return effRegion()==='australia' ? 'A$' : '₹'; }
+function priceField(){ return effRegion()==='australia' ? 'sale_price_aud' : 'sale_price'; }
+// A sale row's OWN currency (for Sales History/Godown, which can show sales
+// recorded under a different active region than the one currently selected,
+// e.g. shameen on 'All') is read from its source, not the live toggle.
+function fmtSaleAmount(n,source){ return (source==='telegram_au'||source==='kiosk_pwa_au') ? 'A$'+(n??0).toFixed(2) : '₹'+fmt(n); }
+// Coupons/events region filter — mirrors the India bot's own local filter
+// (['india','all'].includes(region)) extended with an 'australia' case and
+// an unrestricted case for the 'All' toggle, since there's no "any region"
+// value in validate_coupon's own IN-based gate (see validateCouponRPC).
+function couponRegionsFor(r){
+  if(r==='india')return['india','all'];
+  if(r==='australia')return['australia','all'];
+  return null; // 'all' active region: don't restrict
+}
+function regionAllowed(region){
+  const allowed=couponRegionsFor(effRegion());
+  return !allowed || allowed.includes(region);
+}
+// validate_coupon(p_region) rejects unless c.region IN ('all', p_region) —
+// there's no single p_region value meaning "any region", so for the 'All'
+// toggle we try both real regions client-side; a coupon only ever belongs
+// to one, so at most one call can come back valid. No backend change.
+async function validateCouponRPC(code,wa){
+  const r=effRegion();
+  if(r!=='all') return await rpcP('validate_coupon',{p_code:code,p_wa:wa,p_region:r});
+  const tryIndia=await rpcP('validate_coupon',{p_code:code,p_wa:wa,p_region:'india'});
+  if(tryIndia && tryIndia.valid) return tryIndia;
+  const tryAu=await rpcP('validate_coupon',{p_code:code,p_wa:wa,p_region:'australia'});
+  if(tryAu && tryAu.valid) return tryAu;
+  return tryIndia;
+}
+// submit_purchase_intake_batch's p_region picks which market the resulting
+// stock becomes available in (admin_approve_purchase_batch sets
+// india_available/au_available accordingly) — NOT a currency; vendor
+// payments are always INR regardless (vendors are India-based, per
+// admin.html's P&L comment). 'All' has no single destination market, so it
+// falls back to 'india' (the pre-existing default).
+function purchaseRegion(){ return effRegion()==='australia' ? 'australia' : 'india'; }
+// Sales History / Godown EOD reconciliation source filter. Mirrors the
+// India/AU bots' own split (telegram vs telegram_au), extended with the new
+// kiosk_pwa_au source (see runFinalizeSale) so a kiosk-recorded AU sale is
+// treated the same way a telegram_au one already is.
+function regionSaleSources(){
+  const r=effRegion();
+  if(r==='australia')return{mode:'only',sources:['telegram_au','kiosk_pwa_au']};
+  if(r==='india')return{mode:'exclude',sources:['telegram_au','kiosk_pwa_au']};
+  return{mode:'all'};
+}
+function salesSourceQueryParam(){
+  const rs=regionSaleSources();
+  if(rs.mode==='all')return'';
+  const list=rs.sources.join(',');
+  return rs.mode==='only' ? `&source=in.(${list})` : `&source=not.in.(${list})`;
+}
+// Shows/hides + initializes the Account-group region toggle for the null
+// (shameen) case; locked accounts (CU.region set) never see it.
+function initRegionUI(){
+  const el=document.getElementById('sg-account-region');
+  const tag=document.getElementById('tb-region-tag');
+  if(CU && CU.region){
+    el.style.display='none';
+    tag.style.display='none';
+    return;
+  }
+  el.style.display='block';
+  const stored=localStorage.getItem('MSN_KIOSK_REGION');
+  ACTIVE_REGION=(stored==='india'||stored==='australia'||stored==='all')?stored:'india';
+  updateRegionButtons();
+  updateTopbarRegionLabel();
+}
+function updateRegionButtons(){
+  ['india','australia','all'].forEach(r=>{
+    const b=document.getElementById('region-btn-'+r);
+    if(b)b.classList.toggle('btn-primary',ACTIVE_REGION===r);
+  });
+}
+function updateTopbarRegionLabel(){
+  const tag=document.getElementById('tb-region-tag');
+  if(!tag || (CU && CU.region))return;
+  tag.style.display='inline';
+  tag.textContent=ACTIVE_REGION==='india'?'· 🇮🇳 India':ACTIVE_REGION==='australia'?'· 🇦🇺 Australia':'· 🌐 All';
+}
+// Switching region mid-session clears the in-progress cart rather than
+// trying to re-price items already picked in the other currency — simplest
+// correct behavior, consistent with startNewSale()'s own confirm-then-clear
+// pattern. Always lands back on the Items screen, freshly rendered for the
+// newly active region (covers the "re-render the open screen" requirement
+// without a per-screen dispatch table).
+function setActiveRegion(r){
+  if(CU && CU.region)return;
+  if(ACTIVE_REGION===r){ closeSidebar(); return; }
+  if(S.cart && S.cart.length && !confirm('Switching region clears the current cart (prices are in a different currency). Continue?'))return;
+  ACTIVE_REGION=r;
+  localStorage.setItem('MSN_KIOSK_REGION',r);
+  updateRegionButtons();
+  updateTopbarRegionLabel();
+  resetSale();
+  closeSidebar();
+  toast('Active region: '+(r==='india'?'🇮🇳 India':r==='australia'?'🇦🇺 Australia':'🌐 All'));
+  goItems();
+}
 
 // ═══════════════════════════════════════════════
 // SESSION — reuses admin.html's exact localStorage key/shape so a staff
@@ -639,6 +1498,7 @@ setInterval(async ()=>{
 },5*60*1000);
 
 function startKiosk(){
+  initRegionUI();
   resetSale();
   showScreen('scr-items');
   loadItemPicker();
@@ -698,7 +1558,7 @@ function groupCartBySku(){
 }
 function validateCouponLocal(c){
   if(!c||!c.active||c.used)return false;
-  if(!['india','all'].includes(c.region))return false;
+  if(!regionAllowed(c.region))return false;
   const today=todayStr();
   if(c.valid_from && c.valid_from>today)return false;
   if(c.valid_until && c.valid_until<today)return false;
@@ -725,7 +1585,7 @@ async function loadItemPicker(){
   const wrap=document.getElementById('item-grid-wrap');
   wrap.innerHTML='<div class="center-wait" style="padding:40px 0;"><span class="spin"></span> Loading items…</div>';
   const [skus,units]=await Promise.all([
-    sbGet('inventory_skus','?select=id,name,mrp,sale_price,display_variant,display_material,au_available,photos'),
+    sbGet('inventory_skus','?select=id,name,mrp,sale_price,sale_price_aud,display_variant,display_material,au_available,photos'),
     sbGet('inventory_units','?select=id,sku_id,status&status=eq.available'),
   ]);
   skuCache={};(skus||[]).forEach(s=>skuCache[s.id]=s);
@@ -740,7 +1600,13 @@ function renderItemPicker(){
   units.forEach(u=>{ if(inCart.has(u.id))return; availCount[u.sku_id]=(availCount[u.sku_id]||0)+1; });
   const q=(document.getElementById('item-search').value||'').trim().toLowerCase();
   document.getElementById('item-search-clear').style.display=q?'flex':'none';
-  let list=skus.filter(s=>(availCount[s.id]||0)>0);
+  const region=effRegion();
+  const pf=priceField();
+  // AU bot's own kiosk item search (telegram-bot-au's kioskSearch) filters
+  // inventory_skus to au_available=true — unlike the India bot's item
+  // picker, which is unfiltered. So the shared-catalog-unfiltered behavior
+  // only holds for india/all; australia needs the same au_available gate.
+  let list=skus.filter(s=>(availCount[s.id]||0)>0 && (region!=='australia' || s.au_available));
   if(q){
     list=list.filter(s=>
       (s.name||'').toLowerCase().includes(q) ||
@@ -752,7 +1618,7 @@ function renderItemPicker(){
   if(S.cart.length){
     const sub=S.cart.reduce((a,c)=>a+c.price,0);
     stripEl.style.display='block';
-    stripEl.textContent=`🧺 ${S.cart.length} in cart — ₹${fmt(sub)} so far`;
+    stripEl.textContent=`🧺 ${S.cart.length} in cart — ${fmtMoney(sub)} so far`;
   } else {
     stripEl.style.display='none';
   }
@@ -763,8 +1629,14 @@ function renderItemPicker(){
     return;
   }
   wrap.innerHTML=`<div class="item-grid">${list.map(s=>{
-    const au=s.au_available?'<div class="item-au">🇦🇺</div>':'';
-    const mrpTxt=(s.mrp && s.mrp!==s.sale_price)?`<span class="mrp">₹${fmt(s.mrp)}</span>`:'';
+    // Redundant in australia mode (every listed item is au_available by the
+    // filter above), so only show the cross-listing flag in india/all.
+    const au=(region!=='australia' && s.au_available)?'<div class="item-au">🇦🇺</div>':'';
+    const price=s[pf]??0;
+    // No AUD equivalent of mrp exists (only sale_price has an AUD column,
+    // sale_price_aud) — judgment call: skip the strikethrough MRP in AU mode
+    // rather than inventing one.
+    const mrpTxt=(pf==='sale_price' && s.mrp && s.mrp!==s.sale_price)?`<span class="mrp">${fmtMoney(s.mrp)}</span>`:'';
     const photo=(s.photos&&s.photos[0])?`<img src="${esc(s.photos[0])}" loading="lazy" alt="">`:`<svg class="ph-fallback" viewBox="0 0 24 24" fill="none" stroke="var(--gold-dim)" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
     const sub=[s.display_material,s.display_variant].filter(Boolean).join(' · ');
     return `<div class="item-card" onclick="selectItem('${s.id}')">
@@ -772,7 +1644,7 @@ function renderItemPicker(){
       <div class="item-info">
         <div class="nm">${esc(s.name)}</div>
         ${sub?`<div class="sub">${esc(sub)}</div>`:''}
-        <div class="price">${mrpTxt}₹${fmt(s.sale_price)}</div>
+        <div class="price">${mrpTxt}${fmtMoney(price)}</div>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -797,6 +1669,7 @@ function toggleSidebar(){
   document.getElementById('sidebar-user').textContent='Logged in as '+(CU?.display_name||CU?.username||'');
   document.getElementById('sidebar').classList.add('open');
   document.getElementById('sidebar-overlay').classList.add('open');
+  renderSidebarShareCard();
 }
 function closeSidebar(){
   document.getElementById('sidebar').classList.remove('open');
@@ -867,7 +1740,7 @@ function pickUnit(unitId){
   if(!sku)return;
   let unitCode='—';
   try{ const codes=JSON.parse(document.getElementById('unit-grid').dataset.codes||'{}'); unitCode=codes[unitId]||'—'; }catch{}
-  S.cart.push({unit_id:unitId,unit_code:unitCode,sku_id:sku.id,name:sku.name,variant:sku.display_variant,price:sku.sale_price});
+  S.cart.push({unit_id:unitId,unit_code:unitCode,sku_id:sku.id,name:sku.name,variant:sku.display_variant,price:sku[priceField()]??0});
   S.qtyRemaining=(S.qtyRemaining||1)-1;
   // Pull this unit out of the in-memory available list so the grid updates immediately.
   itemPickerData.units=itemPickerData.units.filter(u=>u.id!==unitId);
@@ -903,11 +1776,11 @@ function renderCart(){
   const applied=S.appliedDiscounts||[];
   body.innerHTML=groups.map(g=>{
     const d=S.cart.filter(c=>c.sku_id===g.sku_id).reduce((a,c)=>a+(applied.find(x=>x.unit_id===c.unit_id)?.discount||0),0);
-    const discLine=d?`<div class="cl-disc">🎟️ Discount applied: -₹${fmt(d)}</div>`:'';
+    const discLine=d?`<div class="cl-disc">🎟️ Discount applied: -${fmtMoney(d)}</div>`:'';
     return `<div class="cart-line">
       <div class="cl-top">
         <div><div class="cl-name">${esc(g.name)}</div><div class="cl-sub">Qty ${g.qty}${g.variant?' · '+esc(g.variant):''}</div></div>
-        <div class="cl-amt">₹${fmt(g.subtotal)}</div>
+        <div class="cl-amt">${fmtMoney(g.subtotal)}</div>
       </div>
       ${discLine}
       <div class="cl-actions">
@@ -915,7 +1788,7 @@ function renderCart(){
         <button class="btn btn-danger btn-sm btn-flex" onclick="removeCartGroup('${g.sku_id}')">🗑 Remove</button>
       </div>
     </div>`;
-  }).join('') + `<div class="cart-total-strip"><div class="lbl">Subtotal</div><div class="amt">₹${fmt(S.cart.reduce((a,c)=>a+c.price,0))}</div></div>`;
+  }).join('') + `<div class="cart-total-strip"><div class="lbl">Subtotal</div><div class="amt">${fmtMoney(S.cart.reduce((a,c)=>a+c.price,0))}</div></div>`;
 }
 function removeCartGroup(skuId){
   clearDiscountIfUnitRemoved(skuId);
@@ -977,6 +1850,7 @@ function submitCustomerInfo(){
 let discountCache=null;
 async function goDiscountPicker(){
   showScreen('scr-discount');
+  document.getElementById('disc-custom-cur').textContent=curSymbol();
   document.getElementById('disc-code-box').classList.remove('open');
   document.getElementById('disc-custom-box').classList.remove('open');
   document.getElementById('disc-event-box').classList.remove('open');
@@ -994,20 +1868,20 @@ function renderDiscountPicker(){
   const alEl=document.getElementById('applied-list');
   alEl.innerHTML = applied.map(d=>{
     const item=S.cart.find(c=>c.unit_id===d.unit_id);
-    return `<div class="applied-chip"><span>🎟️ ${esc(d.code)}${item?' — '+esc(item.name):''}</span><span class="ac-amt">-₹${fmt(d.discount)}</span></div>`;
+    return `<div class="applied-chip"><span>🎟️ ${esc(d.code)}${item?' — '+esc(item.name):''}</span><span class="ac-amt">-${fmtMoney(d.discount)}</span></div>`;
   }).join('');
 
   const today=todayStr();
   const appliedCodes=applied.map(d=>d.code);
   const appliedEventIds=applied.map(d=>d.event_id).filter(Boolean);
   const validCoupons=(discountCache.coupons||[]).filter(c=>
-    c.active && !c.used && c.source==='admin' && ['india','all'].includes(c.region) &&
+    c.active && !c.used && c.source==='admin' && regionAllowed(c.region) &&
     (!c.valid_from||c.valid_from<=today) && (!c.valid_until||c.valid_until>=today) &&
     !appliedCodes.includes(c.code));
   const now=new Date();
   const availableEvents=(discountCache.events||[]).filter(e=>{
     if(!e.active)return false;
-    if(!['india','all'].includes(e.region))return false;
+    if(!regionAllowed(e.region))return false;
     if(appliedEventIds.includes(e.id))return false;
     const expires=new Date(e.created_at);
     expires.setDate(expires.getDate()+(e.valid_days||7));
@@ -1017,11 +1891,11 @@ function renderDiscountPicker(){
   const opts=document.getElementById('disc-options');
   let html='';
   validCoupons.forEach(c=>{
-    const label=c.discount_type==='percent'?`${c.discount_value}% off`:`₹${fmt(c.discount_value)} off`;
+    const label=c.discount_type==='percent'?`${c.discount_value}% off`:`${fmtMoney(c.discount_value)} off`;
     html+=`<button class="disc-opt" onclick="applyCouponTap('${c.id}')"><span>🎟️ ${esc(c.code)}</span><span class="dtag">${label}</span></button>`;
   });
   availableEvents.forEach(e=>{
-    const label=e.discount_type==='percent'?`${e.discount_value}% off`:`₹${fmt(e.discount_value)} off`;
+    const label=e.discount_type==='percent'?`${e.discount_value}% off`:`${fmtMoney(e.discount_value)} off`;
     html+=`<button class="disc-opt" onclick="openEventWa('${e.id}','${esc(e.title)}')"><span>🎉 ${esc(e.title)}</span><span class="dtag">${label}</span></button>`;
   });
   html+=`<button class="disc-opt" onclick="toggleInline('disc-code-box')"><span>🔑 Enter a code</span></button>`;
@@ -1064,7 +1938,7 @@ async function applyCouponTap(couponId){
 async function submitDiscountCode(){
   const raw=document.getElementById('disc-code-input').value.trim();
   if(!raw)return;
-  const res=await rpcP('validate_coupon',{p_code:raw,p_wa:S.customer_wa,p_region:'india'});
+  const res=await validateCouponRPC(raw,S.customer_wa);
   if(!res||!res.valid){toast(res?.message||'Invalid coupon');return;}
   document.getElementById('disc-code-input').value='';
   document.getElementById('disc-code-box').classList.remove('open');
@@ -1079,7 +1953,7 @@ async function submitDiscountCustom(){
   const target=highestPricedCartItem(excluded);
   if(!target){ toast('No remaining item in the cart to discount — skipping.'); offerAnotherDiscountOrConfirm(); return; }
   const amount=applyCouponToItem({discount_type:'flat',discount_value:parsed,code:'Custom discount'},target,true,null);
-  if(amount<parsed){ toast(`₹${fmt(parsed)} is more than "${target.name}"'s price — capped to -₹${fmt(amount)}.`); }
+  if(amount<parsed){ toast(`${fmtMoney(parsed)} is more than "${target.name}"'s price — capped to -${fmtMoney(amount)}.`); }
   document.getElementById('disc-custom-input').value='';
   offerAnotherDiscountOrConfirm();
 }
@@ -1097,7 +1971,7 @@ function applyDiscountAndOffer(coupon,isCustom,eventId){
   const target=highestPricedCartItem(excluded);
   if(!target){ toast(`No remaining item in the cart for ${coupon.code} to apply to — skipping.`); offerAnotherDiscountOrConfirm(); return; }
   const amount=applyCouponToItem(coupon,target,isCustom,eventId);
-  toast(`🎟️ Applied ${coupon.code} to ${target.name} — -₹${fmt(amount)}`);
+  toast(`🎟️ Applied ${coupon.code} to ${target.name} — -${fmtMoney(amount)}`);
   offerAnotherDiscountOrConfirm();
 }
 function offerAnotherDiscountOrConfirm(){
@@ -1113,8 +1987,8 @@ function formatConfirmLines(){
   const applied=S.appliedDiscounts||[];
   return S.cart.map(c=>{
     const d=applied.find(x=>x.unit_id===c.unit_id);
-    const discHtml=(d&&d.discount)?`<div class="fl-disc">↳ ${esc(d.isCustom?'Custom discount':d.code)}: -₹${fmt(d.discount)}</div>`:'';
-    return `<div class="confirm-line"><div class="fl-top"><span>${esc(c.name)}${c.variant?' ('+esc(c.variant)+')':''}</span><span>₹${fmt(c.price)}</span></div>${discHtml}</div>`;
+    const discHtml=(d&&d.discount)?`<div class="fl-disc">↳ ${esc(d.isCustom?'Custom discount':d.code)}: -${fmtMoney(d.discount)}</div>`:'';
+    return `<div class="confirm-line"><div class="fl-top"><span>${esc(c.name)}${c.variant?' ('+esc(c.variant)+')':''}</span><span>${fmtMoney(c.price)}</span></div>${discHtml}</div>`;
   }).join('');
 }
 function goConfirm(){
@@ -1124,9 +1998,9 @@ function goConfirm(){
   document.getElementById('confirm-lines').innerHTML=formatConfirmLines();
   const disc=subtotal-total;
   document.getElementById('confirm-totals').innerHTML=`
-    <div class="ct-row"><span>Subtotal</span><span>₹${fmt(subtotal)}</span></div>
-    ${disc?`<div class="ct-row"><span>Discount</span><span>-₹${fmt(disc)}</span></div>`:''}
-    <div class="ct-row grand"><span>Total</span><span>₹${fmt(total)}</span></div>`;
+    <div class="ct-row"><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
+    ${disc?`<div class="ct-row"><span>Discount</span><span>-${fmtMoney(disc)}</span></div>`:''}
+    <div class="ct-row grand"><span>Total</span><span>${fmtMoney(total)}</span></div>`;
   showScreen('scr-confirm');
 }
 function cancelConfirm(){
@@ -1142,11 +2016,29 @@ function goPaymentMode(){
   document.getElementById('pay-other-box').classList.remove('open');
   document.getElementById('upi-qr-area').innerHTML='';
   document.getElementById('rzp-area').innerHTML='';
+  renderPayGrid();
   showScreen('scr-payment');
+}
+// AU payment modes per telegram-bot-au/index.ts (askPaymentMode's kiosk_amount
+// case, line ~926): Cash/Card/Other only — AU doesn't have Razorpay, and
+// kiosk_payment_mode there has no UPI option either. india/all keep the
+// original 4-mode grid (Razorpay is explicitly in scope for 'all' since
+// India is included in it).
+function renderPayGrid(){
+  const grid=document.getElementById('pay-grid');
+  grid.innerHTML = effRegion()==='australia' ? `
+      <button class="pay-btn" onclick="choosePayMode('cash')">💵 Cash</button>
+      <button class="pay-btn" onclick="choosePayMode('card')">📱 Card</button>
+      <button class="pay-btn" onclick="choosePayMode('other')">🔁 Other</button>` : `
+      <button class="pay-btn" onclick="choosePayMode('cash')">💵 Cash</button>
+      <button class="pay-btn" onclick="choosePayMode('upi')">📲 UPI Direct</button>
+      <button class="pay-btn" onclick="choosePayMode('razorpay')">💳 Razorpay</button>
+      <button class="pay-btn" onclick="choosePayMode('other')">🔁 Other</button>`;
 }
 async function choosePayMode(mode){
   if(mode==='other'){ document.getElementById('pay-other-box').classList.add('open'); return; }
   if(mode==='cash'){ S.pay_mode='Cash'; goAmount(); return; }
+  if(mode==='card'){ S.pay_mode='Card'; goAmount(); return; }
   if(mode==='upi'){ S.pay_mode='UPI Direct'; await showUpiQr(); goAmount(); return; }
   if(mode==='razorpay'){ S.pay_mode='Razorpay'; await sendRazorpayLink(); return; }
 }
@@ -1217,7 +2109,7 @@ function afterRazorpay(){
 // AMOUNT RECEIVED
 // ═══════════════════════════════════════════════
 function goAmount(){
-  document.getElementById('amount-total-amt').textContent='₹'+fmt(orderTotal());
+  document.getElementById('amount-total-amt').textContent=fmtMoney(orderTotal());
   document.getElementById('amount-custom-input').value='';
   showScreen('scr-amount');
 }
@@ -1258,7 +2150,14 @@ async function runFinalizeSale(){
     })),
     total, paid, balance:total-paid,
     pay_mode:S.pay_mode, delivery_mode:'offline', shipping_status:'na', taxes:[],
-    created_by: CU?.display_name || CU?.username || 'kiosk', source:'kiosk_pwa',
+    created_by: CU?.display_name || CU?.username || 'kiosk',
+    // 'kiosk_pwa_au' is new (mirrors telegram_au vs telegram): AU-mode kiosk
+    // sales are AUD-denominated like telegram_au, not INR like plain
+    // kiosk_pwa, so reporting that branches on source (e.g. admin.html's
+    // P&L currency conversion at source==='telegram_au') needs to treat the
+    // two the same way. Flagged in the handback report — admin.html itself
+    // is out of scope here.
+    source: effRegion()==='australia' ? 'kiosk_pwa_au' : 'kiosk_pwa',
   };
   const saved=await sbInsert('sales',saleBody);
   const saleRow=saved && saved[0];
@@ -1284,11 +2183,16 @@ async function runFinalizeSale(){
 
   const waDigits=(S.customer_wa||'').replace(/\D/g,'');
   const invoiceUrl=`${STOREFRONT_URL}/invoice.html?invoice=${encodeURIComponent(inv)}&wa=${waDigits}`;
-  const waMsg=encodeURIComponent(`Hi ${S.customer_name}! Thank you for your Meensha order. Your invoice (${inv}) is here: ${invoiceUrl}`+(pdfUrl?`\n\nPDF: ${pdfUrl}`:''));
+  // "Add to invoice" from the Share my Visiting Card popup (S.attachCard,
+  // set in attachCardToInvoice()) just appends an extra line to this same
+  // WhatsApp message — doesn't touch the invoice/sales record itself.
+  const cardKey=vcPersonKey();
+  const cardLine=(S.attachCard && cardKey)?`\n\nMy Meensha visiting card: ${STOREFRONT_URL}/visiting-card.html?person=${cardKey}`:'';
+  const waMsg=encodeURIComponent(`Hi ${S.customer_name}! Thank you for your Meensha order. Your invoice (${inv}) is here: ${invoiceUrl}`+(pdfUrl?`\n\nPDF: ${pdfUrl}`:'')+cardLine);
   const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
 
   document.getElementById('success-inv').textContent='✅ Sale recorded — '+inv;
-  document.getElementById('success-amt').textContent=`Total ₹${fmt(total)} · Paid ₹${fmt(paid)}`+(total-paid>0?` · Balance ₹${fmt(total-paid)}`:'');
+  document.getElementById('success-amt').textContent=`Total ${fmtMoney(total)} · Paid ${fmtMoney(paid)}`+(total-paid>0?` · Balance ${fmtMoney(total-paid)}`:'');
   document.getElementById('success-actions').innerHTML=
     (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send invoice to customer</a>`:'')
     + `<a class="btn btn-ghost btn-block" href="${invoiceUrl}" target="_blank" rel="noopener">🧾 View / print invoice</a>`
@@ -1300,7 +2204,1384 @@ function afterSuccess(){
   goItems();
 }
 
+// ═══════════════════════════════════════════════
+// SALES HISTORY (read-only) — direct port of the bot's handleSalesHistory /
+// showSalesHistoryPage / showSaleSummary (supabase/functions/telegram-bot/
+// index.ts: same "sales" table, same source!=telegram_au filter, same
+// created_at-desc order, same HIST_PAGE_SIZE=5 pagination, same fields.
+// "Send Invoice" reuses the exact invoice-link + WhatsApp-link pattern from
+// runFinalizeSale's success screen (generate-invoice-pdf via anon key).
+// ═══════════════════════════════════════════════
+const HIST_PAGE_SIZE=5;
+let HIST={offset:0,current:null};
+
+async function sbGetCount(table,q=''){
+  try{
+    const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:{...AHDR(),'Prefer':'count=exact'}});
+    const rows=r.ok?await r.json():[];
+    const cr=r.headers.get('content-range');
+    const total=cr&&cr.includes('/')?parseInt(cr.split('/')[1]):null;
+    return {rows,total};
+  }catch{return{rows:[],total:null};}
+}
+
+function openSalesHistory(){
+  HIST.offset=0;
+  showScreen('scr-history-list');
+  loadHistoryPage();
+}
+function historyGoPage(offset){
+  HIST.offset=offset;
+  loadHistoryPage();
+}
+function historyBack(){
+  showScreen('scr-history-list');
+  loadHistoryPage();
+}
+
+async function loadHistoryPage(){
+  const offset=HIST.offset;
+  const body=document.getElementById('history-list-body');
+  body.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  const {rows,total}=await sbGetCount('sales',
+    `?select=id,inv,date,customer,total,source&order=created_at.desc&limit=${HIST_PAGE_SIZE}&offset=${offset}${salesSourceQueryParam()}`);
+  if(!rows.length){
+    body.innerHTML=`<div class="empty-state">
+      <div class="motif-bg" aria-hidden="true"><svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg"><path d="M40 20c0 60 20 70 20 110s-20 50-20 90M100 10c0 70 25 80 25 120s-25 60-25 100M160 20c0 60-20 70-20 110s20 50 20 90" fill="none" stroke="var(--gold-light)" stroke-width="2"/></svg></div>
+      <div class="es-inner"><p>${offset===0?'No sales recorded yet.':'No more sales.'}</p></div>
+    </div>`;
+    return;
+  }
+  const rowsHtml=rows.map(s=>`<button class="hist-row" onclick="viewSaleSummary('${s.id}')">
+      <div><div class="cl-name">${esc(s.inv)}</div><div class="cl-sub">${esc(s.customer?.name||'—')} · ${esc(s.date)}</div></div>
+      <div class="cl-amt">${fmtSaleAmount(s.total,s.source)}</div>
+    </button>`).join('');
+  const navBtns=[];
+  if(offset>0) navBtns.push(`<button class="btn btn-ghost btn-sm btn-flex" onclick="historyGoPage(${Math.max(0,offset-HIST_PAGE_SIZE)})">◀ Prev 5</button>`);
+  if((total??0)>offset+HIST_PAGE_SIZE) navBtns.push(`<button class="btn btn-ghost btn-sm btn-flex" onclick="historyGoPage(${offset+HIST_PAGE_SIZE})">Next 5 ▶</button>`);
+  body.innerHTML=rowsHtml+(navBtns.length?`<div style="display:flex;gap:10px;margin-top:6px;">${navBtns.join('')}</div>`:'');
+}
+
+async function viewSaleSummary(saleId){
+  showScreen('scr-history-detail');
+  document.getElementById('history-detail-inv').textContent='Loading…';
+  document.getElementById('history-detail-sub').textContent='';
+  document.getElementById('history-detail-items').innerHTML='';
+  document.getElementById('history-detail-totals').innerHTML='';
+  document.getElementById('history-detail-actions').innerHTML='';
+  const rows=await sbGet('sales',`?select=inv,date,customer,items,total,paid,balance,pay_mode,source&id=eq.${saleId}`);
+  const s=rows && rows[0];
+  if(!s){
+    document.getElementById('history-detail-inv').textContent='Sale not found';
+    document.getElementById('history-detail-sub').textContent="That sale couldn't be found — it may have been removed.";
+    return;
+  }
+  HIST.current={id:saleId,...s};
+  document.getElementById('history-detail-inv').textContent=s.inv;
+  document.getElementById('history-detail-sub').textContent=`${s.date} · ${s.customer?.name||'—'}${s.customer?.wa?' ('+s.customer.wa+')':''}`;
+  document.getElementById('history-detail-items').innerHTML=(s.items||[]).map(it=>`<div class="cart-line">
+      <div class="cl-top">
+        <div class="cl-name">${esc(it.name)}${it.variant?' <span class="cl-sub" style="display:inline;">('+esc(it.variant)+')</span>':''}</div>
+        <div class="cl-amt">${fmtSaleAmount(it.price,s.source)}</div>
+      </div>
+    </div>`).join('');
+  document.getElementById('history-detail-totals').innerHTML=`
+    <div class="ct-row grand"><span>Total</span><span>${fmtSaleAmount(s.total,s.source)}</span></div>
+    <div class="ct-row"><span>Paid</span><span>${fmtSaleAmount(s.paid,s.source)}</span></div>
+    ${s.balance?`<div class="ct-row"><span>Balance</span><span>${fmtSaleAmount(s.balance,s.source)}</span></div>`:''}
+    <div class="ct-row"><span>Payment</span><span>${esc(s.pay_mode||'—')}</span></div>`;
+  document.getElementById('history-detail-actions').innerHTML=
+    `<button class="btn btn-primary btn-block" onclick="sendHistoryInvoice('${saleId}')">🧾 Send Invoice</button>`;
+}
+
+async function sendHistoryInvoice(saleId){
+  const s=HIST.current;
+  if(!s||s.id!==saleId)return;
+  const actions=document.getElementById('history-detail-actions');
+  actions.innerHTML='<div class="center-wait" style="padding:10px 0;"><span class="spin"></span> Preparing invoice…</div>';
+  let pdfUrl=null;
+  try{
+    const pr=await fetch(`${SB}/functions/v1/generate-invoice-pdf`,{method:'POST',headers:HDR(),body:JSON.stringify({sale_id:saleId})});
+    const pj=await pr.json();
+    if(pj?.ok) pdfUrl=pj.url||null;
+  }catch{}
+  const waDigits=String(s.customer?.wa||'').replace(/\D/g,'');
+  const invoiceUrl=`${STOREFRONT_URL}/invoice.html?invoice=${encodeURIComponent(s.inv)}&wa=${waDigits}`;
+  const waMsg=encodeURIComponent(`Hi ${s.customer?.name||''}! Here's your Meensha invoice ${s.inv}: ${invoiceUrl}`+(pdfUrl?`\n\nPDF: ${pdfUrl}`:''));
+  const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
+  actions.innerHTML=
+    (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send to customer</a>`:'')
+    + `<a class="btn btn-ghost btn-block" href="${invoiceUrl}" target="_blank" rel="noopener">🧾 View / print invoice</a>`;
+}
+
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══════════════════════════════════════════════
+// VENDOR PURCHASE + STOCK INTAKE — ports the Telegram bot's handleInventory
+// (supabase/functions/telegram-bot/index.ts) and handleStockIntake flows.
+// Both bots' chat-style "one field per prompt" steps are grouped into forms
+// per logical step here (consistent with how scr-customer / scr-amount
+// already group several bot prompts into one screen) — same fields, same
+// validation, same RPC/table calls, just touch-friendly. Vendor search/create
+// is shared between the two flows (VENDOR_TARGET picks which one continues
+// after a vendor is picked/created), same as the bot reuses its own
+// inv_vendor_* / si_vendor_* states for both.
+// ═══════════════════════════════════════════════
+let VP=null;   // Vendor Purchase session — mirrors handleInventory's `data`
+let SI=null;   // Stock Intake session — mirrors handleStockIntake's `data`
+let VENDOR_TARGET=null; // 'vp' | 'si' — which flow the vendor picker returns to
+let vsResults=[];
+
+function exitInventoryFlow(){
+  const wasVp=!!VP;
+  toast(wasVp? 'Exited Vendor purchase — nothing was saved.' : 'Exited Stock Intake — nothing was saved.');
+  VP=null;SI=null;VENDOR_TARGET=null;
+  closeSidebar();goItems();
+}
+
+// ───────── Shared vendor search / create (inv_vendor_search/new, si_vendor_search/new) ─────────
+async function onVendorSearch(){
+  const q=document.getElementById('vs-search').value.trim();
+  const box=document.getElementById('vs-results');
+  if(!q){box.innerHTML='';return;}
+  const rows=await sbGet('vendors',`?select=id,name,company_name,wa_number,vendor_id&or=(name.ilike.*${encodeURIComponent(q)}*,company_name.ilike.*${encodeURIComponent(q)}*,wa_number.ilike.*${encodeURIComponent(q)}*)&limit=8`);
+  vsResults=rows||[];
+  box.innerHTML = vsResults.length
+    ? vsResults.map(v=>`<button class="disc-opt" onclick="pickVendor('${v.id}')"><span>${esc(v.name)}${v.company_name?' ('+esc(v.company_name)+')':''}</span></button>`).join('')
+    : `<div class="hint">No vendors matched "${esc(q)}".</div>`;
+}
+async function pickVendor(id){
+  const v=vsResults.find(x=>x.id===id);
+  if(!v){toast('That vendor is gone — try search again.');onVendorSearch();return;}
+  if(VENDOR_TARGET==='vp'){ VP.vendor_uuid=v.id; VP.vendor_name=v.name; startVpItemEntry(); }
+  else{ SI.vendor_uuid=v.id; SI.vendor_name=v.name; SI.vendor_code=v.vendor_id; startSiItemLoop(); }
+}
+function goVendorNew(){
+  document.getElementById('vn-err').style.display='none';
+  document.getElementById('vn-name').value='';
+  document.getElementById('vn-company').value='';
+  document.getElementById('vn-wa').value='';
+  document.getElementById('vn-place').value='';
+  showScreen('scr-vendor-new');
+}
+async function saveNewVendor(){
+  const name=document.getElementById('vn-name').value.trim();
+  const err=document.getElementById('vn-err');
+  if(!name){err.textContent="Name can't be empty — vendor name?";err.style.display='block';return;}
+  err.style.display='none';
+  const company=document.getElementById('vn-company').value.trim()||null;
+  const wa=document.getElementById('vn-wa').value.trim()||null;
+  const place=document.getElementById('vn-place').value.trim()||null;
+  const btn=document.getElementById('vn-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const vid=await rpcA('next_vendor_id',{});
+  const created=vid?await sbInsert('vendors',{vendor_id:vid,name,company_name:company,wa_number:wa,place,status:'active'}):null;
+  btn.disabled=false;btn.textContent='Save & Continue ▶';
+  if(!created||!created.length){toast("Couldn't save that vendor — try again.");return;}
+  const v=created[0];
+  toast(`✅ Vendor added: ${v.name} (${vid})`);
+  if(VENDOR_TARGET==='vp'){ VP.vendor_uuid=v.id; VP.vendor_name=v.name; startVpItemEntry(); }
+  else{ SI.vendor_uuid=v.id; SI.vendor_name=v.name; SI.vendor_code=v.vendor_id; startSiItemLoop(); }
+}
+
+// ═══════════════════════════════════════════════
+// VENDOR PURCHASE
+// ═══════════════════════════════════════════════
+function startVendorPurchase(){
+  VP={items:[]}; SI=null; VENDOR_TARGET='vp';
+  document.getElementById('vs-sub').textContent='Search vendor by name or WhatsApp number';
+  document.getElementById('vs-search').value='';
+  document.getElementById('vs-results').innerHTML='';
+  showScreen('scr-vendor-search');
+}
+
+let vpCurPhotos=[]; // {dataUrl,file} pending upload, or {url} already-uploaded (edit mode)
+function startVpItemEntry(){
+  VP.curItem={};
+  VP.editIdx=null;
+  resetVpItemForm();
+  document.getElementById('vpi-head').textContent=`Vendor: ${VP.vendor_name} — Add item`;
+  showScreen('scr-vp-item');
+}
+function resetVpItemForm(){
+  document.getElementById('vpi-err').style.display='none';
+  document.getElementById('vpi-name').value='';
+  document.getElementById('vpi-material').value='';
+  document.getElementById('vpi-variant').value='';
+  document.getElementById('vpi-cost').value='';
+  document.getElementById('vpi-qty').value='1';
+  document.getElementById('vpi-mrp').value='';
+  document.getElementById('vpi-suggest').textContent='';
+  vpCurPhotos=[];
+  renderVpPhotoThumbs();
+  setVpDefect(false);
+  document.getElementById('vpi-defect-qty').value='';
+  document.getElementById('vpi-defect-reason').value='';
+}
+function editVpItem(idx){
+  const it=VP.items[idx];
+  VP.editIdx=idx;
+  VP.curItem={_defectYes:!!it.is_defective};
+  document.getElementById('vpi-head').textContent=`Vendor: ${VP.vendor_name} — Edit item`;
+  document.getElementById('vpi-err').style.display='none';
+  document.getElementById('vpi-name').value=it.name||'';
+  document.getElementById('vpi-material').value=it.material||'';
+  document.getElementById('vpi-variant').value=it.variant||'';
+  document.getElementById('vpi-cost').value=it.cost||'';
+  document.getElementById('vpi-qty').value=it.qty||1;
+  document.getElementById('vpi-mrp').value=it.mrp||'';
+  document.getElementById('vpi-suggest').textContent='';
+  vpCurPhotos=(it.photos||[]).map(url=>({url}));
+  renderVpPhotoThumbs();
+  setVpDefect(!!it.is_defective);
+  document.getElementById('vpi-defect-qty').value=it.defect_qty||'';
+  document.getElementById('vpi-defect-reason').value=it.defect_reason||'';
+  showScreen('scr-vp-item');
+}
+function cancelVpItem(){ VP.editIdx=null; showVpSummary(); }
+async function onVpPhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  if(vpCurPhotos.length>=4){toast('Maximum 4 photos.');return;}
+  vpCurPhotos.push({dataUrl:await readFileAsDataUrl(file)});
+  renderVpPhotoThumbs();
+}
+function removeVpPhoto(i){ vpCurPhotos.splice(i,1); renderVpPhotoThumbs(); }
+function renderVpPhotoThumbs(){ renderPhotoThumbs('vpi-photos',vpCurPhotos,'removeVpPhoto'); }
+function setVpDefect(yes){
+  VP.curItem=VP.curItem||{};
+  VP.curItem._defectYes=yes;
+  document.getElementById('vpi-defect-box').style.display=yes?'block':'none';
+  document.getElementById('vpi-defect-no').classList.toggle('btn-primary',!yes);
+  document.getElementById('vpi-defect-yes').classList.toggle('btn-danger',yes);
+}
+// No search grounding — same as the bot's suggestMrp(), a plain estimate
+// from the model's general knowledge for a "starting suggestion, editable".
+async function suggestVpMrp(){
+  const box=document.getElementById('vpi-suggest');
+  const name=document.getElementById('vpi-name').value.trim();
+  const cost=parseFloat(document.getElementById('vpi-cost').value);
+  if(!name||!cost||cost<=0){box.textContent='';return;}
+  const keyRows=await sbGet('settings','?key=eq.gemini_key&select=value');
+  const apiKey=keyRows?.[0]?.value;
+  if(!apiKey){box.textContent='';return;}
+  const material=document.getElementById('vpi-material').value.trim();
+  const variant=document.getElementById('vpi-variant').value.trim();
+  box.textContent='Checking suggested price…';
+  try{
+    const prompt=`Estimate a fair retail sale price in INR for a handloom saree: "${name}" ${material||''} ${variant?'('+variant+')':''}, cost price ₹${cost}. Reply with ONLY a number, no currency symbol, no other text.`;
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+    if(!res.ok){box.textContent='';return;}
+    const json=await res.json();
+    const raw=json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const num=parseFloat((raw||'').replace(/[^\d.]/g,''));
+    box.textContent=num?`Suggested sale price: ₹${num}`:'';
+  }catch{box.textContent='';}
+}
+async function uploadVpPhotos(){
+  const urls=[];
+  for(const p of vpCurPhotos){
+    if(p.url){urls.push(p.url);continue;}
+    const blob=await fetch(p.dataUrl).then(r=>r.blob());
+    urls.push(await uploadFile('item-photos', new File([blob],'ph.jpg',{type:'image/jpeg'})));
+  }
+  return urls.slice(0,4);
+}
+async function saveVpItem(){
+  const err=document.getElementById('vpi-err');
+  err.style.display='none';
+  const show=(msg)=>{err.textContent=msg;err.style.display='block';};
+  const name=document.getElementById('vpi-name').value.trim();
+  if(!name) return show("Name can't be empty — item name?");
+  const cost=parseFloat(document.getElementById('vpi-cost').value);
+  if(!cost||cost<=0) return show('Enter a valid cost per piece (₹).');
+  const qty=parseInt(document.getElementById('vpi-qty').value,10);
+  if(!qty||qty<=0) return show('Enter a valid quantity.');
+  if(!vpCurPhotos.length) return show('At least one photo is required.');
+  let defect_qty=null, defect_reason=null, is_defective=false;
+  if(VP.curItem._defectYes){
+    defect_qty=parseInt(document.getElementById('vpi-defect-qty').value,10);
+    if(!defect_qty||defect_qty<=0||defect_qty>qty) return show(`Enter a valid defective quantity (1-${qty}).`);
+    defect_reason=document.getElementById('vpi-defect-reason').value.trim();
+    if(!defect_reason) return show('Reason is required for defective pieces.');
+    is_defective=true;
+  }
+  const material=document.getElementById('vpi-material').value.trim()||null;
+  const variant=document.getElementById('vpi-variant').value.trim()||null;
+  const mrp=parseFloat(document.getElementById('vpi-mrp').value)||null;
+
+  const btn=document.getElementById('vpi-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  let photos;
+  try{ photos=await uploadVpPhotos(); }
+  catch{ btn.disabled=false;btn.textContent='Save item ▶'; toast("Couldn't save those photos — try again."); return; }
+  btn.disabled=false;btn.textContent='Save item ▶';
+
+  // Splits a partially-defective line into two staged rows (one good, one
+  // defective) — same as the bot's finishCurrentItem(), since
+  // admin_approve_purchase_batch treats each row as entirely good or bad.
+  const base={name,material,variant,cost,qty,mrp,photos};
+  let rows;
+  if(is_defective && defect_qty>0){
+    const goodQty=qty-defect_qty;
+    rows=[];
+    if(goodQty>0) rows.push({...base,qty:goodQty,is_defective:false,defect_qty:null,defect_reason:null});
+    rows.push({...base,qty:defect_qty,is_defective:true,defect_qty,defect_reason});
+  } else {
+    rows=[{...base,is_defective:false,defect_qty:null,defect_reason:null}];
+  }
+  if(VP.editIdx!=null){ VP.items.splice(VP.editIdx,1,...rows); } else { VP.items.push(...rows); }
+  VP.editIdx=null;
+  showVpSummary();
+}
+function showVpSummary(){
+  document.getElementById('vps-vendor').textContent=`Vendor: ${VP.vendor_name}`;
+  const body=document.getElementById('vps-items');
+  body.innerHTML = VP.items.length ? VP.items.map((it,i)=>`
+    <div class="cart-line">
+      <div class="cl-top">
+        <div class="cl-name">${i+1}. ${esc(it.name)}${it.variant?' <span class="cl-sub" style="display:inline;">('+esc(it.variant)+')</span>':''}</div>
+        <div class="cl-amt">₹${fmt(it.cost)} × ${it.qty}</div>
+      </div>
+      ${it.is_defective?`<div class="cl-disc">⚠️ defective${it.defect_reason?': '+esc(it.defect_reason):''}</div>`:''}
+      <div class="cl-actions">
+        <button class="btn btn-ghost btn-sm btn-flex" onclick="editVpItem(${i})">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm btn-flex" onclick="removeVpItem(${i})">🗑️ Remove</button>
+      </div>
+    </div>`).join('') : '<div class="hint">No items staged yet.</div>';
+  showScreen('scr-vp-summary');
+}
+function removeVpItem(i){ VP.items.splice(i,1); showVpSummary(); }
+function addAnotherVpItem(){ startVpItemEntry(); }
+
+function goVpAmount(){
+  if(!VP.items.length){toast('Add at least one item first.');return;}
+  document.getElementById('vpa-amount').value='';
+  showScreen('scr-vp-amount');
+}
+function submitVpAmount(){
+  const amt=parseFloat(document.getElementById('vpa-amount').value);
+  if(!amt||amt<=0){toast('Enter a valid amount (₹).');return;}
+  VP.paymentAmount=amt;
+  showScreen('scr-vp-mode');
+}
+function chooseVpMode(mode){
+  VP.paymentMode=mode;
+  document.getElementById('vpsp-sub').textContent=`Total paid: ₹${fmt(VP.paymentAmount)}. Leave Shalini's share blank for an even 50/50 split.`;
+  document.getElementById('vpsp-shalini').value='';
+  showScreen('scr-vp-split');
+}
+function submitVpSplit(){
+  const raw=document.getElementById('vpsp-shalini').value.trim();
+  let shalini,meenakshi;
+  if(!raw){ shalini=VP.paymentAmount/2; meenakshi=VP.paymentAmount/2; }
+  else { shalini=parseFloat(raw)||0; meenakshi=VP.paymentAmount-shalini; }
+  VP.paymentSplit={shalini,meenakshi};
+  showVpConfirm();
+}
+function showVpConfirm(){
+  const total=VP.items.reduce((a,it)=>a+it.cost*it.qty,0);
+  document.getElementById('vpc-summary').innerHTML=
+    `Vendor: ${esc(VP.vendor_name)}<br>Items: ${VP.items.length}<br>Total cost: ₹${fmt(total)}<br>`+
+    `Paid: ₹${fmt(VP.paymentAmount)} (${esc(VP.paymentMode)})<br>`+
+    `Split: Shalini ₹${fmt(VP.paymentSplit.shalini)} / Meenakshi ₹${fmt(VP.paymentSplit.meenakshi)}`;
+  showScreen('scr-vp-confirm');
+}
+async function submitVpPurchase(){
+  const btn=document.getElementById('vpc-submit-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const items=VP.items.map(it=>({
+    proposed_name:it.name, proposed_material:it.material, proposed_variant:it.variant,
+    proposed_sale_price:it.mrp, purchase_price:it.cost, qty:it.qty,
+    photo_urls:it.photos||[], is_defective:!!it.is_defective,
+    defect_qty:it.defect_qty||null, defect_reason:it.defect_reason||null,
+  }));
+  const payment={mode:VP.paymentMode,amount_paid:VP.paymentAmount,split:VP.paymentSplit};
+  const res=await rpcA('submit_purchase_intake_batch',{
+    p_vendor_uuid:VP.vendor_uuid, p_items:items, p_payment:payment,
+    p_submitted_by:`kiosk:${CU?.username||CU?.display_name||'staff'}`, p_region:purchaseRegion(),
+  });
+  btn.disabled=false;btn.textContent='✅ Submit';
+  if(res===null){toast("Couldn't submit that purchase — try again, or check with admin.");return;}
+  document.getElementById('vpd-msg').textContent=`✅ Submitted for approval (${items.length} items) — admin will review on the web dashboard before it's live.`;
+  VP=null;
+  showScreen('scr-vp-done');
+}
+
+// ═══════════════════════════════════════════════
+// STOCK INTAKE — invoice photo(s) → Gemini-vision extraction (client-side,
+// same prompt/shape as supabase/functions/_shared/askGemini.ts's
+// extractInvoiceData()) → draft confirm/fix → vendor match (shared above) →
+// per-item photo loop with discrepancy flagging → same
+// submit_purchase_intake_batch RPC as Vendor Purchase for good items,
+// vendor_issues insert for discrepancies, vendor message drafted at the end.
+// ═══════════════════════════════════════════════
+function startStockIntake(){
+  SI={invoicePhotos:[]}; VP=null;
+  siInvoicePhotosLocal=[];
+  document.getElementById('sii-photos').innerHTML='';
+  showScreen('scr-si-invoice');
+}
+
+let siInvoicePhotosLocal=[]; // {dataUrl,base64,mimeType}
+async function onSiInvoicePhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  const dataUrl=await readFileAsDataUrl(file);
+  siInvoicePhotosLocal.push({dataUrl,base64:dataUrl.split(',')[1],mimeType:file.type||'image/jpeg'});
+  renderPhotoThumbs('sii-photos',siInvoicePhotosLocal,'removeSiInvoicePhoto');
+}
+function removeSiInvoicePhoto(i){ siInvoicePhotosLocal.splice(i,1); renderPhotoThumbs('sii-photos',siInvoicePhotosLocal,'removeSiInvoicePhoto'); }
+
+async function extractInvoiceDataClient(images){
+  try{
+    const keyRows=await sbGet('settings','?key=eq.gemini_key&select=value');
+    const apiKey=keyRows?.[0]?.value;
+    if(!apiKey) return null;
+    const prompt=`You are reading one or more photos of a vendor invoice for a saree wholesale business. Extract: vendor name, invoice number, date (YYYY-MM-DD if you can tell), line items (description, HSN code if visible, quantity, rate, amount), and the grand total.
+Reply with ONLY one JSON object, no markdown, no explanation, in exactly this shape:
+{"vendor_name":string|null,"invoice_number":string|null,"date":string|null,"items":[{"description":string,"hsn":string|null,"qty":number,"rate":number,"amount":number}],"total":number|null}
+If a field isn't visible or legible, use null for that field. Omit a line item only if it's completely unreadable.`;
+    const parts=[{text:prompt}];
+    for(const img of images) parts.push({inlineData:{mimeType:img.mimeType,data:img.data}});
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts}]})});
+    if(!res.ok) return null;
+    const json=await res.json();
+    const raw=json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if(!raw) return null;
+    const parsed=JSON.parse(raw.replace(/^```json\s*|```\s*$/g,'').trim());
+    if(!Array.isArray(parsed.items)) return null;
+    return parsed;
+  }catch{return null;}
+}
+async function readSiInvoice(){
+  if(!siInvoicePhotosLocal.length){toast('Send at least one invoice photo first.');return;}
+  const btn=document.getElementById('sii-read-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Reading…';
+  const draft=await extractInvoiceDataClient(siInvoicePhotosLocal.map(p=>({mimeType:p.mimeType,data:p.base64})));
+  btn.disabled=false;btn.textContent='Read invoice ▶';
+  if(!draft){
+    toast("Couldn't read that invoice (no AI key configured, or the image wasn't clear) — try again with a clearer photo, or use Vendor Purchase instead.");
+    return;
+  }
+  SI.draft=draft;
+  showSiDraft();
+}
+function showSiDraft(){
+  const d=SI.draft;
+  const lines=(d.items||[]).map((it,i)=>`${i+1}. ${esc(it.description)}${it.hsn?' (HSN '+esc(it.hsn)+')':''} — qty ${it.qty} x ₹${fmt(it.rate)} = ₹${fmt(it.amount)}`).join('<br>');
+  document.getElementById('sid-body').innerHTML=
+    `Vendor: ${esc(d.vendor_name||'(not read)')}<br>Invoice #: ${esc(d.invoice_number||'(not read)')}<br>Date: ${esc(d.date||'(not read)')}<br><br>`+
+    `${lines||'(no items read)'}<br><br>Total: ₹${d.total!=null?fmt(d.total):'(not read)'}`;
+  showScreen('scr-si-draft');
+}
+function goSiFix(){
+  const d=SI.draft;
+  document.getElementById('sif-vendor').value=d.vendor_name||'';
+  document.getElementById('sif-invnum').value=d.invoice_number||'';
+  document.getElementById('sif-date').value=d.date||'';
+  document.getElementById('sif-total').value=d.total??'';
+  document.getElementById('sif-items').innerHTML=(d.items||[]).map((it,i)=>`
+    <div class="cart-line">
+      <div class="field"><label>Description</label><input type="text" id="sif-desc-${i}" value="${esc(it.description||'')}"></div>
+      <div class="field"><label>HSN</label><input type="text" id="sif-hsn-${i}" value="${esc(it.hsn||'')}"></div>
+      <div class="field"><label>Qty</label><input type="number" id="sif-qty-${i}" value="${it.qty||0}"></div>
+      <div class="field"><label>Rate (₹)</label><input type="number" id="sif-rate-${i}" value="${it.rate||0}"></div>
+      <div class="field"><label>Amount (₹)</label><input type="number" id="sif-amt-${i}" value="${it.amount||0}"></div>
+    </div>`).join('');
+  showScreen('scr-si-fix');
+}
+function saveSiFix(){
+  const d=SI.draft;
+  d.vendor_name=document.getElementById('sif-vendor').value.trim()||null;
+  d.invoice_number=document.getElementById('sif-invnum').value.trim()||null;
+  d.date=document.getElementById('sif-date').value.trim()||null;
+  const totalRaw=document.getElementById('sif-total').value;
+  d.total=totalRaw!==''?parseFloat(totalRaw):null;
+  d.items=d.items.map((it,i)=>({
+    description:document.getElementById(`sif-desc-${i}`).value.trim(),
+    hsn:document.getElementById(`sif-hsn-${i}`).value.trim()||null,
+    qty:parseInt(document.getElementById(`sif-qty-${i}`).value,10)||it.qty,
+    rate:parseFloat(document.getElementById(`sif-rate-${i}`).value)||it.rate,
+    amount:parseFloat(document.getElementById(`sif-amt-${i}`).value)||it.amount,
+  }));
+  showSiDraft();
+}
+async function confirmSiDraft(){
+  VENDOR_TARGET='si';
+  const name=(SI.draft.vendor_name||'').trim();
+  document.getElementById('vs-search').value=name;
+  if(name){
+    const q=encodeURIComponent(name);
+    const rows=await sbGet('vendors',`?select=id,name,company_name,wa_number,vendor_id&or=(name.ilike.*${q}*,company_name.ilike.*${q}*)&limit=8`);
+    vsResults=rows||[];
+    document.getElementById('vs-sub').textContent=vsResults.length
+      ? `Matched vendor "${name}" against existing vendors:`
+      : `No existing vendor matched "${name}" — search by name/WhatsApp, or add new:`;
+    document.getElementById('vs-results').innerHTML=vsResults.map(v=>`<button class="disc-opt" onclick="pickVendor('${v.id}')"><span>${esc(v.name)}${v.company_name?' ('+esc(v.company_name)+')':''}</span></button>`).join('');
+  } else {
+    vsResults=[];
+    document.getElementById('vs-sub').textContent='No vendor name read — search by name/WhatsApp, or add new:';
+    document.getElementById('vs-results').innerHTML='';
+  }
+  showScreen('scr-vendor-search');
+}
+
+function startSiItemLoop(){
+  SI.siIdx=0; SI.siResults=[]; SI.discrepancies=[];
+  showSiItemPrompt();
+}
+let siItemPhotosLocal=[];
+function showSiItemPrompt(){
+  const item=SI.draft.items[SI.siIdx];
+  SI.curSiPhotos=[];
+  siItemPhotosLocal=[];
+  document.getElementById('sic-head').textContent=`Item ${SI.siIdx+1}/${SI.draft.items.length}: ${item.description}`;
+  document.getElementById('sic-sub').textContent=`Expected ${item.qty}. Send ${item.qty} photo(s), then tap Done.`;
+  document.getElementById('sic-photos').innerHTML='';
+  showScreen('scr-si-item');
+}
+async function onSiItemPhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  siItemPhotosLocal.push({dataUrl:await readFileAsDataUrl(file)});
+  renderPhotoThumbs('sic-photos',siItemPhotosLocal,'removeSiItemPhoto');
+}
+function removeSiItemPhoto(i){ siItemPhotosLocal.splice(i,1); renderPhotoThumbs('sic-photos',siItemPhotosLocal,'removeSiItemPhoto'); }
+async function finishSiItemPhotos(){
+  const item=SI.draft.items[SI.siIdx];
+  if(!siItemPhotosLocal.length){toast('Send at least one photo first.');return;}
+  if(siItemPhotosLocal.length!==item.qty){toast(`Note: sent ${siItemPhotosLocal.length}, invoice says ${item.qty} — continuing with ${siItemPhotosLocal.length}.`);}
+  try{
+    const urls=[];
+    for(const p of siItemPhotosLocal){
+      const blob=await fetch(p.dataUrl).then(r=>r.blob());
+      urls.push(await uploadFile('item-photos', new File([blob],'ph.jpg',{type:'image/jpeg'})));
+    }
+    SI.curSiPhotos=urls;
+  }catch{ toast("Couldn't save those photos — try again."); return; }
+  document.getElementById('sidy-sub').textContent='Short count / defective / wrong item on this item?';
+  showScreen('scr-si-discyn');
+}
+function siDiscNo(){ finishSiItem(); }
+function finishSiItem(){
+  const item=SI.draft.items[SI.siIdx];
+  SI.siResults.push({description:item.description,hsn:item.hsn,qty:item.qty,rate:item.rate,photos:SI.curSiPhotos||[]});
+  SI.curSiPhotos=null;
+  advanceSiItem();
+}
+function advanceSiItem(){
+  SI.siIdx+=1;
+  if(SI.siIdx<SI.draft.items.length) showSiItemPrompt();
+  else showSiSummary();
+}
+
+let siDiscPhotoLocal=null;
+function siDiscYes(){
+  SI.curDisc={};
+  document.getElementById('sidc-sub').textContent=SI.draft.items[SI.siIdx].description;
+  document.getElementById('sidc-affected').value='';
+  document.getElementById('sidc-reason').value='';
+  document.getElementById('sidc-credit').value='';
+  siDiscPhotoLocal=null;
+  document.getElementById('sidc-photos').innerHTML='';
+  ['shortage','defective','wrong_item'].forEach(t=>document.getElementById('sidc-type-'+t).classList.remove('sel'));
+  showScreen('scr-si-disc');
+}
+function setSiDiscType(t){
+  SI.curDisc.type=t;
+  ['shortage','defective','wrong_item'].forEach(x=>document.getElementById('sidc-type-'+x).classList.toggle('sel',x===t));
+}
+async function onSiDiscPhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  siDiscPhotoLocal={dataUrl:await readFileAsDataUrl(file)};
+  renderPhotoThumbs('sidc-photos',[siDiscPhotoLocal],'clearSiDiscPhoto');
+}
+function clearSiDiscPhoto(){ siDiscPhotoLocal=null; document.getElementById('sidc-photos').innerHTML=''; }
+async function saveSiDisc(){
+  const item=SI.draft.items[SI.siIdx];
+  if(!SI.curDisc.type){toast('Pick a discrepancy type.');return;}
+  if(!siDiscPhotoLocal){toast('Add a photo of the issue.');return;}
+  const reason=document.getElementById('sidc-reason').value.trim();
+  if(!reason){toast('Enter a reason.');return;}
+  const affectedRaw=parseInt(document.getElementById('sidc-affected').value,10);
+  const affected=(!affectedRaw||affectedRaw<=0)?item.qty:Math.min(affectedRaw,item.qty);
+  const credit=parseFloat(document.getElementById('sidc-credit').value)||0;
+
+  let photoUrl;
+  try{
+    const blob=await fetch(siDiscPhotoLocal.dataUrl).then(r=>r.blob());
+    photoUrl=await uploadFile('item-photos', new File([blob],'ph.jpg',{type:'image/jpeg'}));
+  }catch{ toast("Couldn't save that photo — try again."); return; }
+
+  SI.discrepancies.push({description:item.description,type:SI.curDisc.type,affectedQty:affected,reason,credit,photo:photoUrl});
+  const goodQty=item.qty-affected;
+  if(goodQty>0) SI.siResults.push({description:item.description,hsn:item.hsn,qty:goodQty,rate:item.rate,photos:SI.curSiPhotos||[]});
+  SI.curDisc=null; SI.curSiPhotos=null;
+  advanceSiItem();
+}
+
+function showSiSummary(){
+  const goodLines=(SI.siResults||[]).map((it,i)=>`${i+1}. ${esc(it.description)} — qty ${it.qty} x ₹${fmt(it.rate)}`).join('<br>')||'(none)';
+  const discLines=(SI.discrepancies||[]).map((dc,i)=>`${i+1}. ${esc(dc.description)} — ${dc.type.replace('_',' ')}, ${dc.affectedQty} affected, credit ₹${fmt(dc.credit)}: ${esc(dc.reason)}`).join('<br>')||'(none)';
+  const invoiceTotal=SI.draft.total ?? SI.draft.items.reduce((a,it)=>a+it.amount,0);
+  const creditTotal=(SI.discrepancies||[]).reduce((a,dc)=>a+(dc.credit||0),0);
+  SI.adjustedTotal=invoiceTotal-creditTotal;
+  document.getElementById('sis-vendor').textContent=`Vendor: ${SI.vendor_name}`;
+  document.getElementById('sis-good').innerHTML=`<div class="label-sm" style="display:block;margin-bottom:6px;">Good items</div>${goodLines}`;
+  document.getElementById('sis-disc').innerHTML=`<div class="label-sm" style="display:block;margin:16px 0 6px;">Discrepancies</div>${discLines}`;
+  document.getElementById('sis-totals').innerHTML=
+    `<div class="ct-row"><span>Invoice total</span><span>₹${fmt(invoiceTotal)}</span></div>`+
+    `<div class="ct-row"><span>Less discrepancy credits</span><span>₹${fmt(creditTotal)}</span></div>`+
+    `<div class="ct-row grand"><span>Adjusted total due</span><span>₹${fmt(SI.adjustedTotal)}</span></div>`;
+  showScreen('scr-si-summary');
+}
+function buildSiVendorMessage(){
+  const lines=(SI.discrepancies||[]).map(dc=>`- ${dc.description} (${dc.type.replace('_',' ')}, ${dc.affectedQty} pc): ${dc.reason} — credit ₹${fmt(dc.credit)}`);
+  const creditTotal=(SI.discrepancies||[]).reduce((a,dc)=>a+(dc.credit||0),0);
+  return `Hello, as discussed, returning the following from invoice ${SI.draft.invoice_number||''}:\n${lines.join('\n')}\n\nValue adjusted: ₹${fmt(creditTotal)}. Next payment will reflect this.`;
+}
+function copySiVendorMsg(){
+  const ta=document.getElementById('sidn-vendormsg');
+  ta.select();
+  try{ navigator.clipboard.writeText(ta.value); toast('Copied.'); }
+  catch{ try{document.execCommand('copy');toast('Copied.');}catch{toast('Select and copy manually.');} }
+}
+async function finalizeSiPurchase(){
+  const btn=document.querySelector('#scr-si-summary .btn-primary');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const goodItems=(SI.siResults||[]).filter(it=>it.qty>0);
+  if(goodItems.length){
+    const items=goodItems.map(it=>({
+      proposed_name:it.description, proposed_material:null,
+      proposed_variant:it.hsn?`HSN ${it.hsn}`:null, proposed_sale_price:null,
+      purchase_price:it.rate, qty:it.qty, photo_urls:it.photos||[],
+      is_defective:false, defect_qty:null, defect_reason:null,
+    }));
+    const payment={mode:'vendor_invoice',amount_paid:SI.adjustedTotal,split:null};
+    const res=await rpcA('submit_purchase_intake_batch',{
+      p_vendor_uuid:SI.vendor_uuid, p_items:items, p_payment:payment,
+      p_submitted_by:`kiosk:${CU?.username||CU?.display_name||'staff'}`, p_region:purchaseRegion(),
+    });
+    if(res===null){ btn.disabled=false;btn.textContent='✅ Finalize'; toast("Couldn't submit the good items — try again, or check with admin."); return; }
+  }
+  const today=todayStr();
+  for(const dc of (SI.discrepancies||[])){
+    await sbInsert('vendor_issues',{
+      vendor_uuid:SI.vendor_uuid, vendor_code:SI.vendor_code, sku_id:null, batch:null, unit_ids:[],
+      issue_date:today, issue_type:dc.type,
+      description:`${dc.description} — ${dc.reason}${dc.photo?`\nPhoto: ${dc.photo}`:''} (from Stock Intake, invoice ${SI.draft.invoice_number||'n/a'})`,
+      status:'open', created_by:'kiosk',
+    });
+  }
+  btn.disabled=false;btn.textContent='✅ Finalize';
+  document.getElementById('sidn-msg').textContent=`✅ ${goodItems.length} item(s) submitted for approval. ${(SI.discrepancies||[]).length} discrepancy item(s) logged to Vendor Issues.`;
+  const wrap=document.getElementById('sidn-vendormsg-wrap');
+  if((SI.discrepancies||[]).length){ document.getElementById('sidn-vendormsg').value=buildSiVendorMessage(); wrap.style.display='block'; }
+  else { wrap.style.display='none'; }
+  SI=null;
+  showScreen('scr-si-done');
+}
+
+// ═══════════════════════════════════════════════
+// MAINTENANCE — direct port of supabase/functions/telegram-bot/index.ts's
+// showMaintenanceMenu/handleMaintenance flows + handleGodown, same tables/
+// RPCs, no schema changes. maint:eventform and maint:eventpromo are
+// consolidated into one screen (scr-maint-eventpromo) — both call the exact
+// same admin_create_voucher_event RPC, which defaults p_kind to 'event'
+// server-side (see 20261015120000_events_promotions_v2.sql), so a Kind
+// picker here covers both faithfully without a second near-duplicate screen.
+// maint:howworks mirrors handleHowWorksText's own real fallback: the
+// chatbot backend (CHATBOT_BACKEND_URL/CHATBOT_API_SECRET) isn't deployed
+// yet, so the bot itself always shows the "not available yet" message right
+// now — this isn't a stub, it's the bot's current actual behavior.
+// ═══════════════════════════════════════════════
+async function sbUpsertSetting(key,value){
+  try{
+    const r=await fetch(`${SB}/rest/v1/settings?on_conflict=key`,{method:'POST',headers:{...AHDR(),'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify({key,value})});
+    return r.ok;
+  }catch{return false;}
+}
+function daysFromNowStr(n){ const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+async function callGeminiText(prompt){
+  try{
+    const keyRows=await sbGet('settings','?key=eq.gemini_key&select=value');
+    const apiKey=keyRows?.[0]?.value;
+    if(!apiKey)return null;
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
+    if(!res.ok)return null;
+    const json=await res.json();
+    return json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||null;
+  }catch{return null;}
+}
+
+// ───────── How does this work? ─────────
+function openMaintHowWorks(){
+  document.getElementById('mhw-q').value='';
+  document.getElementById('mhw-answer').innerHTML='';
+  showScreen('scr-maint-howworks');
+}
+async function askMaintHowWorks(){
+  const q=document.getElementById('mhw-q').value.trim();
+  if(!q){toast('Type a question first.');return;}
+  document.getElementById('mhw-answer').innerHTML='<div class="err-box" style="display:block;">The chatbot isn\'t available yet (not deployed). Try again later.</div>';
+}
+
+// ───────── Add a note ─────────
+function openMaintNote(){ document.getElementById('mn-text').value=''; showScreen('scr-maint-note'); }
+async function saveMaintNote(){
+  const note=document.getElementById('mn-text').value.trim();
+  if(!note){toast("Note can't be empty.");return;}
+  const btn=document.getElementById('mn-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const ok=await sbInsert('bot_notes',{text:note,submitted_by:`kiosk:${CU?.username||CU?.display_name||'staff'}`});
+  btn.disabled=false;btn.textContent='Save ▶';
+  if(!ok){toast("Couldn't save that note — try again.");return;}
+  toast("📝 Note saved — it'll show on the dashboard.");
+  closeSidebar();goItems();
+}
+
+// ───────── Pending AU costs ─────────
+let MAC_LIST=[], MAC_CUR=null;
+async function openMaintAucost(){
+  showScreen('scr-maint-aucost-list');
+  const box=document.getElementById('mac-list');
+  box.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  const [skus,units]=await Promise.all([
+    sbGet('inventory_skus','?select=id,name,display_variant&au_available=eq.true&cost=is.null'),
+    sbGet('inventory_units','?select=id,sku_id&status=eq.available'),
+  ]);
+  MAC_LIST=skus||[];
+  if(!MAC_LIST.length){box.innerHTML='<div>✅ No AU items are waiting on a purchase cost right now.</div>';return;}
+  const availCount={};(units||[]).forEach(u=>{availCount[u.sku_id]=(availCount[u.sku_id]||0)+1;});
+  box.innerHTML=MAC_LIST.map(s=>{
+    const label=`${s.name}${s.display_variant?' ('+s.display_variant+')':''}`;
+    return `<button class="disc-opt" onclick="pickMaintAucost('${s.id}')"><span>${esc(label)}</span><span class="dtag">${availCount[s.id]||0} units</span></button>`;
+  }).join('');
+}
+function pickMaintAucost(skuId){
+  const s=MAC_LIST.find(x=>x.id===skuId);
+  if(!s){toast('Item not found.');openMaintAucost();return;}
+  MAC_CUR={skuId,label:`${s.name}${s.display_variant?' ('+s.display_variant+')':''}`};
+  document.getElementById('maa-head').textContent=MAC_CUR.label;
+  document.getElementById('maa-amount').value='';
+  showScreen('scr-maint-aucost-amount');
+}
+async function saveMaintAucost(){
+  if(!MAC_CUR)return;
+  const amt=parseFloat(document.getElementById('maa-amount').value);
+  if(isNaN(amt)||amt<0){toast('Enter a valid INR amount.');return;}
+  const btn=document.getElementById('maa-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const ok=await sbPatch('inventory_skus',`?id=eq.${MAC_CUR.skuId}`,{cost:amt,updated_at:new Date().toISOString()});
+  btn.disabled=false;btn.textContent='Save ▶';
+  if(!ok){toast("Couldn't save that — try again.");return;}
+  toast(`✅ Purchase cost of ₹${fmt(amt)} saved for "${MAC_CUR.label}".`);
+  openMaintAucost();
+}
+
+// ───────── Add photo to item ─────────
+let MAP_LIST=[], MAP_CUR=null, mapCurPhotos=[];
+async function openMaintAddPhoto(){
+  document.getElementById('map-search').value='';
+  showScreen('scr-maint-addphoto-list');
+  const box=document.getElementById('map-list');
+  box.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  MAP_LIST=await sbGet('inventory_skus','?select=id,name,display_variant,photos')||[];
+  renderMaintAddPhotoList();
+}
+function renderMaintAddPhotoList(){
+  const q=(document.getElementById('map-search').value||'').trim().toLowerCase();
+  let list=MAP_LIST;
+  if(q){ list=list.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.display_variant||'').toLowerCase().includes(q)); }
+  else { list=list.filter(s=>!s.photos||!s.photos.length); }
+  const box=document.getElementById('map-list');
+  if(!list.length){ box.innerHTML=`<div>${q?`No items matched "${esc(q)}".`:'✅ Every item already has at least one photo.'}</div>`; return; }
+  box.innerHTML=list.slice(0,30).map(s=>{
+    const label=`${s.name}${s.display_variant?' ('+s.display_variant+')':''}`;
+    return `<button class="disc-opt" onclick="pickMaintAddPhoto('${s.id}')"><span>${esc(label)}</span><span class="dtag">📷${(s.photos||[]).length}</span></button>`;
+  }).join('');
+}
+function pickMaintAddPhoto(skuId){
+  const s=MAP_LIST.find(x=>x.id===skuId);
+  if(!s){toast('Item not found.');openMaintAddPhoto();return;}
+  MAP_CUR={skuId,label:`${s.name}${s.display_variant?' ('+s.display_variant+')':''}`,addedCount:0};
+  mapCurPhotos=[];
+  document.getElementById('mapu-head').textContent=`Add photo — ${MAP_CUR.label}`;
+  document.getElementById('mapu-photos').innerHTML='';
+  showScreen('scr-maint-addphoto-upload');
+}
+function renderMapThumbs(){ document.getElementById('mapu-photos').innerHTML=mapCurPhotos.map(p=>`<div class="photo-thumb"><img src="${p.url}"></div>`).join(''); }
+async function onMaintAddPhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  try{
+    const url=await uploadFile('item-photos',file);
+    const updated=await rpcA('append_sku_photo',{p_sku_id:MAP_CUR.skuId,p_url:url});
+    if(updated===null)throw new Error();
+    MAP_CUR.addedCount+=1;
+    mapCurPhotos.push({url});
+    renderMapThumbs();
+    toast(`Photo saved (${Array.isArray(updated)?updated.length:MAP_CUR.addedCount} total).`);
+  }catch{ toast("Couldn't save that photo — try again."); }
+}
+function finishMaintAddPhoto(){
+  if(!MAP_CUR.addedCount){ toast('No photos were added.'); }
+  else { toast(`✅ ${MAP_CUR.addedCount} photo(s) added to "${MAP_CUR.label}".`); }
+  openMaintAddPhoto();
+}
+
+// ───────── Suggest a post ─────────
+const MPS_BRAND_VOICE = `Meensha is run by two sisters, curating heritage handloom sarees — "Heritage. Handloom." Warm, personal, proud of the weavers, never generic corporate copy.
+
+Real patterns from comparable small/solo handloom-saree accounts (use whichever fits this specific post naturally — don't force all of them in):
+- A personal/founder voice sells better than product-only copy — lean into "two sisters" as Meensha's own version of this, the way other accounts lean into their own founder identity.
+- Shalini's own story: having seen the breadth of the country across her life, in all its beauty — a genuine, firsthand connection to India's diverse weaving traditions region by region. Use this occasionally where it fits a specific piece's regional origin, not every post.
+- Scarcity framing ONLY when the real stock count below is genuinely low (2 or fewer) — never invent urgency that isn't true.
+- Tying a post to the current season or an upcoming festival, when it genuinely fits.
+- Clear, friendly next-step ("DM to order", "link in bio") rather than leaving it implicit.
+- A craft/heritage fact woven in naturally (what makes this weave or region's technique distinct) reads as shareable, not salesy — peer accounts use this to earn saves/shares that reach beyond their own followers, not just likes from existing ones.
+- Occasionally invite the customer to tag Meensha in their own photo wearing it ("tag us when it arrives") — every peer account treats customer reposts as its biggest free-reach channel, since it's shown to the buyer's own followers, not just Meensha's.`;
+let MPS=null;
+async function openMaintPostSuggest(){
+  showScreen('scr-maint-postsuggest');
+  document.getElementById('mps-item').textContent='Finding something to suggest…';
+  document.getElementById('mps-photo').innerHTML='';
+  document.getElementById('mps-caption').value='';
+  document.getElementById('mps-event-row').innerHTML='';
+  document.getElementById('mps-result').innerHTML='';
+  const [skus,units,events]=await Promise.all([
+    sbGet('inventory_skus','?select=id,name,display_material,display_variant,sale_price,photos,trending,created_at&india_available=eq.true'),
+    sbGet('inventory_units','?select=sku_id&status=eq.available'),
+    sbGet('popups','?select=id,title&status=eq.upcoming&limit=1'),
+  ]);
+  const availCount={};(units||[]).forEach(u=>{availCount[u.sku_id]=(availCount[u.sku_id]||0)+1;});
+  const fourteenDaysAgo=new Date(Date.now()-14*24*60*60*1000).toISOString();
+  const candidates=(skus||[]).filter(s=>(availCount[s.id]||0)>0 && (s.photos||[]).length>0 && (s.trending||s.created_at>=fourteenDaysAgo));
+  if(!candidates.length){
+    document.getElementById('mps-item').textContent='No Trending or recently-added item with a photo to suggest from right now — tag an item Trending in admin, or add a photo to a new item, then try again.';
+    return;
+  }
+  const sku=candidates[Math.floor(Math.random()*candidates.length)];
+  const event=(events&&events[0])||null;
+  MPS={skuId:sku.id,skuName:`${sku.name}${sku.display_variant?' ('+sku.display_variant+')':''}`,photo:sku.photos?.[0]||null,eventId:event?.id||null,eventTitle:event?.title||null,eventAttached:false};
+  document.getElementById('mps-item').textContent=MPS.skuName;
+  document.getElementById('mps-photo').innerHTML=MPS.photo?`<div class="photo-thumb-row"><div class="photo-thumb" style="width:120px;height:120px;"><img src="${esc(MPS.photo)}"></div></div>`:'';
+  document.getElementById('mps-caption').value='Writing a caption…';
+  const prompt=`${MPS_BRAND_VOICE}\n\nWrite a short Instagram caption (2-4 lines, no hashtags, no markdown) for this item:\nName: ${sku.name}\nMaterial: ${sku.display_material??''}\nVariant: ${sku.display_variant??''}\nPrice: ₹${sku.sale_price}\nReal available stock: ${availCount[sku.id]} piece(s)\n${sku.trending?'This item is currently trending/selling well.':'This item just arrived — new stock.'}\n${event?`There's an upcoming event "${event.title}" — you may tie the caption to it if it fits naturally, don't force it.`:''}\n\nReply with ONLY the caption text.`;
+  const caption=await callGeminiText(prompt);
+  MPS.caption=caption||`${sku.name} — ₹${sku.sale_price}. Heritage handloom, handpicked for you.`;
+  document.getElementById('mps-caption').value=MPS.caption;
+  renderMpsEventRow();
+}
+function renderMpsEventRow(){
+  document.getElementById('mps-event-row').innerHTML = MPS.eventTitle
+    ? `<button class="disc-opt" onclick="toggleMpsEvent()"><span>${MPS.eventAttached?'✅':'☐'} Attach to event: ${esc(MPS.eventTitle)}</span></button>`
+    : '';
+}
+function toggleMpsEvent(){ MPS.eventAttached=!MPS.eventAttached; renderMpsEventRow(); }
+async function reviseMaintPostSuggest(){
+  const instruction=document.getElementById('mps-revise-input').value.trim();
+  if(!instruction){toast('Type a revision instruction first.');return;}
+  const btn=document.getElementById('mps-revise-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const prompt=`${MPS_BRAND_VOICE}\n\nHere is a draft Instagram caption:\n"${MPS.caption}"\n\nRevise it per this instruction: "${instruction}"\n\nKeep it 2-4 lines, no hashtags, no markdown. Reply with ONLY the revised caption.`;
+  const revised=await callGeminiText(prompt);
+  btn.disabled=false;btn.textContent='↻ Revise caption';
+  if(!revised){toast("Couldn't revise it just now — try again, or keep this version.");return;}
+  MPS.caption=revised;
+  document.getElementById('mps-caption').value=MPS.caption;
+  document.getElementById('mps-revise-input').value='';
+}
+async function finalizeMaintPostSuggest(format){
+  const eventLine=MPS.eventAttached&&MPS.eventTitle?`<br>📅 Tied to: ${esc(MPS.eventTitle)}`:'';
+  const box=document.getElementById('mps-result');
+  if(format==='photo'){
+    box.innerHTML=`<div class="disc-inline open">✅ Ready to post<br><br>${esc(MPS.caption).replace(/\n/g,'<br>')}${eventLine}<br><br>🖼️ Image: ${MPS.photo?esc(MPS.photo):'(no photo on file — attach one manually)'}</div>`;
+  } else {
+    box.innerHTML='<div class="center-wait" style="padding:16px 0;"><span class="spin"></span> Writing shot list…</div>';
+    const shotList=await callGeminiText(`Give a short (3-5 line) Reel shot-list for an Instagram video featuring this saree: "${MPS.skuName}". Cover length, framing, and one or two shot ideas (e.g. drape in motion, close-up on border work). Plain text, no markdown.`) || '60-90 sec, natural light. Show the drape in motion, then a close-up on the border/work.';
+    box.innerHTML=`<div class="disc-inline open">✅ Ready to film<br><br>${esc(MPS.caption).replace(/\n/g,'<br>')}${eventLine}<br><br>🎥 Shot list:<br>${esc(shotList).replace(/\n/g,'<br>')}</div>`;
+  }
+}
+
+// ───────── Set UPI QR code ─────────
+let msqPhoto=null;
+function openMaintSetQr(){ msqPhoto=null; document.getElementById('msq-photos').innerHTML=''; document.getElementById('msq-save-btn').disabled=true; showScreen('scr-maint-setqr'); }
+async function onMaintSetQrChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  msqPhoto={dataUrl:await readFileAsDataUrl(file),file};
+  document.getElementById('msq-photos').innerHTML=`<div class="photo-thumb"><img src="${msqPhoto.dataUrl}"></div>`;
+  document.getElementById('msq-save-btn').disabled=false;
+}
+async function saveMaintSetQr(){
+  if(!msqPhoto)return;
+  const btn=document.getElementById('msq-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  let url;
+  try{ url=await uploadFile('qr-codes',msqPhoto.file); }
+  catch{ btn.disabled=false;btn.textContent='Save ▶'; toast("Couldn't save that QR code — try again."); return; }
+  const ok=await sbUpsertSetting('upi_qr_code_url',url);
+  btn.disabled=false;btn.textContent='Save ▶';
+  if(!ok){toast("Couldn't save that QR code — try again.");return;}
+  toast("🔳 UPI QR code saved — it'll be shown for every UPI Direct sale from now on.");
+  closeSidebar();goItems();
+}
+
+// ───────── Insta link ─────────
+let MIG_LIST=[], MIG_CUR=null;
+async function openMaintIglink(){
+  document.getElementById('mig-search').value='';
+  showScreen('scr-maint-iglink-pick');
+  const box=document.getElementById('mig-list');
+  box.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  const [skus,units]=await Promise.all([
+    sbGet('inventory_skus','?select=id,name,mrp,sale_price,display_variant,display_material,au_available'),
+    sbGet('inventory_units','?select=id,sku_id&status=eq.available'),
+  ]);
+  const availCount={};(units||[]).forEach(u=>{availCount[u.sku_id]=(availCount[u.sku_id]||0)+1;});
+  MIG_LIST=(skus||[]).filter(s=>(availCount[s.id]||0)>0).map(s=>({...s,avail:availCount[s.id]||0}));
+  renderMaintIglinkList();
+}
+function renderMaintIglinkList(){
+  const q=(document.getElementById('mig-search').value||'').trim().toLowerCase();
+  let list=MIG_LIST;
+  if(q){ list=list.filter(s=>(s.name||'').toLowerCase().includes(q)||(s.display_material||'').toLowerCase().includes(q)||(s.display_variant||'').toLowerCase().includes(q)); }
+  const box=document.getElementById('mig-list');
+  if(!list.length){ box.innerHTML=`<div>${q?`No items matched "${esc(q)}".`:'Nothing in stock right now.'}</div>`; return; }
+  box.innerHTML=list.slice(0,30).map(s=>{
+    const au=s.au_available?'🇦🇺 ':'';
+    const mrpTxt=s.mrp&&s.mrp!==s.sale_price?`MRP ₹${fmt(s.mrp)} → `:'';
+    return `<button class="disc-opt" onclick="pickMaintIglink('${s.id}')"><span>${au}${esc(s.name)} (${s.avail} left)</span><span class="dtag">${mrpTxt}₹${fmt(s.sale_price)}</span></button>`;
+  }).join('');
+}
+function pickMaintIglink(skuId){
+  const s=MIG_LIST.find(x=>x.id===skuId);
+  if(!s){toast('Item not found.');openMaintIglink();return;}
+  MIG_CUR={id:s.id,name:s.name,price:s.sale_price};
+  document.getElementById('migc-head').textContent=`"${s.name}" — ₹${fmt(s.sale_price)}`;
+  document.getElementById('migc-caption').value='';
+  document.getElementById('migc-result').innerHTML='';
+  showScreen('scr-maint-iglink-caption');
+}
+function generateMaintIglink(){
+  const caption=document.getElementById('migc-caption').value.trim();
+  if(!caption){toast("Caption can't be empty.");return;}
+  const link=`${STOREFRONT_URL}/index.html?buy=${MIG_CUR.id}`;
+  document.getElementById('migc-result').innerHTML=
+    `<div class="disc-inline open">🔗 <a href="${link}" target="_blank" rel="noopener" style="color:var(--gold-light);">${esc(caption)}</a><br><br>`+
+    `Tapping it adds "${esc(MIG_CUR.name)}" to the shopper's cart and opens checkout right away.<br><br>`+
+    `Instagram captions/bio can't hold a real clickable link — paste that raw URL below into a Story "Link" sticker or your bio-link field:<br>`+
+    `<span style="word-break:break-all;">${esc(link)}</span></div>`;
+}
+
+// ───────── Create voucher ─────────
+let MV_TYPE='percent';
+function openMaintVoucher(){
+  document.getElementById('mv-err').style.display='none';
+  document.getElementById('mv-code').value='';
+  document.getElementById('mv-value').value='';
+  document.getElementById('mv-name').value='';
+  document.getElementById('mv-wa').value='';
+  document.getElementById('mv-days').value='7';
+  setMvType('percent');
+  showScreen('scr-maint-voucher');
+}
+function setMvType(t){
+  MV_TYPE=t;
+  document.getElementById('mv-type-percent').classList.toggle('btn-primary',t==='percent');
+  document.getElementById('mv-type-flat').classList.toggle('btn-primary',t==='flat');
+  document.getElementById('mv-value-label').textContent=t==='percent'?'Discount %? (e.g. 10)':`Discount amount in ${curSymbol()}? (e.g. 200)`;
+}
+async function saveMaintVoucher(){
+  const err=document.getElementById('mv-err');
+  err.style.display='none';
+  const show=(m)=>{err.textContent=m;err.style.display='block';};
+  const code=document.getElementById('mv-code').value.trim().toUpperCase();
+  if(!code)return show("Code can't be empty.");
+  const val=parseFloat(document.getElementById('mv-value').value);
+  if(!val||val<=0||(MV_TYPE==='percent'&&val>100))return show('Enter a valid discount value.');
+  const name=document.getElementById('mv-name').value.trim()||null;
+  const wa=document.getElementById('mv-wa').value.trim()||null;
+  const days=parseInt(document.getElementById('mv-days').value,10)||7;
+
+  const {total}=await sbGetCount('inventory_units','?select=id&status=eq.available&limit=1');
+  if(!total){ return show('❌ Invalid — currently there is no stock in the inventory. Add inventory before creating vouchers.'); }
+
+  const btn=document.getElementById('mv-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const coupon=await rpcA('admin_create_coupon',{
+    p_code:code,p_customer_name:name,p_customer_wa:wa,p_discount_type:MV_TYPE,p_discount_value:val,
+    p_region:effRegion(),p_valid_from:todayStr(),p_valid_until:daysFromNowStr(days),
+  });
+  btn.disabled=false;btn.textContent='Create ▶';
+  if(!coupon){ return show(`Couldn't create the voucher — code "${code}" may already exist.`); }
+  const discTxt=MV_TYPE==='percent'?`${val}% off`:`${fmtMoney(val)} off`;
+  const who=name?`locked to ${name}`:'public — anyone can use it';
+  toast(`🎟️ Voucher created: ${code} — ${discTxt}, ${who}, valid ${days} day(s).`);
+  closeSidebar();goItems();
+}
+
+// ───────── Create event / promotion (consolidated) ─────────
+let MEP_KIND='event', MEP_TYPE='percent';
+function openMaintEventPromo(){
+  document.getElementById('mep-err').style.display='none';
+  document.getElementById('mep-title').value='';
+  document.getElementById('mep-value').value='';
+  document.getElementById('mep-days').value='7';
+  document.getElementById('mep-result').innerHTML='';
+  setMepKind('event'); setMepType('percent');
+  showScreen('scr-maint-eventpromo');
+}
+function setMepKind(k){
+  MEP_KIND=k;
+  document.getElementById('mep-kind-event').classList.toggle('btn-primary',k==='event');
+  document.getElementById('mep-kind-promotion').classList.toggle('btn-primary',k==='promotion');
+  document.getElementById('mep-value-hint').textContent=`Default: ${k==='promotion'?'20':'10'}% off if left blank.`;
+}
+function setMepType(t){
+  MEP_TYPE=t;
+  document.getElementById('mep-type-percent').classList.toggle('btn-primary',t==='percent');
+  document.getElementById('mep-type-flat').classList.toggle('btn-primary',t==='flat');
+  document.getElementById('mep-value-label').textContent=t==='percent'?'Discount %?':`Discount amount in ${curSymbol()}?`;
+}
+async function saveMaintEventPromo(){
+  const err=document.getElementById('mep-err');
+  err.style.display='none';
+  const show=(m)=>{err.textContent=m;err.style.display='block';};
+  const title=document.getElementById('mep-title').value.trim();
+  if(!title)return show("Title can't be empty.");
+  const raw=document.getElementById('mep-value').value;
+  let val;
+  if(raw===''){ MEP_TYPE='percent'; val=MEP_KIND==='promotion'?20:10; setMepType('percent'); }
+  else {
+    val=parseFloat(raw);
+    if(!val||val<=0||(MEP_TYPE==='percent'&&val>100))return show('Enter a valid discount value, or leave blank for the default.');
+  }
+  const days=parseInt(document.getElementById('mep-days').value,10)||7;
+  const btn=document.getElementById('mep-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const ev=await rpcA('admin_create_voucher_event',{
+    p_title:title,p_region:effRegion(),p_discount_type:MEP_TYPE,p_discount_value:val,p_valid_days:days,
+    p_created_by:`kiosk:${CU?.username||CU?.display_name||'staff'}`,p_kind:MEP_KIND,
+  });
+  btn.disabled=false;btn.textContent='Create ▶';
+  if(!ev||!ev.id){ return show("Couldn't create the event/promotion — try again."); }
+  const link=`${STOREFRONT_URL}/register.html?event=${ev.id}`;
+  const discTxt=MEP_TYPE==='percent'?`${val}% off`:`${fmtMoney(val)} off`;
+  document.getElementById('mep-result').innerHTML=
+    `<div class="disc-inline open">${MEP_KIND==='promotion'?'🏷️':'🎉'} <a href="${link}" target="_blank" rel="noopener" style="color:var(--gold-light);">${esc(title)}</a><br><br>`+
+    `Share this link — each visitor who fills in their name + WhatsApp gets their own unique voucher (${discTxt}, valid ${days} day(s)).<br><br>`+
+    `<span style="word-break:break-all;">${esc(link)}</span>`+
+    `<div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(link)}" alt="QR"></div></div>`;
+}
+
+// ───────── Share visiting card ─────────
+function openMaintShareCard(){
+  document.getElementById('msc-link').textContent=`${STOREFRONT_URL}/visiting-card.html?person=shalini`;
+  showScreen('scr-maint-sharecard');
+}
+function copyMaintShareCard(){
+  const link=`${STOREFRONT_URL}/visiting-card.html?person=shalini`;
+  try{ navigator.clipboard.writeText(link); toast('Copied.'); }
+  catch{ toast('Select and copy manually.'); }
+}
+
+// ───────── Event photo submissions ─────────
+async function openMaintEvPhoto(){
+  showScreen('scr-maint-evphoto');
+  const rows=await sbGet('settings','?key=eq.event_photo_submission_enabled&select=value');
+  const v=rows?.[0]?.value;
+  document.getElementById('mevp-status').textContent=`Currently: ${v==='true'?'🟢 ON':v==='false'?'🔴 OFF':'OFF (following event dates)'}`;
+}
+async function setMaintEvPhoto(on){
+  const ok=await sbUpsertSetting('event_photo_submission_enabled',on?'true':'false');
+  if(!ok){toast("Couldn't update that — try again.");return;}
+  toast(`📸 Public event-photo submission is now ${on?'🟢 ON':'🔴 OFF'}.`);
+  openMaintEvPhoto();
+}
+
+// ───────── Godown check ─────────
+let MGD=null;
+function exitMaintGodown(){ toast('Exited godown check — nothing was saved.'); MGD=null; closeSidebar();goItems(); }
+function openMaintGodown(){ MGD={}; showScreen('scr-maint-godown-menu'); }
+async function startMaintGodownEod(){
+  const today=todayStr();
+  const sales=await sbGet('sales',`?select=items&date=eq.${today}${salesSourceQueryParam()}`);
+  const nameCounts={};
+  (sales||[]).forEach(s=>{ (s.items||[]).forEach(it=>{ nameCounts[it.name]=(nameCounts[it.name]||0)+1; }); });
+  const soldNames=Object.keys(nameCounts);
+  if(!soldNames.length){ toast('No sales recorded today — nothing to reconcile yet.'); closeSidebar();goItems(); return; }
+  const inClause=soldNames.map(n=>encodeURIComponent(n)).join(',');
+  const skus=await sbGet('inventory_skus',`?select=id,name,au_available&name=in.(${inClause})`);
+  const units=await sbGet('inventory_units','?select=sku_id&status=eq.available');
+  const availCount={};(units||[]).forEach(u=>{availCount[u.sku_id]=(availCount[u.sku_id]||0)+1;});
+  MGD={mode:'eod',eodList:(skus||[]).map(s=>({sku_id:s.id,name:s.name,au:s.au_available,soldToday:nameCounts[s.name]||0,avail:availCount[s.id]||0})),eodIdx:0};
+  if(!MGD.eodList.length){ toast('No sales recorded today — nothing to reconcile yet.'); closeSidebar();goItems(); return; }
+  showMaintGodownItem(MGD.eodList[0]);
+}
+function startMaintGodownSpot(){
+  MGD={mode:'spot'};
+  document.getElementById('mgd-spot-search').value='';
+  document.getElementById('mgd-spot-results').innerHTML='';
+  showScreen('scr-maint-godown-spotsearch');
+}
+async function searchMaintGodownSpot(){
+  const q=document.getElementById('mgd-spot-search').value.trim();
+  const box=document.getElementById('mgd-spot-results');
+  if(!q){box.innerHTML='';return;}
+  const skus=await sbGet('inventory_skus',`?select=id,name,au_available&name=ilike.*${encodeURIComponent(q)}*`);
+  if(!skus||!skus.length){ box.innerHTML=`<div>No items matched "${esc(q)}".</div>`; return; }
+  const units=await sbGet('inventory_units','?select=sku_id&status=eq.available');
+  const availCount={};(units||[]).forEach(u=>{availCount[u.sku_id]=(availCount[u.sku_id]||0)+1;});
+  MGD.spotList=skus; MGD._availCount=availCount;
+  box.innerHTML=skus.map(s=>`<button class="disc-opt" onclick="pickMaintGodownSpot('${s.id}')"><span>${s.au_available?'🇦🇺 ':''}${esc(s.name)}</span><span class="dtag">${availCount[s.id]||0} in stock</span></button>`).join('');
+}
+function pickMaintGodownSpot(skuId){
+  const s=(MGD.spotList||[]).find(x=>x.id===skuId);
+  if(!s)return;
+  MGD.spotItem={sku_id:s.id,name:s.name,au:s.au_available,avail:(MGD._availCount||{})[s.id]||0};
+  showMaintGodownItem(MGD.spotItem);
+}
+function showMaintGodownItem(item){
+  MGD.curItem=item;
+  document.getElementById('mgdi-name').textContent=`${item.au?'🇦🇺 ':''}${item.name}`;
+  const soldLine=item.soldToday!==undefined?`Sold today: ${item.soldToday}<br>`:'';
+  document.getElementById('mgdi-body').innerHTML=`${soldLine}Expected in stock: ${item.avail}`;
+  showScreen('scr-maint-godown-item');
+}
+function godownMatch(){ advanceMaintGodown(); }
+function godownDiscrepancy(){ MGD.discItem=MGD.curItem; showScreen('scr-maint-godown-disctype'); }
+function setMaintGodownDiscType(t){
+  MGD.discType=t;
+  MGD.selectedUnitIds=[];
+  if(t==='other'){ openMaintGodownNote(); }
+  else { showMaintGodownUnitPicker(); }
+}
+async function showMaintGodownUnitPicker(){
+  const item=MGD.discItem;
+  MGD.unitList=await sbGet('inventory_units',`?select=id,unit_code&sku_id=eq.${item.sku_id}&status=eq.available`)||[];
+  document.getElementById('mgdu-head').textContent=`Which piece(s) of "${item.name}" is this about?`;
+  renderMaintGodownUnitGrid();
+  showScreen('scr-maint-godown-unitpick');
+}
+function renderMaintGodownUnitGrid(){
+  const selected=MGD.selectedUnitIds||[];
+  document.getElementById('mgdu-grid').innerHTML=(MGD.unitList||[]).map(u=>
+    `<div class="unit-chip" onclick="toggleMaintGodownUnit('${u.id}')">${selected.includes(u.id)?'✅ ':''}${esc(u.unit_code)}</div>`
+  ).join('');
+  document.getElementById('mgdu-done-btn').textContent=`Done (${selected.length} selected) ▶`;
+}
+function toggleMaintGodownUnit(id){
+  const sel=MGD.selectedUnitIds||[];
+  MGD.selectedUnitIds=sel.includes(id)?sel.filter(x=>x!==id):[...sel,id];
+  renderMaintGodownUnitGrid();
+}
+function finishMaintGodownUnitPick(){ openMaintGodownNote(); }
+function openMaintGodownNote(){
+  document.getElementById('mgdn-text').value='';
+  document.getElementById('mgdn-photos').innerHTML='';
+  MGD.discPhotoUrl=null;
+  showScreen('scr-maint-godown-note');
+}
+async function onMaintGodownNotePhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  try{
+    const url=await uploadFile('item-photos',file);
+    MGD.discPhotoUrl=url;
+    document.getElementById('mgdn-photos').innerHTML=`<div class="photo-thumb"><img src="${url}"></div>`;
+    toast('📷 Photo attached.');
+  }catch{ toast("Couldn't save that photo — try again."); }
+}
+async function finishMaintGodownDiscrepancy(skip){
+  const note=skip?'':document.getElementById('mgdn-text').value.trim();
+  const item=MGD.discItem;
+  const selectedUnitIds=MGD.selectedUnitIds||[];
+  const unitRows=await sbGet('inventory_units',`?select=vendor_code&sku_id=eq.${item.sku_id}&order=created_at.desc&limit=1`);
+  const vendorCode=unitRows?.[0]?.vendor_code||null;
+  let vendorUuid=null;
+  if(vendorCode){
+    const vrows=await sbGet('vendors',`?select=id&vendor_id=eq.${vendorCode}`);
+    vendorUuid=vrows?.[0]?.id||null;
+  }
+  const cleanNote=(note||'').trim();
+  const photoLine=MGD.discPhotoUrl?`\nPhoto: ${MGD.discPhotoUrl}`:'';
+  const source=MGD.mode==='eod'?'EOD reconciliation':'spot check';
+  const description=`${cleanNote||'(no note)'}${photoLine} — found during ${source} via kiosk`;
+  if(vendorUuid){
+    await sbInsert('vendor_issues',{
+      vendor_uuid:vendorUuid,vendor_code:vendorCode,sku_id:item.sku_id,batch:null,unit_ids:selectedUnitIds,
+      issue_date:todayStr(),issue_type:MGD.discType||'other',description,status:'open',created_by:'kiosk',
+    });
+    const pieceNote=selectedUnitIds.length?` (${selectedUnitIds.length} piece${selectedUnitIds.length>1?'s':''})`:'';
+    toast(`⚠️ Logged: ${item.name}${pieceNote} — added to Vendor Issues for follow-up.`);
+  } else {
+    toast(`⚠️ Couldn't resolve a vendor for ${item.name} — please log this one manually in admin.html's Vendor Issues.`);
+  }
+  if(MGD.discType==='damage'&&selectedUnitIds.length){
+    await sbPatch('inventory_units',`?id=in.(${selectedUnitIds.join(',')})`,{status:'damaged',updated_at:new Date().toISOString()});
+  }
+  MGD.discPhotoUrl=null; MGD.selectedUnitIds=[];
+  advanceMaintGodown();
+}
+function advanceMaintGodown(){
+  if(MGD.mode==='eod'){
+    MGD.eodIdx=(MGD.eodIdx||0)+1;
+    if(MGD.eodIdx>=(MGD.eodList||[]).length){
+      toast('✅ End-of-day reconciliation complete.');
+      closeSidebar();goItems();
+      return;
+    }
+    showMaintGodownItem(MGD.eodList[MGD.eodIdx]);
+    return;
+  }
+  startMaintGodownSpot();
+}
+
+// ═══════════════════════════════════════════════
+// SHARE MY VISITING CARD (sidebar → Account group) — the logged-in staff
+// member's own digital visiting card (visiting-card.html), embedded in an
+// iframe so it always matches that page's own design/content (no markup
+// duplicated here). Only shown when CU.username matches a known card.
+// ═══════════════════════════════════════════════
+const VC_PEOPLE={shalini:'Shalini Bharti',meenakshi:'Meenakshi Ranjan'};
+function vcPersonKey(){
+  const u=(CU?.username||'').trim().toLowerCase();
+  return VC_PEOPLE[u] ? u : null;
+}
+function renderSidebarShareCard(){
+  document.getElementById('sg-sharecard-item').style.display = vcPersonKey() ? 'flex' : 'none';
+}
+function openShareCardModal(){
+  const key=vcPersonKey();
+  if(!key)return;
+  closeSidebar();
+  document.getElementById('vc-frame').src=`visiting-card.html?person=${key}`;
+  const body=document.getElementById('vc-body');
+  if(S.cart && S.cart.length>0){
+    body.innerHTML=`<p class="hint" style="margin-bottom:14px;">${S.cart.length} item(s) in the current cart.</p>
+      <button class="btn btn-primary btn-block" onclick="attachCardToInvoice()">📎 Add to invoice</button>`;
+  } else {
+    body.innerHTML=`
+      <div class="field"><label>WhatsApp number</label><input type="tel" id="vc-wa" placeholder="10-digit number"></div>
+      <div class="field"><label>Name</label><input type="text" id="vc-name" placeholder="Customer name"></div>
+      <button class="btn btn-primary btn-block" onclick="submitShareCard()">💬 Share on WhatsApp</button>`;
+  }
+  document.getElementById('vc-overlay').classList.add('open');
+}
+function closeShareCardModal(){
+  document.getElementById('vc-overlay').classList.remove('open');
+  document.getElementById('vc-frame').src='about:blank';
+}
+function attachCardToInvoice(){
+  S.attachCard=true;
+  closeShareCardModal();
+  toast('📎 Card link will be added to the invoice message.');
+}
+async function submitShareCard(){
+  const key=vcPersonKey();
+  if(!key)return;
+  const ten=digits10(document.getElementById('vc-wa').value);
+  const name=document.getElementById('vc-name').value.trim();
+  if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
+  if(!name){toast('Enter a name.');return;}
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||''});
+  if(!ok){toast("Couldn't save — try again.");return;}
+  const link=`${STOREFRONT_URL}/visiting-card.html?person=${key}`;
+  const msg=encodeURIComponent(`Hi ${name}! Here's my Meensha visiting card: ${link}`);
+  window.open(`https://wa.me/${ten}?text=${msg}`,'_blank');
+  closeShareCardModal();
+}
+
+// ═══════════════════════════════════════════════
+// POTENTIAL CUSTOMERS (own top-level sidebar group) — lists
+// potential_customers rows (populated by submitShareCard() above and by
+// the Telegram bot's maint:sharecard flow). "Requests" is a live count
+// against the existing `requests` table (customer "notify me" rows),
+// matched by last-10-digit WhatsApp number — same normalization digits10()
+// uses elsewhere in this file — not the raw potential_customers.requests
+// text column, which is intentionally ignored here.
+// ═══════════════════════════════════════════════
+let PC_DATA=[];
+let PC_REQUESTS=[];
+let PC_EXPANDED=null;
+let PC_EDIT_ID=null;
+function waLast10(s){ return (s||'').replace(/\D/g,'').slice(-10); }
+
+function openPotentialCustomers(){
+  showScreen('scr-pc-list');
+  loadPotentialCustomers();
+}
+async function loadPotentialCustomers(){
+  const body=document.getElementById('pc-list-body');
+  body.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  const [pc,reqs]=await Promise.all([
+    sbGet('potential_customers','?select=*&order=created_at.desc'),
+    sbGet('requests','?select=customer_name,item_name,notes,status,created_at,wa'),
+  ]);
+  PC_DATA=pc||[];
+  PC_REQUESTS=reqs||[];
+  PC_EXPANDED=null;
+  renderPcList();
+}
+function pcRequestsFor(wa){
+  const ten=waLast10(wa);
+  if(!ten)return[];
+  return PC_REQUESTS.filter(r=>waLast10(r.wa)===ten);
+}
+function renderPcList(){
+  const body=document.getElementById('pc-list-body');
+  if(!PC_DATA.length){
+    body.innerHTML=`<div class="empty-state"><div class="es-inner"><p>No potential customers yet.</p></div></div>`;
+    return;
+  }
+  body.innerHTML=PC_DATA.map(p=>{
+    const reqs=pcRequestsFor(p.wa);
+    const reqDetail=PC_EXPANDED===p.id?`<div class="pc-req-detail">${
+      reqs.length ? reqs.map(r=>`<div class="pc-req-row"><div class="cl-name">${esc(r.item_name||'—')}</div><div class="cl-sub">${esc(r.customer_name||'')} · ${esc(r.status||'')} · ${esc((r.created_at||'').slice(0,10))}</div>${r.notes?`<div class="cl-sub">${esc(r.notes)}</div>`:''}</div>`).join('')
+        : '<div class="cl-sub">No matching requests.</div>'
+    }</div>`:'';
+    return `<div class="cart-line">
+      <div class="cl-top">
+        <div><div class="cl-name">${esc(p.name||'—')}</div><div class="cl-sub">${esc(p.wa||'')}</div></div>
+        <div class="cl-amt">₹${fmt(p.purchases_so_far||0)}</div>
+      </div>
+      <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="togglePcRequests('${p.id}')">📨 Requests: ${reqs.length}</button>
+        <span>${p.card_shared?'✅ Card shared':'— Not shared'}</span>
+      </div>
+      ${reqDetail}
+      <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <span>Follow up: ${esc(p.follow_up||'—')}</span>
+        <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="openPcFollowup('${p.id}')">✏️ Edit</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function togglePcRequests(id){
+  PC_EXPANDED = PC_EXPANDED===id ? null : id;
+  renderPcList();
+}
+function openPcFollowup(id){
+  const p=PC_DATA.find(x=>x.id===id);
+  if(!p)return;
+  PC_EDIT_ID=id;
+  document.getElementById('pcf-who').textContent=`${p.name||'—'} · ${p.wa||''}`;
+  document.getElementById('pcf-text').value=p.follow_up||'';
+  showScreen('scr-pc-followup');
+}
+async function savePcFollowup(){
+  if(!PC_EDIT_ID)return;
+  const text=document.getElementById('pcf-text').value.trim();
+  const ok=await sbPatch('potential_customers',`?id=eq.${PC_EDIT_ID}`,{follow_up:text});
+  if(!ok){toast("Couldn't save — try again.");return;}
+  toast('Saved.');
+  showScreen('scr-pc-list');
+  loadPotentialCustomers();
+}
 
 boot();
 
