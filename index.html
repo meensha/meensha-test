@@ -1450,8 +1450,15 @@ function renderTrackOrderCta(enabled, url) {
 
 // Pop-up events — admin-managed (admin.html Connections tab), split into
 // upcoming vs. past by status so past ones read as a muted "we've been here" trail.
+// A 'live' status is a manual override (e.g. a stall running an extra day
+// beyond date_to before admin updates it) — it behaves like 'upcoming' for
+// bucketing and always forces the Live Now badge on, in addition to the
+// normal date-range computation.
+function isUpcomingBucket(ev) {
+  return ev.status === 'upcoming' || ev.status === 'live';
+}
 function isEventLive(ev, today) {
-  return !!(ev.date_from && ev.date_to && ev.date_from <= today && today <= ev.date_to);
+  return ev.status === 'live' || !!(ev.date_from && ev.date_to && ev.date_from <= today && today <= ev.date_to);
 }
 function eventRowHtml(ev, today) {
   // `dates` is free-text (e.g. "26-27 March 2025", "14 to 17 October",
@@ -1464,7 +1471,7 @@ function eventRowHtml(ev, today) {
   const live = isEventLive(ev, today);
   const photos = ev.photos || [];
   const hasPhotos = photos.length > 0;
-  return `<div class="event-row${ev.status === 'upcoming' ? ' featured' : ''}${hasPhotos ? ' event-row-clickable' : ''}"${hasPhotos ? ` onclick="openEventGallery(${JSON.stringify(photos).replace(/"/g, '&quot;')}, ${JSON.stringify(ev.title || '').replace(/"/g, '&quot;')})"` : ''}>
+  return `<div class="event-row${isUpcomingBucket(ev) ? ' featured' : ''}${hasPhotos ? ' event-row-clickable' : ''}"${hasPhotos ? ` onclick="openEventGallery(${JSON.stringify(photos).replace(/"/g, '&quot;')}, ${JSON.stringify(ev.title || '').replace(/"/g, '&quot;')})"` : ''}>
     ${live ? '<span class="live-now-badge">● Live Now</span>' : ''}
     <div class="event-date-block">
       <div class="event-day${dayPart.length > 2 ? ' event-day-range' : ''}">${dayPart}</div>
@@ -1474,7 +1481,7 @@ function eventRowHtml(ev, today) {
       <h3>${ev.title || ''}</h3>
       <p>${ev.location ? (ev.location_url ? `<a href="${ev.location_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 ${ev.location}</a>` : ev.location) : ''}${ev.timings ? '<br>' + ev.timings : ''}${ev.writeup ? '<br>' + ev.writeup : ''}</p>
     </div>
-    <span class="event-tag">${ev.status === 'upcoming' ? 'Live Stall' : 'Past'}</span>
+    <span class="event-tag">${isUpcomingBucket(ev) ? 'Live Stall' : 'Past'}</span>
   </div>`;
 }
 let eventGalleryPhotos = [];
@@ -1521,8 +1528,8 @@ async function renderEvents() {
   // values in date_from/date_to are actually interpreted.
   const now = new Date();
   const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-  const upcoming = popups.filter(e => e.status === 'upcoming');
-  const past = popups.filter(e => e.status !== 'upcoming');
+  const upcoming = popups.filter(isUpcomingBucket);
+  const past = popups.filter(e => !isUpcomingBucket(e));
   renderLiveNowPill(popups.some(e => isEventLive(e, today)));
   // Event rich results need a real ISO start date — only events with
   // date_from set qualify (the free-text `dates` field can't be parsed).

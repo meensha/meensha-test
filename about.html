@@ -861,7 +861,7 @@
     // <input type="date"> values in date_from/date_to are actually interpreted.
     const now = new Date();
     const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
-    const anyLive = popups.some(e => e.date_from && e.date_to && e.date_from <= today && today <= e.date_to);
+    const anyLive = popups.some(e => e.status === 'live' || (e.date_from && e.date_to && e.date_from <= today && today <= e.date_to));
     const existing = document.getElementById('live-now-pill-li');
     if (anyLive) {
       if (existing) return;
