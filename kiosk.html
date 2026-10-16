@@ -950,11 +950,26 @@ function toggleInline(id){
   document.getElementById(id).classList.toggle('open');
 }
 function openEventWa(eventId,title){
+  // The customer's WhatsApp was already collected on the Customer Info
+  // screen, before the discount picker is ever shown — reuse it instead of
+  // asking again. Only fall back to the input box if it's somehow missing.
+  if(S.customer_wa){
+    lookupAndApplyEventCode(eventId,title,digits10(S.customer_wa));
+    return;
+  }
   S.pendingEventId=eventId;S.pendingEventTitle=title;
   document.getElementById('disc-event-label').textContent=`Customer's WhatsApp number for their "${title}" code`;
   document.getElementById('disc-event-wa').value='';
   ['disc-code-box','disc-custom-box'].forEach(x=>document.getElementById(x).classList.remove('open'));
   document.getElementById('disc-event-box').classList.add('open');
+}
+function lookupAndApplyEventCode(eventId,eventTitle,ten){
+  const candidates=(discountCache.coupons||[]).filter(c=>c.event_id===eventId);
+  const match=candidates.find(c=>c.customer_wa && c.customer_wa.replace(/\D/g,'').slice(-10)===ten);
+  if(!match){ toast(`No "${eventTitle}" registration found for that number.`); renderDiscountPicker(); return; }
+  if(match.used){ toast(`Sorry — this customer has already used their "${eventTitle}" code.`); renderDiscountPicker(); return; }
+  if(!validateCouponLocal(match)){ toast(`This "${eventTitle}" code isn't currently valid (expired or inactive).`); renderDiscountPicker(); return; }
+  applyDiscountAndOffer(match,false,eventId);
 }
 async function applyCouponTap(couponId){
   const c=(discountCache.coupons||[]).find(x=>x.id===couponId);
@@ -990,12 +1005,7 @@ async function submitDiscountEventWa(){
   S.pendingEventId=undefined;S.pendingEventTitle=undefined;
   document.getElementById('disc-event-box').classList.remove('open');
   document.getElementById('disc-event-wa').value='';
-  const candidates=(discountCache.coupons||[]).filter(c=>c.event_id===eventId);
-  const match=candidates.find(c=>c.customer_wa && c.customer_wa.replace(/\D/g,'').slice(-10)===ten);
-  if(!match){ toast(`No "${eventTitle}" registration found for that number.`); renderDiscountPicker(); return; }
-  if(match.used){ toast(`Sorry — this customer has already used their "${eventTitle}" code.`); renderDiscountPicker(); return; }
-  if(!validateCouponLocal(match)){ toast(`This "${eventTitle}" code isn't currently valid (expired or inactive).`); renderDiscountPicker(); return; }
-  applyDiscountAndOffer(match,false,eventId);
+  lookupAndApplyEventCode(eventId,eventTitle,ten);
 }
 function applyDiscountAndOffer(coupon,isCustom,eventId){
   const excluded=(S.appliedDiscounts||[]).map(d=>d.unit_id);

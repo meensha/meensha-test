@@ -1540,6 +1540,15 @@ async function handleKiosk(
         await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
         return;
       }
+      // The customer's WhatsApp was already collected earlier in this same
+      // sale (kiosk_customer_wa, before the discount picker is ever shown)
+      // — reuse it instead of asking again. Only fall back to prompting if
+      // it's somehow missing.
+      if (data.customer_wa) {
+        const tenDigit = data.customer_wa.replace(/\D/g, "").slice(-10);
+        await lookupAndApplyEventCode(supabase, chatId, data, ev.id, ev.title, tenDigit);
+        return;
+      }
       data.pendingEventId = ev.id;
       data.pendingEventTitle = ev.title;
       await tgSend(chatId, `Customer's WhatsApp number for their "${ev.title}" code?`, { inline_keyboard: [BACK_ROW, CANCEL_ROW] });
@@ -1998,26 +2007,7 @@ async function handleTextInput(
     const eventTitle = data.pendingEventTitle;
     data.pendingEventId = undefined;
     data.pendingEventTitle = undefined;
-    const { data: candidates } = await supabase.from("coupons").select("*").eq("event_id", eventId);
-    const match = (candidates ?? []).find(
-      (c: { customer_wa: string | null }) => c.customer_wa && c.customer_wa.replace(/\D/g, "").slice(-10) === tenDigit,
-    );
-    if (!match) {
-      await tgSend(chatId, `No "${eventTitle}" registration found for that number.`);
-      await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
-      return;
-    }
-    if (match.used) {
-      await tgSend(chatId, `Sorry — this customer has already used their "${eventTitle}" code.`);
-      await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
-      return;
-    }
-    if (!validateCoupon(match)) {
-      await tgSend(chatId, `This "${eventTitle}" code isn't currently valid (expired or inactive).`);
-      await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
-      return;
-    }
-    await pickDiscountItem(supabase, chatId, data, match, eventId);
+    await lookupAndApplyEventCode(supabase, chatId, data, eventId, eventTitle, tenDigit);
     return;
   }
 
@@ -2134,6 +2124,37 @@ async function applyCouponCode(supabase: SB, chatId: number, data: SessionData, 
     return;
   }
   await pickDiscountItem(supabase, chatId, data, coupon);
+}
+
+// Looks up an event's registrant coupon by WhatsApp number (last 10 digits)
+// and applies it, or reports exactly why it couldn't: no registration for
+// that number, the code was already used, or it's otherwise invalid
+// (expired/inactive). Shared by both the "already have the buyer's number"
+// path (kiosk:event: button, reusing data.customer_wa from the customer-info
+// step) and the manual-entry fallback (kiosk_discount_event_wa state).
+async function lookupAndApplyEventCode(
+  supabase: SB, chatId: number, data: SessionData, eventId: string, eventTitle: string, tenDigit: string,
+) {
+  const { data: candidates } = await supabase.from("coupons").select("*").eq("event_id", eventId);
+  const match = (candidates ?? []).find(
+    (c: { customer_wa: string | null }) => c.customer_wa && c.customer_wa.replace(/\D/g, "").slice(-10) === tenDigit,
+  );
+  if (!match) {
+    await tgSend(chatId, `No "${eventTitle}" registration found for that number.`);
+    await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    return;
+  }
+  if (match.used) {
+    await tgSend(chatId, `Sorry — this customer has already used their "${eventTitle}" code.`);
+    await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    return;
+  }
+  if (!validateCoupon(match)) {
+    await tgSend(chatId, `This "${eventTitle}" code isn't currently valid (expired or inactive).`);
+    await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    return;
+  }
+  await pickDiscountItem(supabase, chatId, data, match, eventId);
 }
 
 // deno-lint-ignore no-explicit-any

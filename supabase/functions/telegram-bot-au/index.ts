@@ -678,6 +678,35 @@ function applyDiscountToUnit(
   return amount;
 }
 
+// Looks up an event's registrant coupon by WhatsApp number (last 10 digits)
+// and applies it. Shared by the "already have the buyer's number" path
+// (kiosk:event: button, reusing data.customer_wa from the customer-info
+// step) and the manual-entry fallback (kiosk_coupon_event_wa state).
+async function lookupAndApplyEventCodeAu(
+  supabase: any, chatId: number, data: any, eventId: string, eventTitle: string, tenDigit: string,
+) {
+  const { data: candidates } = await supabase.from("coupons").select("*").eq("event_id", eventId);
+  const match = (candidates ?? []).find(
+    (c: any) => c.customer_wa && c.customer_wa.replace(/\D/g, "").slice(-10) === tenDigit,
+  );
+  if (!match) {
+    await tgSend(chatId, `No "${eventTitle}" code found for that number.`);
+    await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    return;
+  }
+  const { data: res } = await supabase.rpc("validate_coupon", {
+    p_code: match.code,
+    p_wa: match.customer_wa,
+    p_region: "australia",
+  });
+  if (!res?.valid) {
+    await tgSend(chatId, `${res?.message || "That code isn't valid anymore"} — pick another option.`);
+    await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    return;
+  }
+  await pickDiscountItemAu(supabase, chatId, data, res, match.customer_wa, eventId);
+}
+
 async function pickDiscountItemAu(
   supabase: any,
   chatId: number,
@@ -888,26 +917,7 @@ async function handleTextInput(supabase: any, chatId: number, state: string, dat
       const eventId = data.pending_event_id;
       const eventTitle = data.pending_event_title;
       const newData = { ...data, pending_event_id: undefined, pending_event_title: undefined };
-      const { data: candidates } = await supabase.from("coupons").select("*").eq("event_id", eventId);
-      const match = (candidates ?? []).find(
-        (c: any) => c.customer_wa && c.customer_wa.replace(/\D/g, "").slice(-10) === tenDigit,
-      );
-      if (!match) {
-        await tgSend(chatId, `No "${eventTitle}" code found for that number.`);
-        await showDiscountPicker(supabase, chatId, newData, (newData.appliedDiscounts ?? []).length > 0);
-        break;
-      }
-      const { data: res } = await supabase.rpc("validate_coupon", {
-        p_code: match.code,
-        p_wa: match.customer_wa,
-        p_region: "australia",
-      });
-      if (!res?.valid) {
-        await tgSend(chatId, `${res?.message || "That code isn't valid anymore"} — pick another option.`);
-        await showDiscountPicker(supabase, chatId, newData, (newData.appliedDiscounts ?? []).length > 0);
-        break;
-      }
-      await pickDiscountItemAu(supabase, chatId, newData, res, match.customer_wa, eventId);
+      await lookupAndApplyEventCodeAu(supabase, chatId, newData, eventId, eventTitle, tenDigit);
       break;
     }
     case "kiosk_amount": {
@@ -1163,6 +1173,11 @@ Deno.serve(async (req: Request) => {
     if (!ev) {
       await tgSend(chatId, "That event is no longer available — pick another option.");
       await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    } else if (data.customer_wa) {
+      // Already collected earlier in this sale (kiosk_customer_wa, before
+      // the discount picker is ever shown) — reuse it instead of asking again.
+      const tenDigit = String(data.customer_wa).replace(/\D/g, "").slice(-10);
+      await lookupAndApplyEventCodeAu(supabase, chatId, data, ev.id, ev.title, tenDigit);
     } else {
       await saveSession(supabase, chatId, "kiosk_coupon_event_wa", { ...data, pending_event_id: ev.id, pending_event_title: ev.title });
       await tgSend(chatId, `Customer's WhatsApp number for their "${ev.title}" code?`);
