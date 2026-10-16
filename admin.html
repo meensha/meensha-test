@@ -553,6 +553,8 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 
 <!-- ═══ NEW SALE ═══ -->
 <div id="tp-sale" class="tp">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;"><div id="SA-HDR-TITLE" style="font-size:16px;font-weight:700;color:var(--gdk);">🛍️ New Sale</div></div>
+  <div id="SA-EDIT-WARN" style="display:none;background:#fff3cd;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#7a5b00;line-height:1.5;">⚠️ This sale was already invoiced. Editing customer, payment and notes is safe. Editing items, quantities or prices does <strong>not</strong> automatically adjust inventory stock counts — if you change what was sold, double-check stock levels manually afterward.</div>
   <div class="card"><div class="ct">🛍️ Customer</div>
     <div class="fg">
       <div class="fi"><label>Customer Name *</label><input id="SA-NM" placeholder="Full name"></div>
@@ -582,7 +584,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi"><label>Notes</label><textarea id="SA-NOT" placeholder="Special requests..."></textarea></div>
   </div>
   <div style="display:flex;gap:9px;flex-wrap:wrap;">
-    <button class="btn bg" onclick="saveSale()">💾 Save Sale</button>
+    <button class="btn bg" id="SA-SAVEBTN" onclick="saveSale()">💾 Save Sale</button>
     <button class="btn bgn" onclick="previewInv()">🧾 Preview Invoice</button>
     <button class="btn bwa" onclick="sendSaleWA()">💬 WhatsApp</button>
     <button class="btn bgy" onclick="clearSA()">🗑️ Clear</button>
@@ -1089,19 +1091,6 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <div class="mf"><button class="btn bwa" onclick="sendInvWA()">💬 WhatsApp</button><button class="btn bb" onclick="viewInvPDF()">🧾 View PDF</button><button class="btn bb" onclick="printInv()">📄 Print/PDF</button><button class="btn bgy" onclick="closeMo('MO-INV')">Close</button></div>
 </div></div>
 
-<!-- Edit Sale -->
-<div class="mo hi" id="MO-EDSA"><div class="md">
-  <div class="mt2">✏️ Edit Sale</div>
-  <div class="fg">
-    <div class="fi"><label>Customer Name</label><input id="ES-NM"></div>
-    <div class="fi"><label>WhatsApp</label><input id="ES-WA"></div>
-    <div class="fi"><label>Date</label><input type="date" id="ES-DT"></div>
-    <div class="fi"><label>Amount Paid ₹</label><input type="number" id="ES-PAID" oninput="calcESBal()"></div>
-    <div class="fi"><label>Balance ₹</label><input id="ES-BAL" readonly></div>
-    <div class="fi"><label>Notes</label><textarea id="ES-NOT"></textarea></div>
-  </div>
-  <div class="mf"><button class="btn bg" onclick="saveES()">Save Changes</button><button class="btn bgy" onclick="closeMo('MO-EDSA')">Cancel</button></div>
-</div></div>
 
 <!-- Shipping -->
 <div class="mo hi" id="MO-SHIP"><div class="md">
@@ -4041,10 +4030,33 @@ async function saveSale(){
     const sel=r.querySelector('select');const it=resolveSaleItem(sel?.value);
     const nums=r.querySelectorAll('input[type="number"]');const sp2=parseFloat(nums[0]?.value)||0,qty=parseFloat(nums[1]?.value)||1,d=parseFloat(nums[2]?.value)||0;
     const notes=r.querySelectorAll('input[type="text"]')[0]?.value||'';
-    if(it&&it.avail<qty){toast(`Not enough stock for ${it.name} (${it.avail} available, ${qty} requested)`,'var(--red)');return;}
+    if(!editSaleId&&it&&it.avail<qty){toast(`Not enough stock for ${it.name} (${it.avail} available, ${qty} requested)`,'var(--red)');return;}
     rowInfo.push({it,sp2,qty,d,notes});
   }
   const items=rowInfo.map(({it,sp2,qty,d,notes})=>({itId:it?.id||null,name:it?.name||'',subtype:it?.subtype||'',cat:it?.cat||'',mrp:it?.mrp||0,cost:it?.cost??null,salePrice:sp2,qty,discount:d,amount:Math.max(0,sp2*qty-d),notes}));
+  if(editSaleId){
+    // Editing an already-invoiced sale: UPDATE the existing row with every
+    // field the New Sale form has, but deliberately skip all inventory
+    // reconciliation (no inventory.sold adjustment, no claim_unit, no
+    // invoice counter bump) — that's the scope boundary the warning banner
+    // above this form calls out. If items changed, stock must be checked
+    // manually.
+    const s=sales.find(x=>x.id===editSaleId);
+    if(!s){toast('Sale not found','var(--red)');return;}
+    const tt2=parseFloat((document.getElementById('SA-TOT').textContent||'').replace(/[^\d.]/g,''))||0,pd2=parseFloat(document.getElementById('SA-PAID').value)||0;
+    const dm2=document.querySelector('input[name="DM"]:checked')?.value||'offline';
+    const sub2=items.reduce((a,it)=>a+it.amount,0);
+    const gstOn2=document.getElementById('SA-GST').checked,gstPct2=gstOn2?(parseFloat(document.getElementById('SA-GSTP').value)||0):0,gstAmt2=gstOn2?sub2*gstPct2/100:0;
+    const taxes2=gstOn2?[{name:'GST',pct:gstPct2,amount:gstAmt2}]:[];
+    const upd={date:dt,customer:{...s.customer,name:nm,wa:document.getElementById('SA-WA').value},items,subtotal:sub2,taxes:taxes2,total:tt2,paid:pd2,balance:Math.max(0,tt2-pd2),pay_mode:document.getElementById('SA-MD').value,razorpay_fee:rzpFee(),notes:document.getElementById('SA-NOT').value,delivery_mode:dm2,shipping_address:document.getElementById('SA-ADDR')?.value||'',invoice_pdf_path:null};
+    const ok=await sbUpd('sales',`?id=eq.${editSaleId}`,upd);
+    if(!ok){toast('Failed to update sale','var(--red)');return;}
+    Object.assign(s,upd);
+    toast('✅ Sale updated — stock NOT adjusted automatically','#27ae60');
+    clearSA();
+    showTab('sum',document.getElementById('tb-sum'));
+    return;
+  }
   invCtr++;await sbUpd('settings','?key=eq.inv_counter',{value:String(invCtr)});
   const inv2='MSH-'+invCtr;document.getElementById('SA-INV').value=inv2;
   const tt=parseFloat((document.getElementById('SA-TOT').textContent||'').replace(/[^\d.]/g,''))||0,pd=parseFloat(document.getElementById('SA-PAID').value)||0;
@@ -4078,7 +4090,7 @@ async function saveSale(){
   sales.unshift(saleData);toast('✅ Sale saved! Invoice: '+inv2,'#27ae60');
   previewInvData(saleData);
 }
-function clearSA(){['SA-NM','SA-WA','SA-DT','SA-PAID','SA-BAL','SA-NOT','SA-ADDR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('SA-BODY').innerHTML='';document.getElementById('SA-GST').checked=false;document.getElementById('SA-GSTB').classList.remove('on');document.getElementById('DM-OFF').checked=true;toggleDM();document.getElementById('SA-INV').value='MSH-'+(invCtr+1);calcSATot();addSARow();}
+function clearSA(){['SA-NM','SA-WA','SA-DT','SA-PAID','SA-BAL','SA-NOT','SA-ADDR'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('SA-BODY').innerHTML='';document.getElementById('SA-GST').checked=false;document.getElementById('SA-GSTB').classList.remove('on');document.getElementById('DM-OFF').checked=true;toggleDM();document.getElementById('SA-INV').value='MSH-'+(invCtr+1);calcSATot();addSARow();exitSaleEditMode();}
 
 // ═══════════════════════════════════════════════
 // INVOICE
@@ -4236,14 +4248,60 @@ async function activateReturn(id){
   renderSales();
   toast('✅ Return activated','#27ae60');
 }
-let editSId=null;
-function openEditSale(id){const s=sales.find(x=>x.id===id);if(!s)return;editSId=id;document.getElementById('ES-NM').value=s.customer?.name||'';document.getElementById('ES-WA').value=s.customer?.wa||'';document.getElementById('ES-DT').value=s.date||'';document.getElementById('ES-PAID').value=s.paid||0;document.getElementById('ES-BAL').value=fmt(s.balance||0);document.getElementById('ES-NOT').value=s.notes||'';document.getElementById('MO-EDSA').classList.remove('hi');}
-function calcESBal(){const s=sales.find(x=>x.id===editSId);if(!s)return;const pd=parseFloat(document.getElementById('ES-PAID').value)||0,bal=Math.max(0,(s.total||0)-pd);document.getElementById('ES-BAL').value=fmt(bal);}
-async function saveES(){const s=sales.find(x=>x.id===editSId);if(!s)return;const pd=parseFloat(document.getElementById('ES-PAID').value)||0,bal=Math.max(0,(s.total||0)-pd);
-  // Clear invoice_pdf_path so the next PDF request re-renders instead of
-  // re-signing the old one — generate-invoice-pdf treats a non-null path as
-  // already-final, and this edit can change paid/balance/customer on it.
-  const upd={customer:{...s.customer,name:document.getElementById('ES-NM').value,wa:document.getElementById('ES-WA').value},date:document.getElementById('ES-DT').value,paid:pd,balance:bal,notes:document.getElementById('ES-NOT').value,invoice_pdf_path:null};await sbUpd('sales',`?id=eq.${editSId}`,upd);Object.assign(s,upd);closeMo('MO-EDSA');renderSales();toast('✅ Sale updated','#27ae60');}
+// Editing a sale reuses the New Sale tab (#tp-sale) itself rather than a
+// second, separate item-table UI — editSaleId (declared in STATE above)
+// tracks which sale (if any) is being edited; null means the form is in
+// normal "new sale" mode. Any path that leaves/resets the form (clearSA, a
+// successful edit save) must reset this back to null so the tab doesn't
+// stay stuck thinking it's still editing a stale sale id.
+function exitSaleEditMode(){
+  editSaleId=null;
+  document.getElementById('SA-EDIT-WARN').style.display='none';
+  document.getElementById('SA-HDR-TITLE').textContent='🛍️ New Sale';
+  document.getElementById('SA-SAVEBTN').textContent='💾 Save Sale';
+}
+function openEditSale(id){
+  const s=sales.find(x=>x.id===id);if(!s)return;
+  editSaleId=id;
+  document.getElementById('SA-NM').value=s.customer?.name||'';
+  document.getElementById('SA-WA').value=s.customer?.wa||'';
+  document.getElementById('SA-DT').value=s.date||'';
+  document.getElementById('SA-INV').value=s.inv||'';
+  document.getElementById('SA-NOT').value=s.notes||'';
+  document.getElementById('SA-ADDR').value=s.shipping_address||'';
+  document.getElementById(s.delivery_mode==='shipping'?'DM-SH':'DM-OFF').checked=true;toggleDM();
+  const mdSel=document.getElementById('SA-MD');
+  if(s.pay_mode&&[...mdSel.options].some(o=>o.value===s.pay_mode))mdSel.value=s.pay_mode;
+  const gstTax=(s.taxes||[]).find(t=>t.name==='GST');
+  document.getElementById('SA-GST').checked=!!gstTax;
+  document.getElementById('SA-GSTB').classList.toggle('on',!!gstTax);
+  if(gstTax)document.getElementById('SA-GSTP').value=gstTax.pct||5;
+  document.getElementById('SA-BODY').innerHTML='';
+  (s.items&&s.items.length?s.items:[null]).forEach(it=>{
+    addSARow();
+    const row=document.getElementById('SA-BODY').lastElementChild;
+    if(!it)return;
+    const sel=row.querySelector('select');
+    let matchVal='';
+    if(it.itId){
+      if(skus.some(sk=>sk.id===it.itId))matchVal='sku:'+it.itId;
+      else{const idx=inv.findIndex(x=>x.id===it.itId);if(idx>=0)matchVal='leg:'+idx;}
+    }
+    if(matchVal&&[...sel.options].some(o=>o.value===matchVal))sel.value=matchVal;
+    const notesInp=row.querySelector('td:nth-child(3) input');if(notesInp)notesInp.value=it.notes||'';
+    const nums=row.querySelectorAll('input[type="number"]');
+    if(nums[0])nums[0].value=it.salePrice??0;
+    if(nums[1])nums[1].value=it.qty??1;
+    if(nums[2])nums[2].value=it.discount||0;
+    const acCell=row.querySelectorAll('td.ac')[0];if(acCell)acCell.textContent='₹ '+fmt(it.mrp||0);
+  });
+  document.getElementById('SA-PAID').value=s.paid||0;
+  calcSATot();
+  document.getElementById('SA-EDIT-WARN').style.display='block';
+  document.getElementById('SA-HDR-TITLE').textContent='✏️ Edit Sale — '+(s.inv||'');
+  document.getElementById('SA-SAVEBTN').textContent='💾 Save Changes';
+  showTab('sale',document.getElementById('tb-sale'));
+}
 
 // ═══════════════════════════════════════════════
 // SHIPPING
