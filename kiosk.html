@@ -354,6 +354,14 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
 /* ───────────────────────── Potential customers ───────────────────────── */
 .pc-req-detail{margin-top:8px;padding-top:8px;border-top:1px solid var(--gold-dim);display:flex;flex-direction:column;gap:8px;}
 .pc-req-row{padding:4px 0;}
+
+/* ───────────────────────── Help / Ask me (chat) ───────────────────────── */
+.mhw-log{display:flex;flex-direction:column;gap:10px;}
+.mhw-msg{max-width:82%;padding:10px 14px;border-radius:14px;font-size:15px;line-height:1.4;white-space:pre-wrap;word-break:break-word;}
+.mhw-msg.user{align-self:flex-end;background:var(--gold-dim);color:var(--warm-white);border-bottom-right-radius:4px;}
+.mhw-msg.bot{align-self:flex-start;background:var(--dark2);border:1px solid var(--gold-dim);color:var(--cream);border-bottom-left-radius:4px;}
+.mhw-input{flex:1;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;color:var(--warm-white);padding:13px 14px;font-size:16px;min-height:48px;}
+.mhw-input:focus{outline:none;border-color:var(--gold-light);}
 </style>
 </head>
 <body>
@@ -365,6 +373,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       <div class="tb-title">Kiosk<span id="tb-region-tag" style="display:none;font-size:11px;font-weight:600;opacity:.75;margin-left:6px;"></span></div>
     </button>
     <button class="tb-btn tb-cart" id="tb-cart-btn" onclick="goCart()">🧺 <span id="tb-cart-count">0</span><span class="badge" id="tb-cart-badge" style="display:none;"></span></button>
+    <button class="tb-btn" id="tb-help-btn" onclick="openMaintHowWorks()" aria-label="Help / Ask me">💬</button>
     <button class="tb-btn tb-sharecard" id="tb-sharecard-btn" style="display:none;" onclick="openShareCardModal();" aria-label="Share my Visiting Card">
       <span class="card-stack"><span class="cs-card"></span><span class="cs-card"></span><span class="cs-card"></span></span>
     </button>
@@ -405,7 +414,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <span>🔧 Maintenance</span><span class="chev">›</span>
       </button>
       <div class="sidebar-children">
-        <button class="sidebar-item" onclick="closeSidebar();openMaintHowWorks();">❓ How does this work?</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintHowWorks();">💬 Help / Ask me</button>
         <button class="sidebar-item" onclick="closeSidebar();openMaintGodown();">📦 Godown check</button>
         <button class="sidebar-item" onclick="closeSidebar();openMaintNote();">📝 Add a note</button>
         <button class="sidebar-item" onclick="closeSidebar();openMaintAucost();">💰 Pending AU costs</button>
@@ -550,6 +559,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     <section class="screen" id="scr-cart">
       <div class="scr-body">
         <div class="scr-head"><h1>Cart</h1></div>
+        <div class="hint" id="cart-hold-note" style="margin-bottom:12px;"></div>
         <div id="cart-body"></div>
       </div>
       <div class="bottombar">
@@ -975,16 +985,19 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
 
     <!-- ═══════════════════════ MAINTENANCE ═══════════════════════ -->
 
-    <!-- HOW DOES THIS WORK (mirrors handleHowWorksText) -->
+    <!-- HELP / ASK ME — kiosk-usage-only chat assistant, see MHW_SYSTEM_PROMPT -->
     <section class="screen" id="scr-maint-howworks">
       <div class="scr-body">
-        <div class="scr-head"><h1>❓ How does this work?</h1><p>Ask a question and I'll look it up.</p></div>
-        <div class="field"><label>Your question</label><input type="text" id="mhw-q" placeholder="e.g. how do I add a discount?"></div>
-        <div id="mhw-answer"></div>
+        <div class="scr-head" style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+          <div><h1>💬 Help / Ask me</h1><p>Ask how to do something in this app — e.g. "how do I apply a discount?"</p></div>
+          <button class="btn btn-ghost btn-sm" onclick="closeSidebar();goItems();" aria-label="Close">✕</button>
+        </div>
+        <div id="mhw-log" class="mhw-log"></div>
+        <div class="err-box" id="mhw-error"></div>
       </div>
       <div class="bottombar">
-        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
-        <button class="btn btn-primary btn-flex" onclick="askMaintHowWorks()">Ask ▶</button>
+        <input type="text" id="mhw-q" class="mhw-input" placeholder="Type your question…" onkeydown="if(event.key==='Enter'){event.preventDefault();askMaintHowWorks();}">
+        <button class="btn btn-primary" id="mhw-send-btn" onclick="askMaintHowWorks()">Send</button>
       </div>
     </section>
 
@@ -1437,6 +1450,7 @@ function setActiveRegion(r){
   if(CU && CU.region)return;
   if(ACTIVE_REGION===r){ closeSidebar(); return; }
   if(S.cart && S.cart.length && !confirm('Switching region clears the current cart (prices are in a different currency). Continue?'))return;
+  releaseCartHolds();
   ACTIVE_REGION=r;
   localStorage.setItem('MSN_KIOSK_REGION',r);
   updateRegionButtons();
@@ -1527,6 +1541,7 @@ function startKiosk(){
   renderSidebarShareCard();
   showScreen('scr-items');
   loadItemPicker();
+  rpcP('release_expired_reservations',{}).catch(()=>{});
 }
 
 // ═══════════════════════════════════════════════
@@ -1548,6 +1563,49 @@ function renderCartBadge(){
   badge.style.display = n>0 ? 'flex' : 'none';
   if(n>0)badge.textContent=n;
 }
+
+// ═══════════════════════════════════════════════
+// CART RESERVATION — mirrors index.html's own hold mechanism exactly
+// (same reserve_unit/unreserve_unit/release_expired_reservations RPCs,
+// same CART_HOLD_MS = 15 min, same soonest-reservedAt countdown that
+// auto-drops and releases the one piece whose hold lapses, then re-targets
+// whichever cart item is now soonest). Same anon-key RPC tier as
+// consume_coupon/validateCouponRPC elsewhere in this file — reserve_unit
+// isn't an admin-only RPC, so rpcP (not rpcA) is correct here too.
+// ═══════════════════════════════════════════════
+const CART_HOLD_MS=15*60*1000;
+// Abandonment only — releases every held unit still in the cart. Never
+// called after a sale finalizes (those units are already claim_unit'd, not
+// still "reserved", so unreserving them here would wrongly put sold pieces
+// back up for sale).
+function releaseCartHolds(){
+  (S.cart||[]).forEach(c=>{ rpcP('unreserve_unit',{p_unit_id:c.unit_id}).catch(()=>{}); });
+}
+function dropExpiredCartUnit(unitId){
+  const item=S.cart.find(c=>c.unit_id===unitId);
+  if(!item)return;
+  clearDiscountIfUnitRemoved(item.sku_id);
+  S.cart=S.cart.filter(c=>c.unit_id!==unitId);
+  rpcP('unreserve_unit',{p_unit_id:unitId}).catch(()=>{});
+  renderCartBadge();
+  if(document.getElementById('scr-cart').classList.contains('active'))renderCart();
+  toast(`⏳ Hold on "${item.name}" expired — it's back in stock. Pick it again if you still want it.`);
+}
+function updateCartHoldTimer(){
+  const note=document.getElementById('cart-hold-note');
+  if(!S.cart || !S.cart.length){ if(note)note.textContent=''; return; }
+  const soonest=S.cart.reduce((a,b)=>(a.reservedAt||0)<(b.reservedAt||0)?a:b);
+  const remain=CART_HOLD_MS-(Date.now()-(soonest.reservedAt||Date.now()));
+  if(remain<=0){ dropExpiredCartUnit(soonest.unit_id); return; }
+  if(note){
+    const m=Math.floor(remain/60000), s=Math.floor((remain%60000)/1000);
+    note.textContent=`Reserved for you · ${m}:${String(s).padStart(2,'0')} remaining`;
+  }
+}
+setInterval(updateCartHoldTimer,1000);
+// Same periodic server-side sweep index.html runs — flips any abandoned/
+// expired holds back to 'available' even if no client is watching.
+setInterval(()=>{ if(CU)rpcP('release_expired_reservations',{}); },60*1000);
 
 function orderTotal(){
   const subtotal=S.cart.reduce((a,c)=>a+c.price,0);
@@ -1687,6 +1745,7 @@ function goCart(){
 function startNewSale(){
   closeSidebar();
   if(S.cart.length && !confirm('Start a new sale? The current cart will be cleared.'))return;
+  releaseCartHolds();
   resetSale();
   goItems();
 }
@@ -1760,12 +1819,17 @@ function renderUnitPicker(){
     grid.dataset.codes=JSON.stringify(codeById);
   });
 }
-function pickUnit(unitId){
+async function pickUnit(unitId){
   const sku=skuCache[S.pendingSkuId];
   if(!sku)return;
   let unitCode='—';
   try{ const codes=JSON.parse(document.getElementById('unit-grid').dataset.codes||'{}'); unitCode=codes[unitId]||'—'; }catch{}
-  S.cart.push({unit_id:unitId,unit_code:unitCode,sku_id:sku.id,name:sku.name,variant:sku.display_variant,price:sku[priceField()]??0});
+  // Hold the physical piece server-side for CART_HOLD_MS before adding it to
+  // the cart — same reserve_unit() gate index.html's addToCart() uses, so a
+  // kiosk sale and a storefront customer can't both walk off with it.
+  const ok=await rpcP('reserve_unit',{p_unit_id:unitId});
+  if(!ok){ toast('That piece was just taken — pick another.'); renderUnitPicker(); return; }
+  S.cart.push({unit_id:unitId,unit_code:unitCode,sku_id:sku.id,name:sku.name,variant:sku.display_variant,price:sku[priceField()]??0,reservedAt:Date.now()});
   S.qtyRemaining=(S.qtyRemaining||1)-1;
   // Pull this unit out of the in-memory available list so the grid updates immediately.
   itemPickerData.units=itemPickerData.units.filter(u=>u.id!==unitId);
@@ -1817,6 +1881,7 @@ function renderCart(){
 }
 function removeCartGroup(skuId){
   clearDiscountIfUnitRemoved(skuId);
+  S.cart.filter(c=>c.sku_id===skuId).forEach(c=>{ rpcP('unreserve_unit',{p_unit_id:c.unit_id}).catch(()=>{}); });
   S.cart=S.cart.filter(c=>c.sku_id!==skuId);
   renderCartBadge();
   renderCart();
@@ -1824,6 +1889,7 @@ function removeCartGroup(skuId){
 function editCartGroup(skuId){
   const sku=skuCache[skuId];
   clearDiscountIfUnitRemoved(skuId);
+  S.cart.filter(c=>c.sku_id===skuId).forEach(c=>{ rpcP('unreserve_unit',{p_unit_id:c.unit_id}).catch(()=>{}); });
   S.cart=S.cart.filter(c=>c.sku_id!==skuId);
   renderCartBadge();
   if(!sku){toast('That item is no longer available.');renderCart();return;}
@@ -2030,6 +2096,7 @@ function goConfirm(){
 }
 function cancelConfirm(){
   if(!confirm('Cancel this sale? Nothing has been saved.'))return;
+  releaseCartHolds();
   resetSale();
   goItems();
 }
@@ -2917,10 +2984,13 @@ async function finalizeSiPurchase(){
 // same admin_create_voucher_event RPC, which defaults p_kind to 'event'
 // server-side (see 20261015120000_events_promotions_v2.sql), so a Kind
 // picker here covers both faithfully without a second near-duplicate screen.
-// maint:howworks mirrors handleHowWorksText's own real fallback: the
-// chatbot backend (CHATBOT_BACKEND_URL/CHATBOT_API_SECRET) isn't deployed
-// yet, so the bot itself always shows the "not available yet" message right
-// now — this isn't a stub, it's the bot's current actual behavior.
+// maint:howworks ("Help / Ask me") is its OWN real chatbot, kiosk-scoped —
+// NOT the separate, still-undeployed chatbot backend (CHATBOT_BACKEND_URL/
+// CHATBOT_API_SECRET) that handleHowWorksText falls back from in the
+// Telegram bot. It calls Gemini directly (same proven pattern as
+// suggestVpMrp()/extractInvoiceDataClient() below), prepending the
+// MHW_SYSTEM_PROMPT knowledge summary via systemInstruction on every call,
+// and passes the full MHW_TURNS history so follow-ups have context.
 // ═══════════════════════════════════════════════
 async function sbUpsertSetting(key,value){
   try{
@@ -2941,16 +3011,111 @@ async function callGeminiText(prompt){
   }catch{return null;}
 }
 
-// ───────── How does this work? ─────────
+// ───────── Help / Ask me (kiosk usage chatbot) ─────────
+// Scoped strictly to "how do I use this app" questions — this is NOT the
+// separate, different, still-undeployed business-data chatbot (stock
+// levels, sales figures etc). MHW_SYSTEM_PROMPT below is the entire
+// "knowledge base" — there's no vector DB/retrieval here, just a static,
+// hand-written, kept-accurate summary of kiosk.html's actual finalized
+// screens and flows, sent via Gemini's systemInstruction on every call.
+const MHW_SYSTEM_PROMPT=`You are the in-app help assistant for the Meensha Kiosk, a staff-facing point-of-sale web app (not the customer storefront, and not the separate Telegram bot). Only answer questions about HOW TO USE this kiosk app — its screens, buttons and flows. Do NOT answer general business questions like "how much stock do we have" or "what were yesterday's sales" — those need the separate business chatbot, which isn't built yet; if asked, say so briefly and point to Sales History / Godown check / asking admin instead. Don't invent features that don't exist. Keep answers short (2-5 sentences), concrete, and in plain staff-friendly language — name the actual screen/button to tap. When explaining how to REACH a feature, always state the exact path as "Sidebar → [Group] → [Item]" — the real sidebar groups, top to bottom, are Sales, Inventory, Maintenance, Potential Customers and Account — instead of vague phrases like "go to the menu" or "find the option".
+
+Here is exactly how the real, finalized kiosk app works today:
+
+CORE SALE FLOW: Tap an item on the Items screen (search box filters by name/material/variant) → pick a quantity on the stepper (+ / −, capped at what's in stock) → pick the exact physical piece(s) one at a time on the unit picker (each saree is a unique numbered "unit", so a qty of 2 means picking 2 specific pieces) → lands on Cart, grouped by item with "Edit qty" and "Remove" per line → "Checkout" asks for the customer's WhatsApp number and name → Discount screen: pick any listed coupon/event offer, type in a code, or enter a custom ₹/A$ amount — each discount applies to the single highest-priced item still undiscounted in the cart; keep applying more or tap "No discount"/"Done" → Confirm order shows the final itemized total → Payment mode: Cash, UPI Direct (shows the saved UPI QR code plus a WhatsApp "send payment request" draft), Razorpay (creates a real payment link sent on WhatsApp; the sale auto-finalizes once Razorpay confirms payment — India/All only, not Australia), or Other (free text for bank transfer/cheque etc) → Amount received: tap "Full amount received" or type a different amount for a partial payment → the sale is saved, an invoice number (MSH-####) is generated, and you get a "Send invoice to customer" WhatsApp link plus a "View/print invoice" link, then it's back to Items for the next sale.
+
+CART & TOP BAR: the topbar basket icon shows how many pieces are in the current cart and opens Cart directly. The topbar also has a 💬 Help icon (this chat) and, for Shalini/Meenakshi logins, the visiting-card icon described below. Sidebar → Sales → New Sale clears the in-progress cart (with a confirm) and starts over; Sidebar → Sales → Current Cart jumps to Cart. Picking a specific piece holds it for 15 minutes (shown on the Cart screen as "Reserved for you · M:SS remaining") so it can't be sold to someone else in the meantime; if the hold lapses before checkout finishes, that one piece is automatically dropped from the cart and released back to stock, with a message to pick it again if it's still wanted.
+
+REGION TOGGLE: most staff logins are locked to one region (India ₹ or Australia A$). Only an untied login sees a region toggle at Sidebar → Account → India / Australia / All, which changes which items and prices show and which currency is used; switching regions mid-sale clears the current cart since prices are in a different currency.
+
+SALES HISTORY — Sidebar → Sales → Sales history: read-only, newest first, 5 per page; tap a sale to see its full item/payment breakdown and resend its invoice link on WhatsApp.
+
+VENDOR PURCHASE — Sidebar → Inventory → Vendor Purchase: manually log a purchase from a vendor. Search/pick an existing vendor or add a new one, then add items one at a time — name, material, variant, cost per piece, quantity, an optional AI-suggested sale price (appears once name + cost are filled in), 1-4 required photos, and a yes/no for any defective pieces in that batch (with how many and why). Once all items are added, enter the total amount paid, how it was paid (UPI/Cash/Bank Transfer/Cheque), and the Shalini/Meenakshi split (blank = even 50/50). Submitting sends it for admin approval — it is NOT live stock yet.
+
+STOCK INTAKE — Sidebar → Inventory → Stock Intake: the photo-first alternative to Vendor Purchase. Take photo(s) of the vendor's paper invoice and AI reads the vendor, invoice number, date, line items and total into an editable draft (tap "Fix a field" to correct anything misread). Confirm/match the vendor, then go through each invoice line one at a time: take delivery photo(s) of that item, then say whether there's a discrepancy (short count / defective / wrong item) — if yes, pick the type, how many pieces, a required photo, a reason, and an expected credit amount. At the end you get a summary (good items vs. discrepancies, adjusted total due) and a ready-to-copy WhatsApp message for the vendor about any discrepancy; good items go to admin for approval and discrepancies are logged to Vendor Issues.
+
+MAINTENANCE — Sidebar → Maintenance has these items, each reached as Sidebar → Maintenance → <name below>:
+- Help / Ask me — this chatbot (also reachable from the topbar 💬 icon).
+- Godown check — "End-of-day reconciliation" walks through everything sold today and asks if the remaining physical count in the godown matches; "Spot check an item" does the same for one item you search for. Either way, a mismatch asks for a discrepancy type (missing/damaged/extra), optionally which exact piece(s), and a note/photo — damaged pieces get marked unavailable, and it's logged as a Vendor Issue for follow-up.
+- Add a note — a free-text note saved for the admin dashboard.
+- Pending AU costs — lists Australia-listed items still missing their INR purchase cost; tap one and enter the amount.
+- Add photo to item — search the catalog and upload extra photos onto an existing item.
+- Suggest a post — picks a random Trending or recently-added (last 14 days) in-stock item with a photo, has AI draft an Instagram caption in Meensha's brand voice, lets you revise it with an instruction like "shorter" or "more playful", optionally ties it to an upcoming event, and finishes as either "Video" (adds an AI-written shot list) or "Use product photo". Poster generation isn't built yet.
+- Set UPI QR code — upload/replace the QR code image customers see during UPI Direct payment.
+- Insta link — pick an item and write a caption; generates a direct "buy now" storefront link (opens checkout with that item already in cart) to paste into an Instagram Story link sticker or bio link, since Instagram captions/bio text can't hold a clickable link itself.
+- Create voucher — creates a one-off coupon (percent or flat discount), optionally locked to one customer's name + WhatsApp or left public for anyone, valid for a chosen number of days. Blocked if there's currently zero stock.
+- Create event/promotion — generates a shareable registration link; each visitor who registers with their name + WhatsApp gets their own unique voucher, shown with a QR code too.
+- Share visiting card — shows/copies the shared Meensha digital visiting-card link to send to a contact.
+- Event photo submissions — a simple ON/OFF switch for whether the public can submit event photos.
+
+SHARE MY VISITING CARD (the small stacked-card icon in the topbar, only shown for Shalini's/Meenakshi's own logins — not a sidebar item): opens that staff member's own digital visiting card. "Share" is always offered — it asks for a customer's name, WhatsApp number and optional comments, saves them as a Potential Customer, and opens a prefilled WhatsApp message with the card. If there's an active cart, "Add to invoice" is ALSO offered alongside Share (the card link gets appended to that sale's WhatsApp invoice message) — the two aren't exclusive when a cart is active.
+
+POTENTIAL CUSTOMERS — Sidebar → Potential Customers → View list: everyone whose visiting card has been shared with them (from the kiosk or the Telegram bot), showing their name, WhatsApp number, total purchases so far, whether their card is marked shared, any logged customer "requests" (tap "Requests: N" to expand), and an editable follow-up note per person.
+
+If a question doesn't match anything above, say you're not sure and suggest asking Shalini, Meenakshi, or checking with admin.`;
+
+let MHW_TURNS=[]; // Gemini `contents` history (role:'user'/'model') for this chat session only — not persisted across reloads.
+
 function openMaintHowWorks(){
+  closeSidebar();
   document.getElementById('mhw-q').value='';
-  document.getElementById('mhw-answer').innerHTML='';
+  document.getElementById('mhw-error').style.display='none';
+  renderMhwLog();
   showScreen('scr-maint-howworks');
 }
+function renderMhwLog(){
+  const log=document.getElementById('mhw-log');
+  if(!MHW_TURNS.length){
+    log.innerHTML='<div class="mhw-msg bot">Hi! Ask me how to do something in this app — e.g. "how do I apply a discount?" or "how does stock intake work?"</div>';
+    return;
+  }
+  log.innerHTML=MHW_TURNS.map(t=>`<div class="mhw-msg ${t.role==='user'?'user':'bot'}">${esc(t.parts[0].text)}</div>`).join('');
+  log.scrollTop=log.scrollHeight;
+}
 async function askMaintHowWorks(){
-  const q=document.getElementById('mhw-q').value.trim();
+  const input=document.getElementById('mhw-q');
+  const q=input.value.trim();
   if(!q){toast('Type a question first.');return;}
-  document.getElementById('mhw-answer').innerHTML='<div class="err-box" style="display:block;">The chatbot isn\'t available yet (not deployed). Try again later.</div>';
+  const errBox=document.getElementById('mhw-error');
+  errBox.style.display='none';
+  const btn=document.getElementById('mhw-send-btn');
+  input.disabled=true;btn.disabled=true;
+
+  const keyRows=await sbGet('settings','?key=eq.gemini_key&select=value');
+  const apiKey=keyRows?.[0]?.value;
+  if(!apiKey){
+    input.disabled=false;btn.disabled=false;
+    errBox.textContent="The chatbot isn't available yet (no AI key configured). Try again later, or ask Shalini/Meenakshi.";
+    errBox.style.display='block';
+    return;
+  }
+
+  input.value='';
+  MHW_TURNS.push({role:'user',parts:[{text:q}]});
+  renderMhwLog();
+  const log=document.getElementById('mhw-log');
+  log.insertAdjacentHTML('beforeend','<div class="mhw-msg bot" id="mhw-thinking"><span class="spin" style="width:13px;height:13px;border-width:2px;"></span></div>');
+  log.scrollTop=log.scrollHeight;
+
+  try{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({systemInstruction:{parts:[{text:MHW_SYSTEM_PROMPT}]},contents:MHW_TURNS}),
+    });
+    document.getElementById('mhw-thinking')?.remove();
+    if(!res.ok)throw new Error('bad status');
+    const json=await res.json();
+    const text=json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    if(!text)throw new Error('empty reply');
+    MHW_TURNS.push({role:'model',parts:[{text}]});
+    renderMhwLog();
+  }catch{
+    document.getElementById('mhw-thinking')?.remove();
+    MHW_TURNS.pop(); // drop the unanswered question so a retry doesn't send two user turns in a row
+    errBox.textContent="Couldn't reach the assistant just now — try again.";
+    errBox.style.display='block';
+  }
+  input.disabled=false;btn.disabled=false;input.focus();
 }
 
 // ───────── Add a note ─────────
@@ -3490,12 +3655,12 @@ function openShareCardModal(){
   closeSidebar();
   document.getElementById('vc-frame').src=`visiting-card.html?person=${key}`;
   const body=document.getElementById('vc-body');
-  if(S.cart && S.cart.length>0){
-    body.innerHTML=`<p class="hint" style="margin-bottom:14px;">${S.cart.length} item(s) in the current cart.</p>
-      <button class="btn btn-primary btn-block" onclick="attachCardToInvoice()">📎 Add to invoice</button>`;
-  } else {
-    body.innerHTML=`<button class="btn btn-primary btn-block" onclick="openShareSendModal()">💬 Share</button>`;
-  }
+  // "Share" is always offered; "Add to invoice" is additionally offered
+  // whenever a sale is in progress — the two aren't mutually exclusive.
+  const hasCart=S.cart && S.cart.length>0;
+  const cartNote=hasCart?`<p class="hint" style="margin-bottom:14px;">${S.cart.length} item(s) in the current cart.</p>
+      <button class="btn btn-primary btn-block" style="margin-bottom:10px;" onclick="attachCardToInvoice()">📎 Add to invoice</button>`:'';
+  body.innerHTML=`${cartNote}<button class="btn ${hasCart?'btn-outline':'btn-primary'} btn-block" onclick="openShareSendModal()">💬 Share</button>`;
   // Fly the popup out from the topbar icon's own screen position into its
   // centered resting place (pure CSS animation — see #vc-overlay.open
   // #vc-modal / @keyframes vcFlyIn above).
@@ -3522,7 +3687,7 @@ function attachCardToInvoice(){
 // any future caller build the exact same message.
 function buildShareMessage(name,comments){
   const staff=CU?.display_name||CU?.username||'';
-  let msg=`Hey ${name}, thanks for showing an interest in reviving the heritage of the Indian loom. We at Meensha look forward to your patronage. You can reach us at any of the links in the card. Just click on icons.`;
+  let msg=`Hey ${name}, thanks for showing an interest in reviving the heritage of the Indian loom. \n\nWe at Meensha look forward to your patronage. \n\nYou can reach us at any of the links in the card. \nJust click on icons.`;
   if(comments)msg+=`\n\n${comments}`;
   msg+=`\n\nRegards,\n${staff}`;
   return msg;
