@@ -302,6 +302,10 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
             <label>Password</label>
             <input type="password" id="login-p" autocomplete="current-password">
           </div>
+          <div style="text-align:right;margin:-8px 0 16px;">
+            <a href="#" onclick="event.preventDefault();toggleLoginHint();" style="font-size:12px;color:var(--gold-light);opacity:.75;text-decoration:underline;">Forgot password?</a>
+          </div>
+          <div id="login-hint" style="display:none;font-size:13px;color:rgba(247,243,236,.5);margin:-8px 0 16px;">Default password is <strong>your pet's name@123</strong> (e.g. Simba@123). Ask admin if that doesn't work.</div>
           <button class="btn btn-primary btn-block" id="login-btn" onclick="doLogin()">Log In</button>
         </div>
       </div>
@@ -531,6 +535,11 @@ async function boot(){
     CU=null;
   }
   showScreen('scr-login');
+}
+
+function toggleLoginHint(){
+  const el=document.getElementById('login-hint');
+  el.style.display=el.style.display==='none'?'block':'none';
 }
 
 async function doLogin(){
