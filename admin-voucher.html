@@ -78,6 +78,12 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:#2d2d2d;font-s
   <div id="CANVAS-CARD" class="card" style="display:none;">
     <div class="ct">Preview</div>
     <div id="CANVAS-WRAP"><canvas id="V-CANVAS" width="1200" height="700"></canvas></div>
+    <div id="EQR-ACTIONS" style="text-align:center;margin-top:10px;display:none;"><button class="btn bgn" onclick="downloadVoucher()">⬇️ Download PNG</button></div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:12px;">
+      <a href="https://meensha.in" target="_blank" rel="noopener">meensha.in</a>
+      <a href="https://instagram.com/meensha_fabrics" target="_blank" rel="noopener">@meensha_fabrics</a>
+      <a href="https://wa.me/918709525218" target="_blank" rel="noopener">WhatsApp: 8709525218</a>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -2414,15 +2420,8 @@ const HDR=()=>({'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'applica
 const AHDR=()=>({...HDR(),'x-admin-session':CU?.session_token||''});
 
 let currentCoupon=null;
-let settingsByKey={};
 
 async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:AHDR()});if(!r.ok)return[];return await r.json();}catch{return[];}}
-
-async function loadSettings(){
-  const rows=await sbQ('settings','?key=in.(wa_num_in,wa_num_au)');
-  settingsByKey={};
-  (rows||[]).forEach(r=>settingsByKey[r.key]=r.value);
-}
 
 async function lookupByCode(){
   const code=document.getElementById('LK-CODE').value.trim().toUpperCase();
@@ -2684,7 +2683,7 @@ async function renderVoucher(){
   ctx.fillText(valid?`Valid ${valid}`:'No expiry date',46,y);
   y+=20;
   if(c.single_use){
-    ctx.fillText('One-time use only.',46,y);
+    ctx.fillText('*Note: One-time use only.',46,y);
     y+=20;
   }
 
@@ -2734,9 +2733,7 @@ async function renderVoucher(){
   drawRoundedRect(ctx,footX,footY,footW,footH,8);
   ctx.stroke();
 
-  const footItems=[{icon:'globe',text:'meensha.in'},{icon:'insta',text:'@meensha_fabrics'}];
-  if(c.region==='india'||c.region==='all'){if(settingsByKey.wa_num_in)footItems.push({icon:'whats',text:settingsByKey.wa_num_in});}
-  if(c.region==='australia'||c.region==='all'){if(settingsByKey.wa_num_au)footItems.push({icon:'whats',text:settingsByKey.wa_num_au});}
+  const footItems=[{icon:'globe',text:'meensha.in'},{icon:'insta',text:'@meensha_fabrics'},{icon:'whats',text:'8709525218'}];
 
   const footCy=footY+footH/2;
   const itemGap=footW/footItems.length;
@@ -2761,10 +2758,48 @@ function downloadVoucher(){
   link.click();
 }
 
+// Simple QR-only render for an Events & Promotions registration link (see
+// admin.html's openEventQR) — reuses the already-vendored qrcode() library
+// above instead of a full ornate voucher composite.
+function renderEventQR(title,url){
+  currentCoupon=null;
+  const canvas=document.getElementById('V-CANVAS');
+  canvas.width=560;canvas.height=680;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#1A1208';ctx.font='bold 24px Arial, sans-serif';ctx.textAlign='center';
+  ctx.fillText(title||'Event registration',canvas.width/2,46);
+  const qr=qrcode(0,'M');
+  qr.addData(url);
+  qr.make();
+  const moduleCount=qr.getModuleCount();
+  const margin=40,qrTop=80,size=canvas.width-margin*2;
+  const cellSize=size/moduleCount;
+  ctx.fillStyle='#000000';
+  for(let row=0;row<moduleCount;row++){
+    for(let col=0;col<moduleCount;col++){
+      if(qr.isDark(row,col))ctx.fillRect(margin+col*cellSize,qrTop+row*cellSize,cellSize,cellSize);
+    }
+  }
+  ctx.fillStyle='#555';ctx.font='12px Arial, sans-serif';
+  ctx.fillText(url,canvas.width/2,qrTop+size+28);
+  document.getElementById('GEN-CARD').style.display='none';
+  document.getElementById('CANVAS-CARD').style.display='block';
+  document.getElementById('EQR-ACTIONS').style.display='block';
+}
+
 (async function(){
   if(!initGate())return;
-  await loadSettings();
   document.getElementById('LOOKUP-CARD').style.display='block';
+
+  // Handoff from admin.html's Events & Promotions "QR" button — just a
+  // plain QR for the registration link, not a full voucher composite.
+  const eventQrPending=sessionStorage.getItem('MSN_EVENT_QR_PENDING');
+  if(eventQrPending){
+    sessionStorage.removeItem('MSN_EVENT_QR_PENDING');
+    try{const d=JSON.parse(eventQrPending);renderEventQR(d.title,d.url);}catch(e){}
+    return;
+  }
 
   // Handoff from admin.html's "Generate Voucher Image" button (preferred —
   // uses the coupon row admin_create_coupon just returned, no extra fetch).

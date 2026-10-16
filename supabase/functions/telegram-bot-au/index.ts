@@ -162,26 +162,68 @@ function cartTotal(cart: any[]): number {
   return (cart ?? []).reduce((sum: number, item: any) => sum + item.sku.sale_price_aud * item.qty, 0);
 }
 
-// Mirrors the storefront's couponDiscountBase (index.html) — a category
-// filter matches against item names, whole-cart discount otherwise.
-function couponDiscountBase(cart: any[], categoryFilter: string | null): number {
-  const matching = categoryFilter
-    ? (cart ?? []).filter((item: any) => (item.sku.name ?? "").toLowerCase().includes(categoryFilter.toLowerCase()))
-    : (cart ?? []);
-  return matching.reduce((sum: number, item: any) => sum + item.sku.sale_price_aud * item.qty, 0);
+// A coupon/event discount applies to exactly one item in the cart, not the
+// whole order — mirrors the storefront's evaluateCoupons() (index.html) and
+// the India bot's identical model. Up to 2 discounts can land on one sale
+// (one promotion-sourced, one event-sourced), tracked as
+// data.appliedDiscounts: { code, wa, unit_id, discount, isCustom, event_id }.
+// `excludeUnitIds` is the running `claimed` set — when a second discount is
+// applied, the unit the first one already landed on is excluded so two
+// concurrent discounts never land on the same physical piece.
+// category_filter (case-insensitive substring of the item name) narrows
+// which units a coupon can even consider — same convention as the
+// storefront's own category filter; no filter means the whole cart.
+function auHighestPricedUnit(
+  cart: any[],
+  excludeUnitIds: string[],
+  categoryFilter: string | null,
+): { unit_id: string; sku_id: string; price: number; name: string } | null {
+  let best: { unit_id: string; sku_id: string; price: number; name: string } | null = null;
+  for (const item of cart ?? []) {
+    if (categoryFilter && !(item.sku.name ?? "").toLowerCase().includes(categoryFilter.toLowerCase())) continue;
+    for (const unitId of item.unit_ids ?? []) {
+      if (excludeUnitIds.includes(unitId)) continue;
+      const price = item.sku.sale_price_aud;
+      if (!best || price > best.price) best = { unit_id: unitId, sku_id: item.sku.id, price, name: item.sku.name };
+    }
+  }
+  return best;
+}
+
+function auTotalDiscount(data: any): number {
+  return (data.appliedDiscounts ?? []).reduce((a: number, d: any) => a + d.discount, 0);
 }
 
 function effectiveTotal(data: any): number {
   const sub = cartTotal(data.cart ?? []);
-  return Math.max(0, sub - (data.coupon_discount || 0));
+  return Math.max(0, sub - auTotalDiscount(data));
+}
+
+// Shows each applied discount inline against the specific item it applies
+// to, rather than as a separate order-wide line — matches how the discount
+// is actually applied (one item, not the whole cart), mirroring the India
+// bot's formatCartLines/the storefront's "Coupon ABC123: -A$20 (Item)" framing.
+function auFormatCartLines(data: any): string {
+  const applied: any[] = data.appliedDiscounts ?? [];
+  return (data.cart ?? []).map((item: any) => {
+    const base = `• ${item.sku.name} ×${item.qty} — ${fmtAud(item.sku.sale_price_aud * item.qty)}`;
+    const extra = applied
+      .filter((d) => (item.unit_ids ?? []).includes(d.unit_id))
+      .map((d) => `\n   ↳ ${d.isCustom ? "Custom discount" : d.code}: -${fmtAud(d.discount)} (${item.sku.name})`)
+      .join("");
+    return base + extra;
+  }).join("\n");
 }
 
 async function showKioskConfirm(supabase: any, chatId: number, data: any) {
   await saveSession(supabase, chatId, "kiosk_confirm", data);
   const total = effectiveTotal(data);
-  await tgSend(chatId, `Confirm sale: ${fmtAud(data.amount_paid ?? total)} via ${data.payment_mode}?`, {
-    inline_keyboard: [[{ text: "✅ Confirm", callback_data: "kiosk:confirm" }, { text: "❌ Cancel", callback_data: "kiosk:cancel" }]],
-  });
+  const lines = auFormatCartLines(data);
+  await tgSend(
+    chatId,
+    `Confirm sale?\n\n${lines}\n\nCustomer: ${data.customer_name} (${data.customer_wa})\nTotal: ${fmtAud(data.amount_paid ?? total)} via ${data.payment_mode}`,
+    { inline_keyboard: [[{ text: "✅ Confirm", callback_data: "kiosk:confirm" }, { text: "❌ Cancel", callback_data: "kiosk:cancel" }]] },
+  );
 }
 
 async function tgSend(chatId: number | string, text: string, keyboard?: any) {
@@ -228,6 +270,7 @@ async function showVouchersMenu(chatId: number) {
     inline_keyboard: [
       [{ text: "🎟️ Create voucher", callback_data: "vouchers:create" }],
       [{ text: "📋 Create event form", callback_data: "vouchers:eventform" }],
+      [{ text: "🎉 Create event or promotion", callback_data: "vouchers:eventpromo" }],
       [{ text: "◀ Back to menu", callback_data: "vouchers:back" }],
     ],
   });
@@ -365,6 +408,84 @@ async function handleEventformText(supabase: any, chatId: number, state: string,
   }
 }
 
+// Parallel "event or promotion" flow — same title → discount type → discount
+// value → valid days sequence as handleEventformType/handleEventformText
+// above, but asks Kind first (prefills the suggested default discount for
+// that kind in the prompt text, since Telegram can't prefill a text input)
+// and also sends a QR code photo alongside the registration link.
+async function handleEventpromoKind(supabase: any, chatId: number, data: any, callbackData: string) {
+  const epKind = callbackData.split(":")[2];
+  await saveSession(supabase, chatId, "eventpromo_title", { ...data, ep_kind: epKind });
+  await tgSend(chatId, "Title? (e.g. Sydney Pop-Up)");
+}
+
+async function handleEventpromoType(supabase: any, chatId: number, data: any, callbackData: string) {
+  const epType = callbackData.split(":")[2];
+  await saveSession(supabase, chatId, "eventpromo_value", { ...data, ep_type: epType });
+  const def = data.ep_kind === "promotion" ? "20% off" : "10% off";
+  await tgSend(
+    chatId,
+    epType === "percent"
+      ? `Discount %? (default: ${def} — type a number, or send "default" to use that)`
+      : `Discount amount in A$? (default: ${def} — type a number, or send "default" to use that)`,
+  );
+}
+
+async function handleEventpromoText(supabase: any, chatId: number, state: string, data: any, text: string) {
+  const t = text.trim();
+  if (state === "eventpromo_title") {
+    if (!t) { await tgSend(chatId, "Title can't be empty — type the title:"); return; }
+    await saveSession(supabase, chatId, "eventpromo_pick_type", { ...data, ep_title: t });
+    await tgSend(chatId, "Discount type?", { inline_keyboard: [
+      [{ text: "% Percent off", callback_data: "eventpromo:type:percent" }],
+      [{ text: "A$ Flat amount off", callback_data: "eventpromo:type:flat" }],
+    ] });
+    return;
+  }
+  if (state === "eventpromo_value") {
+    let epType = data.ep_type;
+    let epValue: number;
+    if (t.toLowerCase() === "default") {
+      epType = "percent";
+      epValue = data.ep_kind === "promotion" ? 20 : 10;
+    } else {
+      const val = parseFloat(t);
+      if (!val || val <= 0 || (data.ep_type === "percent" && val > 100)) {
+        await tgSend(chatId, 'Enter a valid discount value, or send "default":');
+        return;
+      }
+      epValue = val;
+    }
+    await saveSession(supabase, chatId, "eventpromo_days", { ...data, ep_type: epType, ep_value: epValue });
+    await tgSend(chatId, "Voucher valid for how many days after each visitor registers? (leave blank for 7)");
+    return;
+  }
+  if (state === "eventpromo_days") {
+    const days = t ? parseInt(t, 10) || 7 : 7;
+    const { data: ev, error } = await supabase.rpc("admin_create_voucher_event", {
+      p_title: data.ep_title, p_region: "australia", p_discount_type: data.ep_type,
+      p_discount_value: data.ep_value, p_valid_days: days, p_created_by: `telegram_au:${chatId}`,
+      p_kind: data.ep_kind,
+    });
+    if (error || !ev?.id) {
+      await tgSend(chatId, "Couldn't create the event/promotion — try again.");
+    } else {
+      const link = `${STOREFRONT_URL}/register.html?event=${ev.id}`;
+      const discTxt = data.ep_type === "percent" ? `${data.ep_value}% off` : `${fmtAud(data.ep_value)} off`;
+      await tgSend(chatId, `🎉 [${data.ep_title}](${link})\n\nShare this link — each visitor who fills in their name + WhatsApp gets their own unique voucher (${discTxt}, valid ${days} day(s)).\n\n${link}`);
+      await tgSendPhoto(
+        chatId,
+        `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(link)}`,
+        "Scan to register",
+      );
+      await logActivity(supabase, "au", chatId, "event_promo", data.ep_title);
+    }
+    await showVouchersMenu(chatId);
+    await saveSession(supabase, chatId, "idle", {});
+    return;
+  }
+}
+
 // ── Kiosk mode ──────────────────────────────────────────────────────────────
 
 async function kioskSearch(supabase: any, chatId: number, query: string) {
@@ -448,6 +569,155 @@ async function kioskCancelSale(supabase: any, chatId: number, data: any) {
   await showTopMenu(chatId);
 }
 
+// Telegram inline-keyboard buttons have no color/styling options — coupon
+// options get a 🎟️ prefix, same convention as the India bot.
+//
+// Only generic, admin-created coupons (source='admin') are listed as
+// buttons — individual event-registrant codes can number in the dozens and
+// would make the list unusable, so those go through "Ask for <event>'s
+// code" instead (kiosk:event:<id> → ask the customer's WhatsApp number →
+// look up that one registrant's coupon under this event, same as the India
+// bot's kiosk:event: flow).
+//
+// `offerDone` is true on the second pass (one discount already applied) —
+// adds a "Done, no more discounts" button and excludes anything already
+// applied this sale so it isn't offered twice.
+async function showDiscountPicker(supabase: any, chatId: number, data: any, offerDone = false) {
+  const today = new Date().toISOString().slice(0, 10);
+  const applied: any[] = data.appliedDiscounts ?? [];
+  const appliedCodes = applied.map((d) => d.code);
+  const appliedEventIds = applied.map((d) => d.event_id).filter(Boolean);
+
+  const { data: coupons } = await supabase
+    .from("coupons")
+    .select("id, code, discount_type, discount_value, region, valid_from, valid_until")
+    .eq("active", true)
+    .eq("used", false)
+    .eq("source", "admin")
+    .in("region", ["australia", "all"]);
+
+  const validCoupons = (coupons ?? []).filter((c: any) =>
+    (!c.valid_from || c.valid_from <= today) && (!c.valid_until || c.valid_until >= today) &&
+    !appliedCodes.includes(c.code)
+  );
+
+  const { data: events } = await supabase
+    .from("voucher_events")
+    .select("id, title, kind, created_at, valid_days")
+    .eq("active", true)
+    .in("region", ["australia", "all"]);
+
+  // An event's own "still running" window is created_at + valid_days — see
+  // the India bot's showDiscountPicker for the full rationale. Auto-expires
+  // stale events (e.g. a stall from weeks ago) from the picker without a
+  // separate end-date field or a manual deactivate step.
+  const now = new Date();
+  const availableEvents = (events ?? []).filter((e: any) => {
+    if (appliedEventIds.includes(e.id)) return false;
+    const expiresAt = new Date(e.created_at);
+    expiresAt.setDate(expiresAt.getDate() + (e.valid_days || 7));
+    return expiresAt >= now;
+  });
+
+  const buttons: { text: string; callback_data: string }[][] = [];
+  if (offerDone) {
+    buttons.push([{ text: "✅ Done, no more discounts", callback_data: "kiosk:discount:done" }]);
+  }
+  buttons.push(
+    ...validCoupons.map((c: any) => {
+      const label = c.discount_type === "percent" ? `${c.discount_value}% off` : `${fmtAud(c.discount_value)} off`;
+      return [{ text: `🎟️ ${c.code} — ${label}`, callback_data: `kiosk:coupon:${c.id}` }];
+    }),
+  );
+  buttons.push(
+    ...availableEvents.map((e: any) => [{ text: `🎉 Apply ${e.title} code`, callback_data: `kiosk:event:${e.id}` }]),
+  );
+  buttons.push([{ text: "🔑 Enter a code", callback_data: "kiosk:discount:entercode" }]);
+  buttons.push([{ text: "⏭ Skip", callback_data: "kiosk:discount:skip" }]);
+
+  await saveSession(supabase, chatId, "kiosk_coupon_pick", data);
+  await tgSend(
+    chatId,
+    offerDone ? "Add another discount for this sale?" : "Any discount for this sale?",
+    { inline_keyboard: buttons },
+  );
+}
+
+function auNextAmountPrompt(data: any): string {
+  return `Amount received? (leave blank for full amount — total is ${fmtAud(effectiveTotal(data))})`;
+}
+
+// After a discount is applied, offer another one instead of going straight
+// to the amount step — no fixed cap, since each discount claims its own
+// distinct cart unit, so the natural limit is the number of units in the
+// cart, not an arbitrary count.
+async function offerAnotherDiscountOrAmount(supabase: any, chatId: number, data: any) {
+  const totalUnits = (data.cart ?? []).reduce((a: number, item: any) => a + (item.unit_ids?.length ?? 0), 0);
+  if ((data.appliedDiscounts ?? []).length >= totalUnits) {
+    await saveSession(supabase, chatId, "kiosk_amount", data);
+    await tgSend(chatId, auNextAmountPrompt(data));
+    return;
+  }
+  await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+}
+
+function applyDiscountToUnit(
+  data: any,
+  res: any,
+  target: { unit_id: string; price: number },
+  wa: string | null,
+  eventId: string | null = null,
+  isCustom = false,
+): number {
+  const discount = res.discount_type === "percent"
+    ? target.price * (parseFloat(res.discount_value) / 100)
+    : parseFloat(res.discount_value);
+  const amount = Math.max(0, Math.min(discount, target.price));
+  data.appliedDiscounts = data.appliedDiscounts ?? [];
+  data.appliedDiscounts.push({ code: res.code, wa, unit_id: target.unit_id, discount: amount, isCustom, event_id: eventId });
+  return amount;
+}
+
+async function pickDiscountItemAu(
+  supabase: any,
+  chatId: number,
+  data: any,
+  res: any,
+  wa: string | null,
+  eventId: string | null = null,
+) {
+  const excluded = (data.appliedDiscounts ?? []).map((d: any) => d.unit_id);
+  const target = auHighestPricedUnit(data.cart ?? [], excluded, res.category_filter || null);
+  if (!target) {
+    await tgSend(chatId, `No remaining item in the cart for ${res.code} to apply to — skipping.`);
+    await offerAnotherDiscountOrAmount(supabase, chatId, data);
+    return;
+  }
+  const amount = applyDiscountToUnit(data, res, target, wa, eventId);
+  await tgSend(chatId, `🎟️ Applied ${res.code} to ${target.name} — -${fmtAud(amount)}`);
+  await offerAnotherDiscountOrAmount(supabase, chatId, data);
+}
+
+// Shared by a manually-typed code (kiosk_coupon_code) and a code pre-seeded
+// from a coupon_<code> deep link (kiosk_customer_wa) — one validation path
+// for both instead of a parallel/duplicate one. Uses the same validate_coupon
+// RPC AU already relies on for code entry (region/active/used/date checks
+// live there, not duplicated locally).
+async function applyCouponCodeAu(supabase: any, chatId: number, data: any, rawCode: string) {
+  const code = rawCode.trim().toUpperCase();
+  const { data: res } = await supabase.rpc("validate_coupon", {
+    p_code: code,
+    p_wa: data.customer_wa ?? "",
+    p_region: "australia",
+  });
+  if (!res?.valid) {
+    await tgSend(chatId, `${res?.message || "Invalid coupon"} — type another code, or 'skip'.`);
+    await saveSession(supabase, chatId, "kiosk_coupon_code", data);
+    return;
+  }
+  await pickDiscountItemAu(supabase, chatId, data, res, data.customer_wa ?? null);
+}
+
 async function kioskFinalize(supabase: any, chatId: number, data: any) {
   const cart = data.cart ?? [];
   // Re-verify every unit is still reserved by us (not expired/claimed elsewhere)
@@ -473,9 +743,12 @@ async function kioskFinalize(supabase: any, chatId: number, data: any) {
   const invNum = (parseInt(invRow?.value ?? "1000", 10) || 1000) + 1;
   await supabase.from("settings").update({ value: String(invNum) }).eq("key", "inv_counter");
 
-  const items = cart.map((item: any) => ({
-    name: item.sku.name, qty: item.qty, amount: item.sku.sale_price_aud * item.qty,
-  }));
+  const items = cart.map((item: any) => {
+    const itemDiscount = (data.appliedDiscounts ?? [])
+      .filter((d: any) => (item.unit_ids ?? []).includes(d.unit_id))
+      .reduce((a: number, d: any) => a + d.discount, 0);
+    return { name: item.sku.name, qty: item.qty, amount: item.sku.sale_price_aud * item.qty, discount: itemDiscount };
+  });
 
   const { data: sale } = await supabase.from("sales").insert({
     inv: `MSH-AU-${invNum}`, date: new Date().toISOString().slice(0, 10),
@@ -491,7 +764,14 @@ async function kioskFinalize(supabase: any, chatId: number, data: any) {
     for (const unitId of item.unit_ids) await supabase.rpc("claim_unit", { p_unit_id: unitId, p_sale_id: sale.id });
   }
 
-  if (data.coupon_code) await supabase.rpc("consume_coupon", { p_code: data.coupon_code, p_wa: data.customer_wa });
+  // Once per real applied coupon (skips any custom-amount discount, which
+  // has no backing coupons row) — the one-time-use check happens here, via
+  // consume_coupon's own server-side `used=false` guard; nothing earlier in
+  // the flow needs to re-check or block on it.
+  for (const d of (data.appliedDiscounts ?? [])) {
+    if (d.isCustom) continue;
+    await supabase.rpc("consume_coupon", { p_code: d.code, p_wa: d.wa });
+  }
 
   // Best-effort PDF generation — awaited so the WhatsApp draft below can
   // include the link, but never lets a PDF failure block the sale itself.
@@ -560,6 +840,7 @@ async function handleTextInput(supabase: any, chatId: number, state: string, dat
   if (!text) return;
   if (state.startsWith("voucher_")) return handleVoucherText(supabase, chatId, state, data, text);
   if (state.startsWith("eventform_")) return handleEventformText(supabase, chatId, state, data, text);
+  if (state.startsWith("eventpromo_")) return handleEventpromoText(supabase, chatId, state, data, text);
   switch (state) {
     case "kiosk_search":
       await kioskSearch(supabase, chatId, text);
@@ -570,44 +851,63 @@ async function handleTextInput(supabase: any, chatId: number, state: string, dat
       break;
     case "kiosk_customer_wa": {
       const newData = { ...data, customer_wa: text };
-      await saveSession(supabase, chatId, "kiosk_coupon_code", newData);
       if (newData.coupon_code_pending) {
         // Code already seeded from a coupon_<code> deep link — validate it
-        // immediately via the same kiosk_coupon_code logic below instead of
-        // prompting the owner to type it again.
-        await handleTextInput(supabase, chatId, "kiosk_coupon_code", newData, newData.coupon_code_pending);
+        // immediately via the same code-entry path below instead of showing
+        // the discount picker and waiting for input.
+        const pendingCode = newData.coupon_code_pending;
+        newData.coupon_code_pending = undefined;
+        await applyCouponCodeAu(supabase, chatId, newData, pendingCode);
         break;
       }
-      await tgSend(chatId, "Coupon code? Type a code, or 'skip' if none.");
+      await showDiscountPicker(supabase, chatId, newData);
       break;
     }
     case "kiosk_coupon_code": {
       const code = text.trim();
       if (code.toLowerCase() === "skip") {
         await saveSession(supabase, chatId, "kiosk_amount", data);
-        await tgSend(chatId, `Amount received? (leave blank for full amount — total is ${fmtAud(effectiveTotal(data))})`);
+        await tgSend(chatId, auNextAmountPrompt(data));
+        break;
+      }
+      await applyCouponCodeAu(supabase, chatId, data, code);
+      break;
+    }
+    // Event-kind voucher_event: there's no single shareable code (every
+    // registrant gets their own customer_wa-locked coupon via
+    // register_event_visitor), so staff types the customer's WhatsApp
+    // number and we look up that specific coupon under this event instead —
+    // same model as the India bot's kiosk_discount_event_wa.
+    case "kiosk_coupon_event_wa": {
+      const digitsOnly = text.replace(/\D/g, "");
+      const tenDigit = digitsOnly.slice(-10);
+      if (tenDigit.length !== 10) {
+        await tgSend(chatId, "That doesn't look like a valid WhatsApp number — try again.");
+        break;
+      }
+      const eventId = data.pending_event_id;
+      const eventTitle = data.pending_event_title;
+      const newData = { ...data, pending_event_id: undefined, pending_event_title: undefined };
+      const { data: candidates } = await supabase.from("coupons").select("*").eq("event_id", eventId);
+      const match = (candidates ?? []).find(
+        (c: any) => c.customer_wa && c.customer_wa.replace(/\D/g, "").slice(-10) === tenDigit,
+      );
+      if (!match) {
+        await tgSend(chatId, `No "${eventTitle}" code found for that number.`);
+        await showDiscountPicker(supabase, chatId, newData, (newData.appliedDiscounts ?? []).length > 0);
         break;
       }
       const { data: res } = await supabase.rpc("validate_coupon", {
-        p_code: code.toUpperCase(),
-        p_wa: data.customer_wa,
+        p_code: match.code,
+        p_wa: match.customer_wa,
         p_region: "australia",
       });
       if (!res?.valid) {
-        await tgSend(chatId, `${res?.message || "Invalid coupon"} — type another code, or 'skip'.`);
+        await tgSend(chatId, `${res?.message || "That code isn't valid anymore"} — pick another option.`);
+        await showDiscountPicker(supabase, chatId, newData, (newData.appliedDiscounts ?? []).length > 0);
         break;
       }
-      const base = couponDiscountBase(data.cart ?? [], res.category_filter || null);
-      if (res.category_filter && base === 0) {
-        await tgSend(chatId, `${res.code} requires a matching item (${res.category_filter}) in the cart — type another code, or 'skip'.`);
-        break;
-      }
-      const discount = res.discount_type === "percent"
-        ? base * (parseFloat(res.discount_value) / 100)
-        : parseFloat(res.discount_value);
-      const newData = { ...data, coupon_code: res.code, coupon_discount: Math.min(discount, base) };
-      await saveSession(supabase, chatId, "kiosk_amount", newData);
-      await tgSend(chatId, `✅ ${res.code} applied — new total ${fmtAud(effectiveTotal(newData))}\n\nAmount received? (leave blank for full amount)`);
+      await pickDiscountItemAu(supabase, chatId, newData, res, match.customer_wa, eventId);
       break;
     }
     case "kiosk_amount": {
@@ -838,6 +1138,41 @@ Deno.serve(async (req: Request) => {
     await tgSend(chatId, "Customer name?");
   } else if (callbackData === "kiosk:cancel") {
     await kioskCancelSale(supabase, chatId, data);
+  } else if (callbackData?.startsWith("kiosk:coupon:")) {
+    const couponId = callbackData.split(":")[2];
+    const { data: couponRow } = await supabase.from("coupons").select("code, customer_wa").eq("id", couponId).single();
+    if (!couponRow) {
+      await tgSend(chatId, "That coupon isn't available anymore — pick another option.");
+      await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    } else {
+      const { data: res } = await supabase.rpc("validate_coupon", {
+        p_code: couponRow.code,
+        p_wa: couponRow.customer_wa ?? data.customer_wa ?? "",
+        p_region: "australia",
+      });
+      if (!res?.valid) {
+        await tgSend(chatId, `${res?.message || "That coupon isn't available anymore"} — pick another option.`);
+        await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+      } else {
+        await pickDiscountItemAu(supabase, chatId, data, res, couponRow.customer_wa ?? null);
+      }
+    }
+  } else if (callbackData?.startsWith("kiosk:event:")) {
+    const eventId = callbackData.split(":")[2];
+    const { data: ev } = await supabase.from("voucher_events").select("id, title").eq("id", eventId).single();
+    if (!ev) {
+      await tgSend(chatId, "That event is no longer available — pick another option.");
+      await showDiscountPicker(supabase, chatId, data, (data.appliedDiscounts ?? []).length > 0);
+    } else {
+      await saveSession(supabase, chatId, "kiosk_coupon_event_wa", { ...data, pending_event_id: ev.id, pending_event_title: ev.title });
+      await tgSend(chatId, `Customer's WhatsApp number for their "${ev.title}" code?`);
+    }
+  } else if (callbackData === "kiosk:discount:entercode") {
+    await saveSession(supabase, chatId, "kiosk_coupon_code", data);
+    await tgSend(chatId, "Coupon code? Type a code, or 'skip' if none.");
+  } else if (callbackData === "kiosk:discount:skip" || callbackData === "kiosk:discount:done") {
+    await saveSession(supabase, chatId, "kiosk_amount", data);
+    await tgSend(chatId, auNextAmountPrompt(data));
   } else if (callbackData === "kiosk:mode:other") {
     await saveSession(supabase, chatId, "kiosk_payment_mode_other", data);
     await tgSend(chatId, "How was it paid? (e.g. Bank Transfer, PayID)");
@@ -888,10 +1223,20 @@ Deno.serve(async (req: Request) => {
   } else if (callbackData === "vouchers:eventform") {
     await saveSession(supabase, chatId, "eventform_title", {});
     await tgSend(chatId, "Event title? (e.g. Sydney Pop-Up)");
+  } else if (callbackData === "vouchers:eventpromo") {
+    await saveSession(supabase, chatId, "eventpromo_kind", {});
+    await tgSend(chatId, "What are you creating?", { inline_keyboard: [
+      [{ text: "📅 Event (stall/occasion)", callback_data: "eventpromo:kind:event" }],
+      [{ text: "🏷️ Promotion (standalone offer)", callback_data: "eventpromo:kind:promotion" }],
+    ] });
   } else if (callbackData?.startsWith("voucher:type:")) {
     await handleVoucherType(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("eventform:type:")) {
     await handleEventformType(supabase, chatId, data, callbackData);
+  } else if (callbackData?.startsWith("eventpromo:kind:")) {
+    await handleEventpromoKind(supabase, chatId, data, callbackData);
+  } else if (callbackData?.startsWith("eventpromo:type:")) {
+    await handleEventpromoType(supabase, chatId, data, callbackData);
   } else if (callbackData?.startsWith("req:")) {
     const actorFrom = update.callback_query?.from;
     const actor = [actorFrom?.first_name, actorFrom?.last_name].filter(Boolean).join(" ") || actorFrom?.username || `Chat ${chatId}`;

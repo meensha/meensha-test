@@ -89,6 +89,7 @@
     <div class="sub">Register now and get an exclusive discount code</div>
     <input id="reg-name" placeholder="Your name" autocomplete="name">
     <input id="reg-wa" placeholder="WhatsApp number (with country code)" autocomplete="tel" inputmode="tel">
+    <input id="reg-email" placeholder="Email address" autocomplete="email" inputmode="email" type="email" style="display:none">
     <button id="reg-submit" onclick="submitRegistration()">Get My Code</button>
     <div class="error" id="reg-error"></div>
   </div>
@@ -126,17 +127,27 @@ async function initEventMode() {
   currentEvent = ev;
   const discTxt = ev.discount_type === 'percent' ? ev.discount_value + '% off' : (ev.region === 'australia' ? 'A$' : '₹') + ev.discount_value + ' off';
   document.querySelector('.sub').textContent = `${ev.title} — register now and get ${discTxt}`;
+  document.getElementById('reg-email').style.display = '';
 }
 initEventMode();
 
 async function submitRegistration() {
   const name = document.getElementById('reg-name').value.trim();
   const wa = document.getElementById('reg-wa').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
   const errEl = document.getElementById('reg-error');
   errEl.style.display = 'none';
 
   if (!name || !wa) {
     errEl.textContent = 'Please enter both your name and WhatsApp number.';
+    errEl.style.display = 'block';
+    return;
+  }
+  // Email is only required on the event-scoped path — register_event_visitor
+  // now always creates a customers row (NOT NULL email); the legacy generic
+  // stall code (register_visitor) is unchanged and doesn't take an email.
+  if (eventId && (!email || !email.includes('@'))) {
+    errEl.textContent = 'Please enter a valid email address.';
     errEl.style.display = 'block';
     return;
   }
@@ -147,7 +158,7 @@ async function submitRegistration() {
 
   try {
     const rpc = eventId ? 'register_event_visitor' : 'register_visitor';
-    const body = eventId ? { p_event_id: eventId, p_name: name, p_wa: wa } : { p_name: name, p_wa: wa };
+    const body = eventId ? { p_event_id: eventId, p_name: name, p_wa: wa, p_email: email } : { p_name: name, p_wa: wa };
     const res = await fetch(`${_SB}/rest/v1/rpc/${rpc}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },

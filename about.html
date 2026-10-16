@@ -563,6 +563,21 @@
     .nav-links li { width: 100%; }
     .nav-links a { display: block; padding: 12px 4px; border-bottom: 1px solid var(--divider); }
   }
+
+  /* "LIVE NOW" nav pill — shown only while a Pop-Up Event (from the shared
+     `popups` table, same data index.html's own events section reads) is
+     currently live; injected/removed entirely by JS, not just hidden.
+     about.html has no Pop-Up Events section of its own, so this links
+     back to index.html#events where the full listing lives. */
+  .live-now-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--bg); color: var(--gold-light);
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+    padding: 6px 13px; border: 1px solid var(--gold); border-radius: 20px; text-decoration: none;
+    animation: liveNowPulse 1.8s infinite, liveNowBreathe 1.8s infinite;
+  }
+  @keyframes liveNowPulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  @keyframes liveNowBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
 </style>
 <script type="application/ld+json">{"@context": "https://schema.org", "@type": "Organization", "name": "Meensha", "url": "https://meensha.in/", "logo": "https://meensha.in/meensha_logo_eng.png", "sameAs": ["https://instagram.com/meensha_fabrics"], "email": "meensha.fabrics@gmail.com", "founder": [{"@type": "Person", "name": "Shalini Bharti", "jobTitle": "Co-Founder & Curator", "image": "https://meensha.in/founder_shalini.webp"}, {"@type": "Person", "name": "Meenakshi Ranjan", "jobTitle": "Co-Founder & Curator", "image": "https://meensha.in/founder_meenakshi.webp"}]}</script>
 </head>
@@ -834,6 +849,32 @@
     track.innerHTML = items + items;
   }
   renderTicker();
+
+  // "LIVE NOW" nav pill — about.html has no Pop-Up Events section of its own
+  // (it only links out to index.html#events), but the user still wants the
+  // live indicator visible here when a popup's date range covers today, so
+  // we read the same `popups` table and inject a nav pill that links there.
+  async function renderLiveNowPill() {
+    let popups = [];
+    try { popups = await spFetch('popups', '?order=display_order,created_at.desc'); } catch (e) { return; }
+    // Local-date "today" (not UTC toISOString) so it matches how
+    // <input type="date"> values in date_from/date_to are actually interpreted.
+    const now = new Date();
+    const today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    const anyLive = popups.some(e => e.date_from && e.date_to && e.date_from <= today && today <= e.date_to);
+    const existing = document.getElementById('live-now-pill-li');
+    if (anyLive) {
+      if (existing) return;
+      const li = document.createElement('li');
+      li.id = 'live-now-pill-li';
+      li.innerHTML = '<a href="index.html#events" class="live-now-pill" onclick="closeMobileNav()">● Live Now</a>';
+      const navLinks = document.getElementById('about-nav-links');
+      if (navLinks) navLinks.appendChild(li);
+    } else if (existing) {
+      existing.remove();
+    }
+  }
+  renderLiveNowPill();
 </script>
 
 </body>

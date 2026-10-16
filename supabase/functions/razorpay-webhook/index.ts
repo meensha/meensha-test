@@ -115,10 +115,13 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  if (order.coupon?.code && order.coupon?.wa) {
+  // order.coupon is now an array (0-2 entries) — see create-payment-link's
+  // validatedCoupons — rather than a single coupon object.
+  for (const c of (Array.isArray(order.coupon) ? order.coupon : [])) {
+    if (!c?.code) continue;
     await supabase.rpc("consume_coupon", {
-      p_code: order.coupon.code,
-      p_wa: order.coupon.wa,
+      p_code: c.code,
+      p_wa: c.wa,
     });
   }
 

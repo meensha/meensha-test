@@ -24,7 +24,12 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { items, customer, unit_ids, currency, coupon, source, telegram_chat_id } = await req.json();
+    const { items, customer, unit_ids, currency, coupons, source, telegram_chat_id } = await req.json();
+    // `coupons` is an array (0-2) of {code, wa} — up to one promotion + one
+    // event code can run concurrently, each discounting its own highest-
+    // priced matching item. Older single-`coupon` callers are no longer
+    // sent from index.html (see createRazorpayLink()), so this only
+    // accepts the array shape now.
 
     if (!Array.isArray(unit_ids) || !unit_ids.length) {
       return json({ error: "Cart is empty" }, 400);
@@ -79,26 +84,34 @@ Deno.serve(async (req: Request) => {
     });
     const subtotal = serverItems.reduce((a, it) => a + it.price, 0);
 
-    // Re-validate the coupon server-side (same RPC the storefront itself
-    // calls) rather than trusting a client-reported discount_type/value —
-    // mirrors couponDiscountBase() in index.html exactly.
+    // Re-validate each coupon server-side (same RPC the storefront itself
+    // calls) rather than trusting client-reported discount_type/value —
+    // mirrors evaluateCoupons() in index.html exactly, including the
+    // per-coupon highest-priced-item selection and the `claimed` exclusion
+    // so two concurrent coupons never land on the same unit.
     let discount = 0;
-    if (coupon?.code) {
+    const claimedUnitIds = new Set<string>();
+    const validatedCoupons: { code: string; wa: string | null }[] = [];
+    for (const c of (Array.isArray(coupons) ? coupons : [])) {
+      if (!c?.code) continue;
       const { data: cRes } = await supabase.rpc("validate_coupon", {
-        p_code: coupon.code,
-        p_wa: coupon.wa || null,
+        p_code: c.code,
+        p_wa: c.wa || null,
         p_region: "india",
       });
-      if (cRes?.valid) {
-        const filter = cRes.category_filter as string | null;
-        const discountBase = filter
-          ? serverItems.filter((it) => it.name.toLowerCase().includes(filter.toLowerCase())).reduce((a, it) => a + it.price, 0)
-          : subtotal;
-        discount = cRes.discount_type === "percent"
-          ? discountBase * (Number(cRes.discount_value) / 100)
-          : Number(cRes.discount_value);
-        discount = Math.min(discount, discountBase);
-      }
+      if (!cRes?.valid) continue;
+      const filter = cRes.category_filter as string | null;
+      const pool = serverItems.filter((it) =>
+        !claimedUnitIds.has(it.unit_id) && (!filter || it.name.toLowerCase().includes(filter.toLowerCase())));
+      const item = pool.reduce((best: typeof pool[0] | null, it) => (!best || it.price > best.price) ? it : best, null);
+      if (!item) continue;
+      claimedUnitIds.add(item.unit_id);
+      let d = cRes.discount_type === "percent"
+        ? item.price * (Number(cRes.discount_value) / 100)
+        : Number(cRes.discount_value);
+      d = Math.min(d, item.price);
+      discount += d;
+      validatedCoupons.push({ code: c.code, wa: c.wa || null });
     }
 
     const total = Math.round((subtotal - discount) * 100) / 100;
@@ -151,7 +164,7 @@ Deno.serve(async (req: Request) => {
       razorpay_payment_link_id: rzpData.id,
       razorpay_short_url: rzpData.short_url,
       status: "created",
-      coupon: coupon || null,
+      coupon: validatedCoupons.length ? validatedCoupons : null,
       source: source || "storefront",
       telegram_chat_id: telegram_chat_id || null,
     });

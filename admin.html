@@ -820,6 +820,16 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <tbody id="CP-BODY"></tbody>
     </table></div>
   </div>
+  <div class="card">
+    <div class="ct">📋 Events &amp; Promotions</div>
+    <div class="tw"><table>
+      <thead><tr>
+        <th>Title</th><th>Kind</th><th>Region</th><th>Discount</th><th>Valid Days</th>
+        <th>Registrants</th><th>Active</th><th>Actions</th>
+      </tr></thead>
+      <tbody id="VE-BODY"></tbody>
+    </table></div>
+  </div>
 </div>
 
 <!-- Vendor Modal -->
@@ -1150,12 +1160,27 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi"><label>To * <span style="font-weight:400;color:var(--gy);">(same as From for a one-day event)</span></label><input type="date" id="EV-TO"></div>
     <div class="fi"><label>Timings</label><input id="EV-TM" placeholder="10 AM – 7 PM"></div>
     <div class="fi" style="grid-column:1/-1"><label>Location *</label><input id="EV-LOC" placeholder="AFWWA Complex, Jalahalli, Bengaluru"></div>
+    <div class="fi" style="grid-column:1/-1"><label>Map Link <span style="font-weight:400;color:var(--gy);">(optional, e.g. Google Maps share link)</span></label><input id="EV-LOCURL" placeholder="https://maps.app.goo.gl/..."></div>
     <div class="fi"><label>Status</label><select id="EV-ST"><option value="upcoming">Upcoming</option><option value="past">Past</option></select></div>
   </div>
   <div class="fi"><label>Write-up</label><textarea id="EV-WU" placeholder="Brief description..."></textarea></div>
   <div class="pz" onclick="document.getElementById('EV-PHF').click()" style="margin-top:10px;"><input type="file" id="EV-PHF" accept="image/*" multiple style="display:none" onchange="handleEvPh(event)"><div style="font-size:20px;">📷</div><div style="color:var(--gdk);font-size:12px;margin-top:4px;">Event photos (optional)</div></div>
   <div class="pts" id="EV-PHS"></div>
   <div class="mf"><button class="btn bg" onclick="saveEv()">Save Event</button><button class="btn bgy" onclick="closeMo('MO-EV')">Cancel</button></div>
+</div></div>
+
+<!-- Event/Promotion (coupon) Form Modal -->
+<div class="mo hi" id="MO-EVTP"><div class="md">
+  <div class="mt2">🎉 Create Event / Promotion</div>
+  <div class="fg">
+    <div class="fi" style="grid-column:1/-1"><label>Title *</label><input id="EVP-TITLE" placeholder="e.g. AFWWA Exhibition"></div>
+    <div class="fi"><label>Kind *</label><select id="EVP-KIND" onchange="onEvpKindChange()"><option value="event">Event</option><option value="promotion">Promotion</option></select></div>
+    <div class="fi"><label>Region *</label><select id="EVP-REGION"><option value="india">🇮🇳 India</option><option value="australia">🇦🇺 Australia</option><option value="all">🌏 Both</option></select></div>
+    <div class="fi"><label>Discount Type *</label><select id="EVP-DTYPE"><option value="percent">% Off</option><option value="flat">₹/A$ Off (flat)</option></select></div>
+    <div class="fi"><label>Discount Value *</label><input type="number" id="EVP-DVAL" placeholder="10"></div>
+    <div class="fi"><label>Valid Days *</label><input type="number" id="EVP-DAYS" value="7" min="1"></div>
+  </div>
+  <div class="mf"><button class="btn bg" onclick="saveEventPromo()">Create</button><button class="btn bgy" onclick="closeMo('MO-EVTP')">Cancel</button></div>
 </div></div>
 
 <!-- Instagram Modal -->
@@ -1791,19 +1816,29 @@ function openVoucherGen(coupon){
 // Creates a voucher_events row (setup/add_voucher_events.sql) and gives back
 // a shareable register.html?event=<id> link — each visitor who fills in
 // their name+WhatsApp there gets their own unique one-time voucher.
-async function createEventForm(){
-  const title=prompt('Event title? (e.g. AFWWA Exhibition)');
-  if(!title||!title.trim())return;
-  const region=prompt('Region — type "india", "australia", or "all":','india');
-  if(!region||!['india','australia','all'].includes(region.trim().toLowerCase())){toast('Region must be india, australia, or all','var(--red)');return;}
-  const type=prompt('Discount type — type "percent" or "flat":','percent');
-  if(!type||!['percent','flat'].includes(type.trim().toLowerCase())){toast('Type must be percent or flat','var(--red)');return;}
-  const val=parseFloat(prompt('Discount value? (e.g. 10 for 10%, or 200 for a flat amount)'));
+function createEventForm(){
+  document.getElementById('EVP-TITLE').value='';
+  document.getElementById('EVP-KIND').value='event';
+  document.getElementById('EVP-REGION').value='india';
+  document.getElementById('EVP-DTYPE').value='percent';
+  document.getElementById('EVP-DVAL').value='10';
+  document.getElementById('EVP-DAYS').value='7';
+  document.getElementById('MO-EVTP').classList.remove('hi');
+}
+function onEvpKindChange(){
+  document.getElementById('EVP-DVAL').value=document.getElementById('EVP-KIND').value==='promotion'?20:10;
+}
+async function saveEventPromo(){
+  const title=document.getElementById('EVP-TITLE').value.trim();
+  if(!title){toast('Title required','var(--red)');return;}
+  const kind=document.getElementById('EVP-KIND').value;
+  const region=document.getElementById('EVP-REGION').value;
+  const type=document.getElementById('EVP-DTYPE').value;
+  const val=parseFloat(document.getElementById('EVP-DVAL').value);
   if(!val||val<=0){toast('Enter a valid discount value','var(--red)');return;}
-  const daysStr=prompt('Voucher valid for how many days after each visitor registers?','7');
-  const days=parseInt(daysStr,10)||7;
+  const days=parseInt(document.getElementById('EVP-DAYS').value,10)||7;
   try{
-    const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_voucher_event`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_title:title.trim(),p_region:region.trim().toLowerCase(),p_discount_type:type.trim().toLowerCase(),p_discount_value:val,p_valid_days:days,p_created_by:CU.username||'admin'})});
+    const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_voucher_event`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_title:title,p_region:region,p_discount_type:type,p_discount_value:val,p_valid_days:days,p_created_by:CU.username||'admin',p_kind:kind})});
     const ev=await rr.json();
     if(!rr.ok||!ev?.id)throw new Error('Could not create event');
     const link=`https://meensha.in/register.html?event=${ev.id}`;
@@ -1811,7 +1846,75 @@ async function createEventForm(){
       ()=>toast('✅ Link copied: '+link,'#27ae60'),
       ()=>toast('Link: '+link,'#27ae60')
     );
+    closeMo('MO-EVTP');
+    renderVoucherEvents();
   }catch(e){toast('Error: '+e.message,'var(--red)');}
+}
+// Persistent Events & Promotions register — see admin_list_voucher_events
+// (setup/../20261015120000_events_promotions_v2.sql).
+let voucherEvents=[];
+async function renderVoucherEvents(){
+  const body=document.getElementById('VE-BODY');if(!body)return;
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_list_voucher_events`,{method:'POST',headers:AHDR(),body:'{}'});
+  voucherEvents=r.ok?(await r.json()):[];
+  const regionLbl={india:'🇮🇳 India',australia:'🇦🇺 Australia',all:'🌏 Both'};
+  const kindLbl={event:'<span style="background:#e8f0fe;color:#1a56db;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;">EVENT</span>',promotion:'<span style="background:#fdf2e8;color:#b45309;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;">PROMO</span>'};
+  body.innerHTML=voucherEvents.map(ev=>{
+    const disc=ev.discount_type==='percent'?`${ev.discount_value}%`:`${ev.region==='australia'?'A$':'₹'}${ev.discount_value}`;
+    return `<tr>
+      <td>${sanitise(ev.title)}</td>
+      <td>${kindLbl[ev.kind]||sanitise(ev.kind)}</td>
+      <td>${regionLbl[ev.region]||sanitise(ev.region)}</td>
+      <td>${disc}</td>
+      <td>${ev.valid_days}</td>
+      <td>${ev.registrant_count}</td>
+      <td><input type="checkbox" ${ev.active?'checked':''} onchange="toggleVoucherEventActive('${ev.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
+      <td>
+        <button class="btn bo xs" onclick="openEventQR('${ev.id}')" title="QR code for the registration link">🖼️ QR</button>
+        <button class="btn bo xs" onclick="exportEventRegistrants('${ev.id}')" title="Export registrants as CSV">📋 Export CSV</button>
+        <button class="btn bgy xs" onclick="generateEventPoster('${ev.id}')" title="Generate a stall poster">🖼️ Poster</button>
+        <button class="btn br xs" onclick="deleteVoucherEvent('${ev.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--gy);">No events or promotions yet</td></tr>';
+}
+async function toggleVoucherEventActive(id,active){
+  await fetch(`${SB}/rest/v1/rpc/admin_set_voucher_event_active`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id,p_active:active})});
+  toast(active?'Activated':'Paused','#27ae60');
+}
+async function deleteVoucherEvent(id){
+  if(!confirm('Delete this event/promotion? Coupons already issued to registrants stay valid.'))return;
+  await sbDel('voucher_events',`?id=eq.${id}`);
+  toast('Deleted','var(--red)');
+  renderVoucherEvents();
+}
+// Hands the registration link off to admin-voucher.html via sessionStorage
+// (same pattern as openVoucherGen) so it can draw a simple QR there using
+// its already-vendored QR library, instead of duplicating that ~2000-line
+// library inline here.
+function openEventQR(id){
+  const ev=voucherEvents.find(x=>x.id===id);
+  if(!ev)return;
+  const link=`https://meensha.in/register.html?event=${ev.id}`;
+  sessionStorage.setItem('MSN_EVENT_QR_PENDING',JSON.stringify({title:ev.title,url:link}));
+  window.open('admin-voucher.html','_blank');
+}
+async function exportEventRegistrants(id){
+  const ev=voucherEvents.find(x=>x.id===id);
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_export_event_registrants`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_event_id:id})});
+  const rows=r.ok?(await r.json()):[];
+  if(!rows.length){toast('No registrants yet','var(--red)');return;}
+  const head=['name','wa','email','code','used','used_at','created_at'];
+  const csvCell=v=>{if(v==null)return'';const s=String(v);return/[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const lines=[head.join(',')].concat(rows.map(row=>[row.customer_name,row.customer_wa,row.customer_email,row.code,row.used,row.used_at,row.created_at].map(csvCell).join(',')));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`Meensha_${(ev?.title||'Event').replace(/[^a-z0-9]+/gi,'_')}_Registrants.csv`;a.click();
+}
+// Stall poster generator (plan section 4) needs 2-3 saved background PNGs
+// (ornate gold-frame templates) that haven't been added to this repo yet —
+// see plan at ~/.claude/plans/stateless-nibbling-scone.md section 4.
+function generateEventPoster(id){
+  toast('Add poster background images first — ask the user to save them, see plan section 4','var(--red)');
 }
 async function renderCoupons(){
   const body=document.getElementById('CP-BODY');if(!body)return;
@@ -1945,7 +2048,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();renderPendingCosts();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:renderCoupons,rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections,req:renderRequestsTab,drafts:renderDrafts};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();renderPendingCosts();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:()=>{renderCoupons();renderVoucherEvents();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections,req:renderRequestsTab,drafts:renderDrafts};
   renders[id]?.();
 }
 
@@ -4227,22 +4330,22 @@ async function delUsr(id){if(!confirm('Delete user?'))return;await sbDel('users'
 // ═══════════════════════════════════════════════
 // EVENTS
 // ═══════════════════════════════════════════════
-function openEvModal(){editEvId=null;document.getElementById('EV-TITLE').textContent='📅 Add Event';['EV-NM','EV-DT','EV-FROM','EV-TO','EV-TM','EV-LOC','EV-WU'].forEach(id=>document.getElementById(id).value='');document.getElementById('EV-ST').value='upcoming';document.getElementById('EV-PHS').innerHTML='';evTmpPh=[];document.getElementById('MO-EV').classList.remove('hi');}
-async function editEv(id){const ev=popups.find(x=>x.id===id);if(!ev)return;editEvId=id;document.getElementById('EV-TITLE').textContent='✏️ Edit Event';document.getElementById('EV-NM').value=ev.title||'';document.getElementById('EV-DT').value=ev.dates||'';document.getElementById('EV-FROM').value=ev.date_from||'';document.getElementById('EV-TO').value=ev.date_to||'';document.getElementById('EV-TM').value=ev.timings||'';document.getElementById('EV-LOC').value=ev.location||'';document.getElementById('EV-WU').value=ev.writeup||'';document.getElementById('EV-ST').value=ev.status||'upcoming';evTmpPh=[...(ev.photos||[])];document.getElementById('EV-PHS').innerHTML=evTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="evTmpPh.splice(${i},1);this.closest('.pt').remove()">✕</button></div>`).join('');document.getElementById('MO-EV').classList.remove('hi');}
+function openEvModal(){editEvId=null;document.getElementById('EV-TITLE').textContent='📅 Add Event';['EV-NM','EV-DT','EV-FROM','EV-TO','EV-TM','EV-LOC','EV-LOCURL','EV-WU'].forEach(id=>document.getElementById(id).value='');document.getElementById('EV-ST').value='upcoming';document.getElementById('EV-PHS').innerHTML='';evTmpPh=[];document.getElementById('MO-EV').classList.remove('hi');}
+async function editEv(id){const ev=popups.find(x=>x.id===id);if(!ev)return;editEvId=id;document.getElementById('EV-TITLE').textContent='✏️ Edit Event';document.getElementById('EV-NM').value=ev.title||'';document.getElementById('EV-DT').value=ev.dates||'';document.getElementById('EV-FROM').value=ev.date_from||'';document.getElementById('EV-TO').value=ev.date_to||'';document.getElementById('EV-TM').value=ev.timings||'';document.getElementById('EV-LOC').value=ev.location||'';document.getElementById('EV-LOCURL').value=ev.location_url||'';document.getElementById('EV-WU').value=ev.writeup||'';document.getElementById('EV-ST').value=ev.status||'upcoming';evTmpPh=[...(ev.photos||[])];document.getElementById('EV-PHS').innerHTML=evTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="evTmpPh.splice(${i},1);this.closest('.pt').remove()">✕</button></div>`).join('');document.getElementById('MO-EV').classList.remove('hi');}
 function handleEvPh(e){Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{evTmpPh.push(ev.target.result);document.getElementById('EV-PHS').innerHTML=evTmpPh.map((s,i)=>`<div class="pt"><img src="${s}"><button class="dph" onclick="evTmpPh.splice(${i},1);this.closest('.pt').remove()">✕</button></div>`).join('');};r.readAsDataURL(f);});}
 async function saveEv(){
   const nm=document.getElementById('EV-NM').value.trim(),loc=document.getElementById('EV-LOC').value.trim();
   const dateFrom=document.getElementById('EV-FROM').value,dateTo=document.getElementById('EV-TO').value;
   if(!nm||!loc){toast('Title and location required','var(--red)');return;}
   if(!dateFrom||!dateTo){toast('From and To dates are required (same date for a one-day event)','var(--red)');return;}
-  const today=new Date().toISOString().slice(0,10);
+  const now=new Date();const today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   // Only block past start dates on brand-new events — editing an event
   // that's already underway or finished (adding photos, fixing a typo,
   // marking it "past") must stay possible.
   if(!editEvId && dateFrom<today){toast('From date can\'t be in the past','var(--red)');return;}
   if(dateTo<dateFrom){toast('To date can\'t be before the From date','var(--red)');return;}
   const photos=await uploadTmpPhs('item-photos',evTmpPh);
-  const data={title:nm,location:loc,dates:document.getElementById('EV-DT').value,date_from:dateFrom,date_to:dateTo,timings:document.getElementById('EV-TM').value,writeup:document.getElementById('EV-WU').value,status:document.getElementById('EV-ST').value,photos};
+  const data={title:nm,location:loc,location_url:document.getElementById('EV-LOCURL').value.trim()||null,dates:document.getElementById('EV-DT').value,date_from:dateFrom,date_to:dateTo,timings:document.getElementById('EV-TM').value,writeup:document.getElementById('EV-WU').value,status:document.getElementById('EV-ST').value,photos};
   try{if(editEvId){await sbUpd('popups',`?id=eq.${editEvId}`,data);}else{await sbIns('popups',data);}popups=await sbQ('popups','?order=display_order,created_at.desc');renderHome();closeMo('MO-EV');toast('✅ Event saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}
 }
 async function delEv(id){if(!confirm('Delete event?'))return;await sbDel('popups',`?id=eq.${id}`);popups=popups.filter(p=>p.id!==id);renderHome();toast('Deleted','var(--red)');}

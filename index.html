@@ -335,7 +335,10 @@ nav.scrolled {
 }
 .event-row:first-child { border-top:1px solid var(--gold-dim); }
 .event-row.featured { background:rgba(201,168,76,.04); }
+.event-row-clickable { cursor:pointer; }
+.event-row-clickable:hover { background:rgba(201,168,76,.08); }
 .event-day  { font-size:clamp(40px,5vw,64px); color:var(--gold-light); font-weight:300; line-height:1; }
+.event-day.event-day-range { font-size:clamp(20px,2.6vw,28px); line-height:1.2; }
 .event-mon  {
   font-family:'Cinzel',serif; font-size:10px; letter-spacing:.28em;
   color:var(--gold-light); text-transform:uppercase; opacity:.6; margin-top:4px;
@@ -348,6 +351,23 @@ nav.scrolled {
   animation:pulse 2s infinite;
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+/* "LIVE NOW" indicator — pinned badge on a currently-live event card, plus a
+   nav pill that's injected/removed entirely (not just hidden) when any event
+   is live. Reuses the .new-badge pulse, adding a scale breathe on top. */
+.event-row { position:relative; }
+.live-now-badge {
+  position:absolute; top:10px; left:0; background:var(--dark); color:var(--gold-light);
+  font-family:'Cinzel',serif; font-size:8px; letter-spacing:.22em; text-transform:uppercase;
+  padding:5px 12px; border:1px solid var(--gold); border-radius:20px;
+  animation:pulse 1.8s infinite, liveBreathe 1.8s infinite;
+}
+@keyframes liveBreathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+.live-now-pill {
+  display:inline-flex; align-items:center; gap:5px; background:var(--dark); color:var(--gold-light);
+  font-family:'Cinzel',serif; font-size:9px; letter-spacing:.18em; text-transform:uppercase;
+  padding:6px 13px; border:1px solid var(--gold); border-radius:20px; text-decoration:none;
+  animation:pulse 1.8s infinite, liveBreathe 1.8s infinite; cursor:pointer;
+}
 .event-info p {
   font-size:15px; font-style:italic; color:rgba(247,243,236,.46);
   margin-top:8px; line-height:1.65;
@@ -1040,10 +1060,7 @@ footer {
         <input id="cart-coupon-wa" placeholder="WhatsApp # (only for personal codes)" style="flex:1;min-width:0;padding:7px 9px;font-size:12px;border:1px solid var(--gold-dim);background:rgba(255,255,255,.04);color:var(--cream);border-radius:4px;">
         <button onclick="applyCoupon()" style="padding:7px 12px;font-size:12px;background:var(--gold-dim);color:var(--cream);border:none;border-radius:4px;cursor:pointer;white-space:nowrap;">Apply</button>
       </div>
-      <div id="cart-coupon-applied" style="display:none;font-size:12px;color:#8fdb8f;justify-content:space-between;align-items:center;">
-        <span id="cart-coupon-applied-text"></span>
-        <button onclick="removeCoupon()" style="background:none;border:none;color:var(--gold-dim);cursor:pointer;font-size:11px;">Remove</button>
-      </div>
+      <div id="cart-coupon-applied-list"></div>
       <div id="cart-coupon-msg" style="font-size:11px;color:#e08a8a;margin-top:4px;"></div>
     </div>
     <div class="cart-total-row" id="cart-subtotal-row" style="display:none;font-size:12px;opacity:.7;"><span>Subtotal</span><span id="cart-subtotal"></span></div>
@@ -1069,6 +1086,19 @@ footer {
   <img id="upi-qr-modal-img" src="" alt="UPI QR code" style="width:100%;max-width:260px;border-radius:6px;">
   <p style="margin:14px 0 0;color:var(--gold-light);font-size:16px;font-weight:600;">Amount: <span id="upi-qr-modal-total"></span></p>
   <p style="margin:6px 0 0;color:rgba(232,213,163,.6);font-size:11px;">After paying, tap "Confirm Order on WhatsApp" so we can confirm your order.</p>
+</div>
+
+<!-- ════ EVENT PHOTO GALLERY (Pop-Up Events card click) ════ -->
+<div id="event-gallery-overlay" onclick="closeEventGallery()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:950;"></div>
+<div id="event-gallery-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:951;width:92%;max-width:620px;text-align:center;">
+  <button onclick="closeEventGallery()" style="position:absolute;top:-36px;right:0;background:none;border:none;color:var(--gold-light);font-size:22px;cursor:pointer;">✕</button>
+  <div style="position:relative;">
+    <img id="event-gallery-img" src="" alt="" style="width:100%;max-height:70vh;object-fit:contain;border-radius:8px;background:#000;">
+    <button onclick="event.stopPropagation();eventGalleryNav(-1)" style="display:none;position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:none;color:#fff;font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer;" id="event-gallery-prev">‹</button>
+    <button onclick="event.stopPropagation();eventGalleryNav(1)" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:none;color:#fff;font-size:22px;width:36px;height:36px;border-radius:50%;cursor:pointer;" id="event-gallery-next">›</button>
+  </div>
+  <p id="event-gallery-title" style="margin-top:14px;color:var(--gold-light);font-family:'Cinzel',serif;font-size:14px;"></p>
+  <p id="event-gallery-count" style="margin-top:4px;color:rgba(232,213,163,.6);font-size:12px;"></p>
 </div>
 
 <!-- ════ ACCOUNT MODAL (email-verified signup + password login, My Account) ════ -->
@@ -1229,7 +1259,11 @@ let cart = JSON.parse(localStorage.getItem('msh_cart')||'[]');
 let currency = localStorage.getItem('msh_currency') || null;
 let waIn = '918709525218', waAu = '', razorpayEnabled = false, upiQrUrl = null, cartTotalDisplay = '₹0';
 let checkoutCustomer = JSON.parse(sessionStorage.getItem('msh_checkout_customer')||'null');
-let appliedCoupon = JSON.parse(sessionStorage.getItem('msh_coupon')||'null');
+// Up to 2 coupons can be applied concurrently (e.g. a promotion + an event
+// code running at the same time) — each one's discount lands on its own
+// highest-priced matching item, never the same item twice. See
+// couponDiscountBase()/renderCart() for how the per-coupon item exclusion works.
+let appliedCoupons = JSON.parse(sessionStorage.getItem('msh_coupons')||'[]');
 let customerSession = JSON.parse(localStorage.getItem('msh_customer_session')||'null'); // {token, wa, name, customer_id}
 
 async function detectCurrency() {
@@ -1416,25 +1450,80 @@ function renderTrackOrderCta(enabled, url) {
 
 // Pop-up events — admin-managed (admin.html Connections tab), split into
 // upcoming vs. past by status so past ones read as a muted "we've been here" trail.
-function eventRowHtml(ev) {
-  const dateBits = (ev.dates || '').split(/[–-]/).map(s => s.trim()).filter(Boolean);
-  return `<div class="event-row${ev.status === 'upcoming' ? ' featured' : ''}">
+function isEventLive(ev, today) {
+  return !!(ev.date_from && ev.date_to && ev.date_from <= today && today <= ev.date_to);
+}
+function eventRowHtml(ev, today) {
+  // `dates` is free-text (e.g. "26-27 March 2025", "14 to 17 October",
+  // "11 October 2026") — split the leading day/day-range from the trailing
+  // month+year text regardless of which separator was used, so the giant
+  // day-number font never ends up holding the whole string.
+  const dm = (ev.dates || '').trim().match(/^(\d+(?:\s*(?:to|-|–)\s*\d+)?)\s+(.*)$/i);
+  const dayPart = dm ? dm[1].trim() : (ev.dates || '');
+  const monPart = dm ? dm[2].trim() : '';
+  const live = isEventLive(ev, today);
+  const photos = ev.photos || [];
+  const hasPhotos = photos.length > 0;
+  return `<div class="event-row${ev.status === 'upcoming' ? ' featured' : ''}${hasPhotos ? ' event-row-clickable' : ''}"${hasPhotos ? ` onclick="openEventGallery(${JSON.stringify(photos).replace(/"/g, '&quot;')}, ${JSON.stringify(ev.title || '').replace(/"/g, '&quot;')})"` : ''}>
+    ${live ? '<span class="live-now-badge">● Live Now</span>' : ''}
     <div class="event-date-block">
-      <div class="event-day">${dateBits[0] || ''}</div>
-      <div class="event-mon">${dateBits.length > 1 ? dateBits[1] : ''}</div>
+      <div class="event-day${dayPart.length > 2 ? ' event-day-range' : ''}">${dayPart}</div>
+      <div class="event-mon">${monPart}</div>
     </div>
     <div class="event-info">
       <h3>${ev.title || ''}</h3>
-      <p>${ev.location || ''}${ev.timings ? '<br>' + ev.timings : ''}${ev.writeup ? '<br>' + ev.writeup : ''}</p>
+      <p>${ev.location ? (ev.location_url ? `<a href="${ev.location_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 ${ev.location}</a>` : ev.location) : ''}${ev.timings ? '<br>' + ev.timings : ''}${ev.writeup ? '<br>' + ev.writeup : ''}</p>
     </div>
     <span class="event-tag">${ev.status === 'upcoming' ? 'Live Stall' : 'Past'}</span>
   </div>`;
 }
+let eventGalleryPhotos = [];
+let eventGalleryIndex = 0;
+function openEventGallery(photos, title) {
+  eventGalleryPhotos = photos;
+  eventGalleryIndex = 0;
+  document.getElementById('event-gallery-title').textContent = title;
+  document.getElementById('event-gallery-prev').style.display = photos.length > 1 ? 'block' : 'none';
+  document.getElementById('event-gallery-next').style.display = photos.length > 1 ? 'block' : 'none';
+  renderEventGalleryImg();
+  document.getElementById('event-gallery-overlay').style.display = 'block';
+  document.getElementById('event-gallery-modal').style.display = 'block';
+}
+function renderEventGalleryImg() {
+  document.getElementById('event-gallery-img').src = eventGalleryPhotos[eventGalleryIndex];
+  document.getElementById('event-gallery-count').textContent = eventGalleryPhotos.length > 1 ? `${eventGalleryIndex + 1} / ${eventGalleryPhotos.length}` : '';
+}
+function eventGalleryNav(dir) {
+  eventGalleryIndex = (eventGalleryIndex + dir + eventGalleryPhotos.length) % eventGalleryPhotos.length;
+  renderEventGalleryImg();
+}
+function closeEventGallery() {
+  document.getElementById('event-gallery-overlay').style.display = 'none';
+  document.getElementById('event-gallery-modal').style.display = 'none';
+}
+function renderLiveNowPill(anyLive) {
+  const existing = document.getElementById('live-now-pill-li');
+  if (anyLive) {
+    if (existing) return;
+    const li = document.createElement('li');
+    li.id = 'live-now-pill-li';
+    li.innerHTML = '<a href="#events" class="live-now-pill" onclick="closeMobileNav()">● Live Now</a>';
+    const navLinks = document.getElementById('nav-links');
+    if (navLinks) navLinks.appendChild(li);
+  } else if (existing) {
+    existing.remove();
+  }
+}
 async function renderEvents() {
   let popups = [];
   try { popups = await spFetch('popups', '?order=display_order,created_at.desc'); } catch(e) { return; }
+  // Local-date "today" (not UTC toISOString) so it matches how <input type="date">
+  // values in date_from/date_to are actually interpreted.
+  const now = new Date();
+  const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
   const upcoming = popups.filter(e => e.status === 'upcoming');
   const past = popups.filter(e => e.status !== 'upcoming');
+  renderLiveNowPill(popups.some(e => isEventLive(e, today)));
   // Event rich results need a real ISO start date — only events with
   // date_from set qualify (the free-text `dates` field can't be parsed).
   const evLd = upcoming.filter(e => e.date_from).map(e => ({
@@ -1447,11 +1536,11 @@ async function renderEvents() {
   }));
   if (evLd.length) { const s = document.createElement('script'); s.type = 'application/ld+json'; s.textContent = JSON.stringify(evLd); document.head.appendChild(s); }
   const upEl = document.getElementById('events-upcoming');
-  if (upEl) upEl.innerHTML = upcoming.length ? upcoming.map(eventRowHtml).join('') : '<p style="color:rgba(232,213,163,.4);font-style:italic;">No upcoming events right now — check back soon.</p>';
+  if (upEl) upEl.innerHTML = upcoming.length ? upcoming.map(e => eventRowHtml(e, today)).join('') : '<p style="color:rgba(232,213,163,.4);font-style:italic;">No upcoming events right now — check back soon.</p>';
   const pastWrap = document.getElementById('events-past-wrap');
   const pastEl = document.getElementById('events-past');
   if (past.length && pastWrap && pastEl) {
-    pastEl.innerHTML = past.map(eventRowHtml).join('');
+    pastEl.innerHTML = past.map(e => eventRowHtml(e, today)).join('');
     pastWrap.style.display = 'block';
   }
 }
@@ -1807,18 +1896,8 @@ function renderCart() {
   }
   const subtotal = cart.reduce((a,c) => a + (isAud ? (c.price_aud||0) : (c.price_inr||0)), 0);
   const region = isAud ? 'australia' : 'india';
-  let discount = 0, couponValid = false, couponMsg = '';
-  if (appliedCoupon && (appliedCoupon.region === 'all' || appliedCoupon.region === region)) {
-    const discountBase = couponDiscountBase(cart, appliedCoupon, isAud);
-    if (appliedCoupon.category_filter && discountBase === 0) {
-      couponValid = false;
-      couponMsg = `${appliedCoupon.code} requires a matching item (${appliedCoupon.category_filter}) in your cart`;
-    } else {
-      couponValid = true;
-      discount = appliedCoupon.discount_type === 'percent' ? discountBase * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
-      discount = Math.min(discount, discountBase);
-    }
-  }
+  const couponResults = evaluateCoupons(cart, appliedCoupons, isAud, region);
+  const discount = couponResults.reduce((a,r) => a + r.discount, 0);
   const total = subtotal - discount;
   const subRow = document.getElementById('cart-subtotal-row');
   if (subRow) subRow.style.display = discount > 0 ? 'flex' : 'none';
@@ -1827,7 +1906,7 @@ function renderCart() {
   const totalEl = document.getElementById('cart-total');
   if (totalEl) totalEl.textContent = sym + fmtP(total);
   cartTotalDisplay = sym + fmtP(total); // reused by the UPI QR modal, don't recompute there
-  renderCouponUI(couponValid, region, couponMsg);
+  renderCouponUI(couponResults, region);
   const waNum = (isAud && waAu) ? waAu : waIn;
   const checkoutBtn = document.getElementById('cart-checkout');
   const rzpBtn = document.getElementById('cart-razorpay');
@@ -1842,7 +1921,8 @@ function renderCart() {
   if (qrBtn) qrBtn.style.display = (!isAud && upiQrUrl && cart.length) ? 'flex' : 'none';
   if (cart.length) {
     const lines = cart.map(c => '• ' + c.name + (c.variant ? ' (' + c.variant + ')' : '') + ' — ' + c.sku_code).join('\n');
-    const discLine = discount > 0 ? `\nCoupon ${appliedCoupon.code}: -${sym}${fmtP(discount)}` : '';
+    const discLine = couponResults.filter(r => r.valid && r.discount > 0)
+      .map(r => `\nCoupon ${r.coupon.code}: -${sym}${fmtP(r.discount)} (applied to ${r.item.name})`).join('');
     const msg = encodeURIComponent(`Hi Meensha! I'd like to order:\n\n${lines}\n\nSubtotal: ${sym}${fmtP(subtotal)}${discLine}\nTotal: ${sym}${fmtP(total)}\n\nCould you confirm availability and next steps? 🙏`);
     checkoutBtn.href = `https://wa.me/${waNum}?text=${msg}`;
     checkoutBtn.classList.remove('disabled');
@@ -1851,67 +1931,81 @@ function renderCart() {
     checkoutBtn.classList.add('disabled');
   }
 }
-// Only items matching a coupon's category_filter (case-insensitive substring
-// of the item name, same convention as the shop's own category filter —
-// matchF() below) count toward that coupon's discount base. No filter means
-// the whole cart, same as coupons always worked before category scoping.
-function couponDiscountBase(cartItems, coupon, isAud) {
+// Up to 2 coupons can be applied at once (see appliedCoupons above). Each
+// coupon's discount lands on its own highest-priced matching item — the
+// `claimed` set stops a second coupon from re-discounting an item the first
+// one already claimed, so two concurrent coupons never land on the same
+// item. category_filter (case-insensitive substring of the item name, same
+// convention as the shop's own category filter — matchF() below) narrows
+// which items a coupon can even consider; no filter means the whole cart.
+function evaluateCoupons(cartItems, coupons, isAud, region) {
   const priceField = isAud ? 'price_aud' : 'price_inr';
-  const matching = coupon.category_filter
-    ? cartItems.filter(c => (c.name || '').toLowerCase().includes(coupon.category_filter.toLowerCase()))
-    : cartItems;
-  return matching.reduce((a, c) => a + (c[priceField] || 0), 0);
+  const claimed = new Set();
+  return coupons.map(coupon => {
+    if (!(coupon.region === 'all' || coupon.region === region)) {
+      return { coupon, item: null, discount: 0, valid: false, msg: `${coupon.code} not valid for this market` };
+    }
+    const pool = cartItems.filter(c => !claimed.has(c.unitId) &&
+      (!coupon.category_filter || (c.name || '').toLowerCase().includes(coupon.category_filter.toLowerCase())));
+    const item = pool.reduce((best, c) => (!best || (c[priceField] || 0) > (best[priceField] || 0)) ? c : best, null);
+    if (!item) {
+      const why = coupon.category_filter ? `requires a matching item (${coupon.category_filter}) in your cart` : 'needs an item in your cart';
+      return { coupon, item: null, discount: 0, valid: false, msg: `${coupon.code} ${why}` };
+    }
+    claimed.add(item.unitId);
+    const base = item[priceField] || 0;
+    let discount = coupon.discount_type === 'percent' ? base * (coupon.discount_value/100) : coupon.discount_value;
+    discount = Math.min(discount, base);
+    return { coupon, item, discount, valid: true, msg: '' };
+  });
 }
-function renderCouponUI(couponValid, region, couponMsg) {
+function renderCouponUI(results, region) {
   const form = document.getElementById('cart-coupon-form');
-  const applied = document.getElementById('cart-coupon-applied');
-  const msg = document.getElementById('cart-coupon-msg');
-  if (!form) return;
-  if (appliedCoupon && couponValid) {
-    form.style.display = 'none';
-    applied.style.display = 'flex';
-    const sym = region === 'australia' ? 'A$' : '₹';
-    const discTxt = appliedCoupon.discount_type === 'percent' ? `${appliedCoupon.discount_value}% off` : `${sym}${appliedCoupon.discount_value} off`;
-    document.getElementById('cart-coupon-applied-text').textContent = `✅ ${appliedCoupon.code} applied — ${discTxt}`;
-    msg.textContent = '';
-  } else if (appliedCoupon && !couponValid) {
-    form.style.display = 'none';
-    applied.style.display = 'flex';
-    document.getElementById('cart-coupon-applied-text').textContent = couponMsg || `${appliedCoupon.code} not valid for this market`;
-    msg.textContent = '';
-  } else {
-    form.style.display = 'flex';
-    applied.style.display = 'none';
-  }
+  const list = document.getElementById('cart-coupon-applied-list');
+  if (!form || !list) return;
+  const sym = region === 'australia' ? 'A$' : '₹';
+  list.innerHTML = results.map(r => {
+    const discTxt = r.coupon.discount_type === 'percent' ? `${r.coupon.discount_value}% off` : `${sym}${r.coupon.discount_value} off`;
+    const text = r.valid ? `✅ ${r.coupon.code} applied — ${discTxt} (applied to ${r.item.name})` : (r.msg || `${r.coupon.code} not valid for this market`);
+    return `<div style="display:flex;font-size:12px;color:${r.valid ? '#8fdb8f' : '#e08a8a'};justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <span>${text}</span>
+      <button onclick="removeCoupon('${r.coupon.code}')" style="background:none;border:none;color:var(--gold-dim);cursor:pointer;font-size:11px;">Remove</button>
+    </div>`;
+  }).join('');
+  // No fixed cap — each coupon claims its own distinct cart item, so the
+  // natural limit is the number of items in the cart, not an arbitrary count.
+  form.style.display = results.length < cart.length ? 'flex' : 'none';
 }
 async function applyCoupon() {
   const code = document.getElementById('cart-coupon-code').value.trim();
   const wa = document.getElementById('cart-coupon-wa').value.trim();
   const msg = document.getElementById('cart-coupon-msg');
   if (!code) { msg.textContent = 'Enter a coupon code.'; return null; }
+  if (appliedCoupons.some(c => c.code === code)) { msg.textContent = 'That code is already applied.'; return null; }
+  if (appliedCoupons.length >= cart.length) { msg.textContent = 'Every item in your cart already has a discount applied.'; return null; }
   const region = currency === 'AU' ? 'australia' : 'india';
   msg.textContent = 'Checking...';
   const res = await spPostRPC('validate_coupon', { p_code: code, p_wa: wa, p_region: region });
   if (res && res.valid) {
-    appliedCoupon = { code: res.code, discount_type: res.discount_type, discount_value: parseFloat(res.discount_value), region, wa, category_filter: res.category_filter || null };
-    sessionStorage.setItem('msh_coupon', JSON.stringify(appliedCoupon));
+    appliedCoupons.push({ code: res.code, discount_type: res.discount_type, discount_value: parseFloat(res.discount_value), region, wa, category_filter: res.category_filter || null });
+    sessionStorage.setItem('msh_coupons', JSON.stringify(appliedCoupons));
     msg.textContent = '';
+    document.getElementById('cart-coupon-code').value = '';
+    document.getElementById('cart-coupon-wa').value = '';
     renderCart();
   } else {
     msg.textContent = (res && res.message) || 'Could not validate this code.';
   }
   return res;
 }
-function removeCoupon() {
-  appliedCoupon = null;
-  sessionStorage.removeItem('msh_coupon');
-  document.getElementById('cart-coupon-code').value = '';
-  document.getElementById('cart-coupon-wa').value = '';
+function removeCoupon(code) {
+  appliedCoupons = code ? appliedCoupons.filter(c => c.code !== code) : [];
+  sessionStorage.setItem('msh_coupons', JSON.stringify(appliedCoupons));
   renderCart();
 }
 function onCartCheckout() {
   if (!cart.length) return;
-  if (appliedCoupon) spPostRPC('consume_coupon', { p_code: appliedCoupon.code, p_wa: appliedCoupon.wa });
+  appliedCoupons.forEach(c => spPostRPC('consume_coupon', { p_code: c.code, p_wa: c.wa }));
   // Reservations stay held server-side; just clear the browser-side selection view
   setTimeout(() => { cart = []; saveCart(); removeCoupon(); renderShopGrid(); closeCart(); }, 400);
 }
@@ -1938,12 +2032,8 @@ async function createRazorpayLink() {
   statusEl.style.display = 'block';
   statusEl.textContent = 'Preparing your payment link…';
   const subtotal = cart.reduce((a,c) => a + (c.price_inr||0), 0);
-  let discount = 0;
-  if (appliedCoupon && (appliedCoupon.region === 'all' || appliedCoupon.region === 'india')) {
-    const discountBase = couponDiscountBase(cart, appliedCoupon, false);
-    discount = appliedCoupon.discount_type === 'percent' ? discountBase * (appliedCoupon.discount_value/100) : appliedCoupon.discount_value;
-    discount = Math.min(discount, discountBase);
-  }
+  const couponResults = evaluateCoupons(cart, appliedCoupons, false, 'india');
+  const discount = couponResults.reduce((a,r) => a + r.discount, 0);
   const total = subtotal - discount;
   const items = cart.map(c => ({ name: c.name, variant: c.variant||'', sku_code: c.sku_code, price: c.price_inr }));
   const unit_ids = cart.map(c => c.unitId);
@@ -1951,7 +2041,7 @@ async function createRazorpayLink() {
     const res = await fetch(`${_SB}/functions/v1/create-payment-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
-      body: JSON.stringify({ items, total, customer: checkoutCustomer, unit_ids, currency: 'INR', coupon: appliedCoupon ? { code: appliedCoupon.code, wa: appliedCoupon.wa } : null })
+      body: JSON.stringify({ items, total, customer: checkoutCustomer, unit_ids, currency: 'INR', coupons: appliedCoupons.map(c => ({ code: c.code, wa: c.wa })) })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Could not create payment link');
