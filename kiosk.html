@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Meensha Kiosk</title>
+<meta name="description" content="Meensha staff kiosk — in-person sale checkout.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0E0A04">
+<meta name="background-color" content="#0E0A04">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meensha Kiosk">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://eglanmhhcccsuhbxywua.supabase.co" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #8B6914;
+  --gold-light: #C9A84C;
+  --gold-pale: #E8D5A3;
+  --gold-dim: rgba(139,105,20,0.18);
+  --cream: #F7F3EC;
+  --dark: #0E0A04;
+  --dark2: #1A1208;
+  --warm-white: #FDFAF4;
+  --red: #c0392b;
+  --green: #3a8b5c;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{height:100%;}
+body{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  background:var(--dark); color:var(--cream);
+  min-height:100%; min-height:100dvh;
+  overflow-x:hidden;
+  font-size:17px;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;}
+.label-sm{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold-light);opacity:.85;}
+
+/* ───────────────────────── App shell ───────────────────────── */
+#app{display:flex;flex-direction:column;min-height:100dvh;}
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:10px;
+  padding:12px 16px; padding-top:max(12px, env(safe-area-inset-top));
+  background:rgba(14,10,4,.92); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--gold-dim);
+}
+.topbar img{height:30px;display:block;}
+.topbar .tb-title{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-light);flex:1;}
+.tb-btn{
+  background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);
+  padding:7px 13px;font-size:14px;cursor:pointer;white-space:nowrap;
+}
+.tb-cart{position:relative;}
+.tb-cart .badge{
+  position:absolute;top:-6px;right:-6px;background:var(--gold);color:var(--dark);
+  font-family:'Cinzel',serif;font-size:10px;font-weight:600;border-radius:10px;
+  min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;padding:0 4px;
+}
+
+main{flex:1;display:flex;flex-direction:column;position:relative;}
+.screen{display:none;flex:1;flex-direction:column;animation:fadein .18s ease;}
+.screen.active{display:flex;}
+@keyframes fadein{from{opacity:0;}to{opacity:1;}}
+
+.scr-body{flex:1;padding:18px 16px 16px;overflow-y:auto;}
+.scr-head{padding:4px 2px 16px;}
+.scr-head h1{font-family:'Cinzel',serif;font-size:19px;font-weight:600;letter-spacing:.03em;color:var(--warm-white);}
+.scr-head p{font-size:15px;color:rgba(247,243,236,.65);margin-top:4px;}
+
+.bottombar{
+  position:sticky;bottom:0;z-index:40;
+  display:flex;gap:10px;padding:12px 16px;padding-bottom:max(12px, env(safe-area-inset-bottom));
+  background:rgba(14,10,4,.95); backdrop-filter:blur(10px);
+  border-top:1px solid var(--gold-dim);
+}
+
+/* ───────────────────────── Buttons ───────────────────────── */
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  border-radius:12px; border:1px solid var(--gold-dim);
+  background:var(--dark2); color:var(--cream);
+  font-size:16px; font-weight:500; padding:15px 16px; min-height:52px;
+  cursor:pointer; text-align:center; line-height:1.2;
+}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--gold); border-color:var(--gold); color:var(--dark); font-weight:700;}
+.btn-primary:disabled{opacity:.4; cursor:not-allowed;}
+.btn-outline{background:transparent;border:1px solid var(--gold-light);color:var(--gold-light);}
+.btn-ghost{background:transparent;border:1px solid var(--gold-dim);color:rgba(247,243,236,.75);}
+.btn-danger{background:transparent;border:1px solid rgba(192,57,43,.5);color:#e07a6d;}
+.btn-block{width:100%;}
+.btn-sm{padding:10px 14px;min-height:40px;font-size:14px;border-radius:10px;}
+.btn-flex{flex:1;}
+
+/* ───────────────────────── Forms ───────────────────────── */
+.field{margin-bottom:16px;}
+.field label{display:block;font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-light);opacity:.85;margin-bottom:7px;}
+.field input,.field select{
+  width:100%; background:var(--dark2); border:1px solid var(--gold-dim); border-radius:10px;
+  color:var(--warm-white); padding:14px 14px; font-size:17px; min-height:50px;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--gold-light);}
+.field .hint{font-size:13px;color:rgba(247,243,236,.5);margin-top:6px;}
+.err-box{background:rgba(192,57,43,.14);border:1px solid rgba(192,57,43,.4);color:#f0a99c;border-radius:10px;padding:11px 13px;font-size:14px;margin-bottom:14px;display:none;}
+
+/* ───────────────────────── Login ───────────────────────── */
+#scr-login .scr-body{display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.login-motif{
+  position:absolute; inset:0; pointer-events:none; z-index:0;
+  opacity:.055; display:flex; align-items:center; justify-content:center;
+}
+.login-motif svg{width:140%;max-width:640px;height:auto;}
+.login-card{position:relative;z-index:1;width:100%;max-width:380px;}
+.login-logo{display:block;margin:0 auto 22px;height:88px;}
+.login-card h1{font-family:'Cinzel',serif;text-align:center;font-size:17px;letter-spacing:.08em;text-transform:uppercase;color:var(--gold-light);margin-bottom:28px;}
+
+/* ───────────────────────── Item grid ───────────────────────── */
+.search-row{display:flex;gap:8px;margin-bottom:16px;}
+.search-row input{
+  flex:1; background:var(--dark2); border:1px solid var(--gold-dim); border-radius:10px;
+  color:var(--warm-white); padding:13px 14px; font-size:16px; min-height:48px;
+}
+.search-row input:focus{outline:none;border-color:var(--gold-light);}
+.search-row input::placeholder{color:rgba(247,243,236,.4);}
+.cart-summary-strip{
+  background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;
+  padding:10px 13px;margin-bottom:14px;font-size:14px;color:var(--gold-pale);
+}
+.item-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+@media(min-width:560px){.item-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:860px){.item-grid{grid-template-columns:repeat(4,1fr);}}
+.item-card{
+  background:var(--dark2);border:1px solid var(--gold-dim);border-radius:14px;overflow:hidden;
+  cursor:pointer;text-align:left;display:flex;flex-direction:column;
+}
+.item-card:active{transform:scale(.98);}
+.item-thumb{width:100%;aspect-ratio:1;background:var(--dark);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;}
+.item-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.item-thumb .ph-fallback{width:46%;height:46%;opacity:.3;}
+.item-au{position:absolute;top:6px;left:6px;background:rgba(14,10,4,.75);border-radius:6px;padding:2px 6px;font-size:11px;}
+.item-avail{position:absolute;bottom:6px;right:6px;background:rgba(14,10,4,.8);border-radius:6px;padding:2px 7px;font-size:11px;color:var(--gold-pale);}
+.item-info{padding:10px 11px 12px;}
+.item-info .nm{font-size:15px;font-weight:600;color:var(--warm-white);line-height:1.25;}
+.item-info .sub{font-size:12.5px;color:rgba(247,243,236,.55);margin-top:2px;}
+.item-info .price{margin-top:7px;font-size:15px;color:var(--gold-light);font-weight:700;}
+.item-info .price .mrp{font-size:12px;color:rgba(247,243,236,.4);text-decoration:line-through;font-weight:400;margin-right:5px;}
+.empty-state{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:40px 24px;position:relative;}
+.empty-state .motif-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.07;pointer-events:none;}
+.empty-state .motif-bg svg{width:70%;max-width:280px;height:auto;}
+.empty-state .es-inner{position:relative;z-index:1;}
+.empty-state p{color:rgba(247,243,236,.55);font-size:16px;}
+
+/* ───────────────────────── Qty stepper ───────────────────────── */
+.qty-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:24px;}
+.qty-item-name{font-family:'Cinzel',serif;font-size:16px;color:var(--gold-light);text-align:center;margin-bottom:28px;letter-spacing:.02em;}
+.qty-stepper{display:flex;align-items:center;gap:22px;}
+.qty-stepper button{
+  width:56px;height:56px;border-radius:50%;background:var(--dark2);border:1px solid var(--gold-light);
+  color:var(--gold-light);font-size:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.qty-stepper button:active{transform:scale(.95);}
+.qty-stepper button:disabled{opacity:.3;}
+.qty-stepper .qty-num{font-size:40px;font-weight:600;min-width:64px;text-align:center;color:var(--warm-white);}
+.qty-avail{margin-top:16px;font-size:14px;color:rgba(247,243,236,.5);}
+
+/* ───────────────────────── Unit picker ───────────────────────── */
+.unit-progress{text-align:center;margin-bottom:16px;color:var(--gold-pale);font-size:15px;}
+.unit-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;}
+.unit-chip{
+  background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;
+  padding:16px 8px;text-align:center;font-weight:600;cursor:pointer;color:var(--warm-white);
+}
+.unit-chip:active{transform:scale(.96);background:var(--gold-dim);}
+
+/* ───────────────────────── Cart ───────────────────────── */
+.cart-line{
+  background:var(--dark2);border:1px solid var(--gold-dim);border-radius:12px;
+  padding:13px 14px;margin-bottom:11px;
+}
+.cart-line .cl-top{display:flex;justify-content:space-between;gap:10px;}
+.cart-line .cl-name{font-size:16px;font-weight:600;color:var(--warm-white);}
+.cart-line .cl-sub{font-size:13px;color:rgba(247,243,236,.5);margin-top:2px;}
+.cart-line .cl-amt{font-size:16px;font-weight:700;color:var(--gold-light);white-space:nowrap;}
+.cart-line .cl-disc{font-size:12.5px;color:var(--gold-pale);margin-top:5px;}
+.cart-line .cl-actions{display:flex;gap:8px;margin-top:11px;}
+.cart-total-strip{
+  display:flex;justify-content:space-between;align-items:baseline;
+  padding:14px 2px 6px;border-top:1px solid var(--gold-dim);margin-top:6px;
+}
+.cart-total-strip .lbl{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:rgba(247,243,236,.6);}
+.cart-total-strip .amt{font-size:22px;font-weight:700;color:var(--gold-light);}
+
+/* ───────────────────────── Discount picker ───────────────────────── */
+.disc-opt{
+  width:100%;text-align:left;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:12px;
+  padding:15px 16px;margin-bottom:10px;font-size:16px;color:var(--warm-white);cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+}
+.disc-opt:active{transform:scale(.99);}
+.disc-opt .dtag{font-size:13px;color:var(--gold-light);font-weight:600;}
+.disc-inline{background:var(--dark2);border:1px solid var(--gold-dim);border-radius:12px;padding:14px;margin-bottom:10px;display:none;}
+.disc-inline.open{display:block;}
+.applied-list{margin-bottom:16px;}
+.applied-chip{
+  display:flex;justify-content:space-between;align-items:center;background:rgba(139,105,20,.14);
+  border:1px solid var(--gold-dim);border-radius:10px;padding:10px 13px;margin-bottom:8px;font-size:14px;
+}
+.applied-chip .ac-amt{color:var(--gold-light);font-weight:700;}
+
+/* ───────────────────────── Confirm ───────────────────────── */
+.confirm-line{padding:11px 0;border-bottom:1px solid var(--gold-dim);}
+.confirm-line:last-child{border-bottom:none;}
+.confirm-line .fl-top{display:flex;justify-content:space-between;font-size:16px;}
+.confirm-line .fl-disc{font-size:13px;color:var(--gold-pale);margin-top:3px;padding-left:10px;}
+.confirm-totals{margin-top:18px;padding-top:14px;border-top:1px solid var(--gold-dim);}
+.confirm-totals .ct-row{display:flex;justify-content:space-between;font-size:15px;color:rgba(247,243,236,.7);padding:4px 0;}
+.confirm-totals .ct-row.grand{font-size:21px;font-weight:700;color:var(--gold-light);padding-top:8px;}
+.confirm-customer{background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:15px;}
+
+/* ───────────────────────── Payment mode ───────────────────────── */
+.pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.pay-btn{
+  background:var(--dark2);border:1px solid var(--gold-dim);border-radius:14px;padding:26px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;color:var(--warm-white);font-size:15px;font-weight:600;
+}
+.pay-btn:active{transform:scale(.97);}
+.pay-btn svg{width:30px;height:30px;color:var(--gold-light);}
+.qr-box{text-align:center;margin:18px 0;}
+.qr-box img{max-width:230px;width:100%;border-radius:12px;border:1px solid var(--gold-dim);}
+
+/* ───────────────────────── Amount ───────────────────────── */
+.amount-total{text-align:center;padding:28px 0 8px;}
+.amount-total .at-lbl{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:rgba(247,243,236,.55);}
+.amount-total .at-amt{font-size:44px;font-weight:700;color:var(--gold-light);margin-top:6px;}
+
+/* ───────────────────────── Success ───────────────────────── */
+.success-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;text-align:center;}
+.success-check{width:72px;height:72px;border-radius:50%;background:rgba(58,139,92,.15);border:1px solid var(--green);display:flex;align-items:center;justify-content:center;margin-bottom:18px;}
+.success-check svg{width:34px;height:34px;color:var(--green);}
+.success-inv{font-family:'Cinzel',serif;font-size:20px;color:var(--gold-light);margin-bottom:6px;}
+.success-amt{font-size:15px;color:rgba(247,243,236,.7);margin-bottom:22px;}
+.success-actions{display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;}
+
+.toast{
+  position:fixed;left:50%;bottom:90px;transform:translateX(-50%);
+  background:var(--dark2);border:1px solid var(--gold-light);color:var(--warm-white);
+  padding:12px 18px;border-radius:30px;font-size:14px;z-index:999;max-width:88vw;text-align:center;
+  box-shadow:0 8px 24px rgba(0,0,0,.4); opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.toast.show{opacity:1;}
+.spin{
+  width:18px;height:18px;border-radius:50%;border:2px solid rgba(247,243,236,.3);border-top-color:var(--gold-light);
+  animation:spin .7s linear infinite; display:inline-block;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.center-wait{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;color:rgba(247,243,236,.6);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="topbar" id="topbar" style="display:none;">
+    <img src="logo.svg" alt="Meensha">
+    <div class="tb-title">Kiosk</div>
+    <button class="tb-btn tb-cart" id="tb-cart-btn" onclick="goCart()">🧺 <span id="tb-cart-count">0</span><span class="badge" id="tb-cart-badge" style="display:none;"></span></button>
+    <button class="tb-btn" onclick="confirmLogout()">Logout</button>
+  </div>
+
+  <main>
+
+    <!-- LOGIN -->
+    <section class="screen" id="scr-login">
+      <div class="scr-body">
+        <div class="login-motif" aria-hidden="true">
+          <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="var(--gold-light)" stroke-width="1.1">
+              <path d="M200 60c60 0 95 45 95 100 0 70-55 95-55 150 0 30-18 45-40 45s-40-15-40-45c0-55 60-70 60-130 0-45-28-70-60-70-28 0-48 20-48 48 0 20 13 33 30 33"/>
+              <circle cx="200" cy="60" r="9"/>
+              <path d="M90 200c-25 0-45 20-45 45M310 200c25 0 45 20 45 45"/>
+              <path d="M140 320c-10 20-10 40 5 55M260 320c10 20 10 40-5 55"/>
+            </g>
+          </svg>
+        </div>
+        <div class="login-card">
+          <img class="login-logo" src="meensha_logo_eng.png" alt="Meensha">
+          <h1>Staff Kiosk Login</h1>
+          <div class="err-box" id="login-err"></div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="login-u" autocomplete="username" autocapitalize="off">
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="login-p" autocomplete="current-password">
+          </div>
+          <button class="btn btn-primary btn-block" id="login-btn" onclick="doLogin()">Log In</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ITEM PICKER -->
+    <section class="screen" id="scr-items">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Pick an item</h1></div>
+        <div class="search-row">
+          <input type="text" id="item-search" placeholder="Search by name, material, variant…" oninput="onItemSearch()">
+          <button class="btn btn-ghost btn-sm" id="item-search-clear" style="display:none;" onclick="clearItemSearch()">✕</button>
+        </div>
+        <div id="cart-strip" class="cart-summary-strip" style="display:none;"></div>
+        <div id="item-grid-wrap"></div>
+      </div>
+    </section>
+
+    <!-- QTY STEPPER -->
+    <section class="screen" id="scr-qty">
+      <div class="scr-body qty-wrap">
+        <div class="qty-item-name" id="qty-item-name"></div>
+        <div class="qty-stepper">
+          <button id="qty-minus" onclick="qtyStep(-1)">−</button>
+          <div class="qty-num" id="qty-num">1</div>
+          <button id="qty-plus" onclick="qtyStep(1)">+</button>
+        </div>
+        <div class="qty-avail" id="qty-avail"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">◀ Back</button>
+        <button class="btn btn-primary btn-flex" onclick="confirmQty()">Pick piece(s) ▶</button>
+      </div>
+    </section>
+
+    <!-- UNIT PICKER -->
+    <section class="screen" id="scr-unit">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="unit-item-name"></h1></div>
+        <div class="unit-progress" id="unit-progress"></div>
+        <div class="unit-grid" id="unit-grid"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">◀ Back</button>
+      </div>
+    </section>
+
+    <!-- CART -->
+    <section class="screen" id="scr-cart">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Cart</h1></div>
+        <div id="cart-body"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">➕ Add item</button>
+        <button class="btn btn-primary btn-flex" id="cart-checkout-btn" onclick="goCustomerInfo()">Checkout ▶</button>
+      </div>
+    </section>
+
+    <!-- CUSTOMER INFO -->
+    <section class="screen" id="scr-customer">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Customer details</h1></div>
+        <div class="err-box" id="cust-err"></div>
+        <div class="field">
+          <label>WhatsApp number</label>
+          <input type="tel" id="cust-wa" placeholder="98765 43210" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label>Customer name</label>
+          <input type="text" id="cust-name" placeholder="Full name">
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">◀ Add more items</button>
+        <button class="btn btn-primary btn-flex" onclick="submitCustomerInfo()">Continue ▶</button>
+      </div>
+    </section>
+
+    <!-- DISCOUNT PICKER -->
+    <section class="screen" id="scr-discount">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Any discount?</h1><p id="disc-sub"></p></div>
+        <div class="applied-list" id="applied-list"></div>
+        <div id="disc-options"></div>
+
+        <div class="disc-inline" id="disc-code-box">
+          <div class="field" style="margin-bottom:10px;"><label>Coupon code</label><input type="text" id="disc-code-input" placeholder="e.g. MSH-A3F92" autocapitalize="characters"></div>
+          <button class="btn btn-primary btn-block btn-sm" onclick="submitDiscountCode()">Apply code</button>
+        </div>
+        <div class="disc-inline" id="disc-custom-box">
+          <div class="field" style="margin-bottom:10px;"><label>Custom discount (₹)</label><input type="number" id="disc-custom-input" min="0" inputmode="decimal"></div>
+          <button class="btn btn-primary btn-block btn-sm" onclick="submitDiscountCustom()">Apply discount</button>
+        </div>
+        <div class="disc-inline" id="disc-event-box">
+          <div class="field" style="margin-bottom:10px;"><label id="disc-event-label">Customer's WhatsApp number</label><input type="tel" id="disc-event-wa" placeholder="98765 43210" inputmode="numeric"></div>
+          <button class="btn btn-primary btn-block btn-sm" onclick="submitDiscountEventWa()">Look up code</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">◀ Add more items</button>
+        <button class="btn btn-outline btn-flex" id="disc-done-btn" onclick="discountDoneOrNone()">No discount ▶</button>
+      </div>
+    </section>
+
+    <!-- CONFIRM -->
+    <section class="screen" id="scr-confirm">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Confirm order</h1></div>
+        <div class="confirm-customer" id="confirm-customer"></div>
+        <div id="confirm-lines"></div>
+        <div class="confirm-totals" id="confirm-totals"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-danger btn-flex" onclick="cancelConfirm()">✕ Cancel</button>
+        <button class="btn btn-primary btn-flex" onclick="goPaymentMode()">✅ Confirm ▶</button>
+      </div>
+    </section>
+
+    <!-- PAYMENT MODE -->
+    <section class="screen" id="scr-payment">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Payment mode</h1></div>
+        <div class="pay-grid">
+          <button class="pay-btn" onclick="choosePayMode('cash')">💵 Cash</button>
+          <button class="pay-btn" onclick="choosePayMode('upi')">📲 UPI Direct</button>
+          <button class="pay-btn" onclick="choosePayMode('razorpay')">💳 Razorpay</button>
+          <button class="pay-btn" onclick="choosePayMode('other')">🔁 Other</button>
+        </div>
+        <div class="disc-inline" id="pay-other-box">
+          <div class="field" style="margin-bottom:10px;"><label>How was it paid?</label><input type="text" id="pay-other-input" placeholder="e.g. Bank Transfer, Cheque"></div>
+          <button class="btn btn-primary btn-block btn-sm" onclick="submitPayOther()">Continue</button>
+        </div>
+        <div id="upi-qr-area"></div>
+        <div id="rzp-area"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">◀ Add more items</button>
+      </div>
+    </section>
+
+    <!-- AMOUNT -->
+    <section class="screen" id="scr-amount">
+      <div class="scr-body">
+        <div class="amount-total">
+          <div class="at-lbl">Amount received</div>
+          <div class="at-amt" id="amount-total-amt">₹0</div>
+        </div>
+        <button class="btn btn-primary btn-block" id="amount-full-btn" onclick="submitAmountFull()" style="margin-top:22px;">✅ Full amount received</button>
+        <div class="field" style="margin-top:22px;">
+          <label>Or enter the actual amount received</label>
+          <input type="number" id="amount-custom-input" min="0" inputmode="decimal">
+        </div>
+        <button class="btn btn-outline btn-block" onclick="submitAmountCustom()">Use this amount</button>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="goItems()">◀ Add more items</button>
+      </div>
+    </section>
+
+    <!-- FINALIZING WAIT -->
+    <section class="screen" id="scr-wait">
+      <div class="center-wait"><span class="spin"></span> Recording sale…</div>
+    </section>
+
+    <!-- SUCCESS -->
+    <section class="screen" id="scr-success">
+      <div class="success-wrap">
+        <div class="success-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="success-inv" id="success-inv"></div>
+        <div class="success-amt" id="success-amt"></div>
+        <div class="success-actions" id="success-actions"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG — same project + anon key admin.html uses
+// ═══════════════════════════════════════════════
+const SB='https://eglanmhhcccsuhbxywua.supabase.co';
+const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
+const STOREFRONT_URL='https://meensha.in';
+const HDR=()=>({'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'return=representation'});
+let CU=null;
+const AHDR=()=>({...HDR(),'x-admin-session':CU?.session_token||''});
+
+async function sbGet(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{headers:AHDR()});if(!r.ok)return[];return await r.json();}catch{return[];}}
+async function sbPatch(table,q,data){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'PATCH',headers:AHDR(),body:JSON.stringify(data)});return r.ok;}catch{return false;}}
+async function sbInsert(table,data){try{const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:AHDR(),body:JSON.stringify(data)});return r.ok?(await r.json()):null;}catch{return null;}}
+async function rpcA(name,body){try{const r=await fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:AHDR(),body:JSON.stringify(body||{})});return r.ok?(await r.json()):null;}catch{return null;}}
+async function rpcP(name,body){try{const r=await fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:HDR(),body:JSON.stringify(body||{})});return r.ok?(await r.json()):null;}catch{return null;}}
+
+function fmt(n){return (Math.round((n||0)*100)/100).toLocaleString('en-IN');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__toastT);window.__toastT=setTimeout(()=>t.classList.remove('show'),2600);}
+
+// ═══════════════════════════════════════════════
+// SESSION — reuses admin.html's exact localStorage key/shape so a staff
+// member logged into admin.html on this device is already logged into the
+// kiosk too, and vice versa.
+// ═══════════════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('topbar').style.display = id==='scr-login' ? 'none' : 'flex';
+  document.querySelector('main').scrollTop=0;
+  const body=document.querySelector(`#${id} .scr-body`);
+  if(body)body.scrollTop=0;
+}
+
+async function boot(){
+  const stored=localStorage.getItem('MSN_ADMIN_SESSION');
+  if(stored){
+    try{
+      const parsed=JSON.parse(stored);
+      if(parsed && parsed.session_token){
+        CU=parsed;
+        const ok=await rpcA('has_admin_session',{});
+        if(ok===true){ startKiosk(); return; }
+      }
+    }catch{}
+    localStorage.removeItem('MSN_ADMIN_SESSION');
+    CU=null;
+  }
+  showScreen('scr-login');
+}
+
+async function doLogin(){
+  const u=document.getElementById('login-u').value.trim();
+  const p=document.getElementById('login-p').value;
+  const err=document.getElementById('login-err');
+  err.style.display='none';
+  if(!u||!p){err.textContent='Enter username and password.';err.style.display='block';return;}
+  const btn=document.getElementById('login-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  let user=null;
+  try{
+    const r=await fetch(`${SB}/rest/v1/rpc/login`,{method:'POST',headers:HDR(),body:JSON.stringify({p_username:u,p_password:p})});
+    if(r.ok){const j=await r.json();if(j)user=j;}
+  }catch{}
+  btn.disabled=false;btn.textContent='Log In';
+  if(!user){err.textContent='Incorrect username or password.';err.style.display='block';return;}
+  CU=user;
+  localStorage.setItem('MSN_ADMIN_SESSION',JSON.stringify(CU));
+  startKiosk();
+}
+
+async function confirmLogout(){
+  if(!confirm('Log out of the kiosk?'))return;
+  try{await fetch(`${SB}/rest/v1/rpc/logout_admin_session`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_token:CU?.session_token||''})});}catch{}
+  localStorage.removeItem('MSN_ADMIN_SESSION');
+  CU=null;
+  location.reload();
+}
+
+setInterval(async ()=>{
+  if(!CU)return;
+  const ok=await rpcA('has_admin_session',{});
+  if(ok===false){
+    localStorage.removeItem('MSN_ADMIN_SESSION');
+    alert('Your session has expired. Please log in again.');
+    location.reload();
+  }
+},5*60*1000);
+
+function startKiosk(){
+  resetSale();
+  showScreen('scr-items');
+  loadItemPicker();
+}
+
+// ═══════════════════════════════════════════════
+// SALE STATE — mirrors the Telegram bot's kiosk session `data` object
+// (same field names/shape as supabase/functions/telegram-bot/index.ts's
+// handleKiosk flow) so the logic below reads as a direct port.
+// ═══════════════════════════════════════════════
+let S = {};
+let skuCache = {}; // id -> sku row, populated by loadItemPicker/loadUnitPicker
+function resetSale(){
+  S = { cart: [], customer_wa:null, customer_name:null, appliedDiscounts: [] };
+  renderCartBadge();
+}
+
+function renderCartBadge(){
+  const n=S.cart.length;
+  document.getElementById('tb-cart-count').textContent=n;
+  const badge=document.getElementById('tb-cart-badge');
+  badge.style.display = n>0 ? 'flex' : 'none';
+  if(n>0)badge.textContent=n;
+}
+
+function orderTotal(){
+  const subtotal=S.cart.reduce((a,c)=>a+c.price,0);
+  const disc=(S.appliedDiscounts||[]).reduce((a,d)=>a+d.discount,0);
+  return Math.max(0, subtotal-disc);
+}
+function highestPricedCartItem(excludeUnitIds){
+  const ex=excludeUnitIds||[];
+  const pool=S.cart.filter(c=>!ex.includes(c.unit_id));
+  return pool.reduce((max,c)=>(!max||c.price>max.price?c:max),null);
+}
+function applyCouponToItem(coupon,item,isCustom,eventId){
+  const discount=coupon.discount_type==='percent'
+    ? Math.round(item.price*(coupon.discount_value/100))
+    : coupon.discount_value;
+  const amount=Math.max(0,Math.min(discount,item.price));
+  S.appliedDiscounts=S.appliedDiscounts||[];
+  S.appliedDiscounts.push({code:coupon.code,wa:coupon.customer_wa??null,unit_id:item.unit_id,discount:amount,isCustom:!!isCustom,event_id:eventId||null});
+  return amount;
+}
+function clearDiscountIfUnitRemoved(skuIdBeingRemoved){
+  if(!S.appliedDiscounts?.length)return;
+  S.appliedDiscounts=S.appliedDiscounts.filter(d=>S.cart.some(c=>c.unit_id===d.unit_id && c.sku_id!==skuIdBeingRemoved));
+}
+function groupCartBySku(){
+  const groups=new Map();
+  for(const c of S.cart){
+    const g=groups.get(c.sku_id)||{sku_id:c.sku_id,name:c.name,variant:c.variant,qty:0,subtotal:0};
+    g.qty+=1;g.subtotal+=c.price;
+    groups.set(c.sku_id,g);
+  }
+  return [...groups.values()];
+}
+function validateCouponLocal(c){
+  if(!c||!c.active||c.used)return false;
+  if(!['india','all'].includes(c.region))return false;
+  const today=todayStr();
+  if(c.valid_from && c.valid_from>today)return false;
+  if(c.valid_until && c.valid_until<today)return false;
+  return true;
+}
+function todayStr(){
+  const n=new Date();
+  return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+}
+function digits10(text){
+  const d=(text||'').replace(/\D/g,'');
+  return d.length===12 && d.startsWith('91') ? d.slice(2) : d;
+}
+
+// ═══════════════════════════════════════════════
+// ITEM PICKER — same availability math as the bot's showItemPicker():
+// inventory_skus × inventory_units(status=available), excluding units
+// already sitting in this sale's cart. Search/filter is done client-side
+// (the whole catalogue is small enough) rather than a server ilike, since
+// this is a reusable in-memory list, not a stateless Telegram reply.
+// ═══════════════════════════════════════════════
+let itemPickerData=null;
+async function loadItemPicker(){
+  const wrap=document.getElementById('item-grid-wrap');
+  wrap.innerHTML='<div class="center-wait" style="padding:40px 0;"><span class="spin"></span> Loading items…</div>';
+  const [skus,units]=await Promise.all([
+    sbGet('inventory_skus','?select=id,name,mrp,sale_price,display_variant,display_material,au_available,photos'),
+    sbGet('inventory_units','?select=id,sku_id,status&status=eq.available'),
+  ]);
+  skuCache={};(skus||[]).forEach(s=>skuCache[s.id]=s);
+  itemPickerData={skus:skus||[],units:units||[]};
+  renderItemPicker();
+}
+function renderItemPicker(){
+  if(!itemPickerData)return;
+  const {skus,units}=itemPickerData;
+  const inCart=new Set(S.cart.map(c=>c.unit_id));
+  const availCount={};
+  units.forEach(u=>{ if(inCart.has(u.id))return; availCount[u.sku_id]=(availCount[u.sku_id]||0)+1; });
+  const q=(document.getElementById('item-search').value||'').trim().toLowerCase();
+  document.getElementById('item-search-clear').style.display=q?'flex':'none';
+  let list=skus.filter(s=>(availCount[s.id]||0)>0);
+  if(q){
+    list=list.filter(s=>
+      (s.name||'').toLowerCase().includes(q) ||
+      (s.display_material||'').toLowerCase().includes(q) ||
+      (s.display_variant||'').toLowerCase().includes(q));
+  }
+
+  const stripEl=document.getElementById('cart-strip');
+  if(S.cart.length){
+    const sub=S.cart.reduce((a,c)=>a+c.price,0);
+    stripEl.style.display='block';
+    stripEl.textContent=`🧺 ${S.cart.length} in cart — ₹${fmt(sub)} so far`;
+  } else {
+    stripEl.style.display='none';
+  }
+
+  const wrap=document.getElementById('item-grid-wrap');
+  if(!list.length){
+    wrap.innerHTML=`<div class="empty-state" style="padding:60px 20px;"><p>${q?`No items matched "${esc(q)}".`:'Nothing in stock right now.'}</p></div>`;
+    return;
+  }
+  wrap.innerHTML=`<div class="item-grid">${list.map(s=>{
+    const au=s.au_available?'<div class="item-au">🇦🇺</div>':'';
+    const mrpTxt=(s.mrp && s.mrp!==s.sale_price)?`<span class="mrp">₹${fmt(s.mrp)}</span>`:'';
+    const photo=(s.photos&&s.photos[0])?`<img src="${esc(s.photos[0])}" loading="lazy" alt="">`:`<svg class="ph-fallback" viewBox="0 0 24 24" fill="none" stroke="var(--gold-dim)" stroke-width="1.3"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`;
+    const sub=[s.display_material,s.display_variant].filter(Boolean).join(' · ');
+    return `<div class="item-card" onclick="selectItem('${s.id}')">
+      <div class="item-thumb">${photo}${au}<div class="item-avail">${availCount[s.id]} left</div></div>
+      <div class="item-info">
+        <div class="nm">${esc(s.name)}</div>
+        ${sub?`<div class="sub">${esc(sub)}</div>`:''}
+        <div class="price">${mrpTxt}₹${fmt(s.sale_price)}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function onItemSearch(){ renderItemPicker(); }
+function clearItemSearch(){ document.getElementById('item-search').value=''; renderItemPicker(); }
+function goItems(){
+  showScreen('scr-items');
+  loadItemPicker();
+}
+function goCart(){
+  showScreen('scr-cart');
+  renderCart();
+}
+
+// ═══════════════════════════════════════════════
+// QTY + UNIT PICKER — two-step like the bot's showItemPicker → showUnitPicker:
+// pick a quantity, then pick the specific physical piece(s) one at a time.
+// Deliberately NOT auto-pick-first-N (admin.html's shortcut) — the task
+// calls out that the unit-picker pattern is the correct one here.
+// ═══════════════════════════════════════════════
+let qtyState=null;
+function selectItem(skuId){
+  const sku=skuCache[skuId];
+  if(!sku){toast('That item is no longer available.');loadItemPicker();return;}
+  const inCart=new Set(S.cart.map(c=>c.unit_id));
+  const avail=(itemPickerData.units||[]).filter(u=>u.sku_id===skuId && !inCart.has(u.id)).length;
+  if(!avail){toast('That item is no longer available.');loadItemPicker();return;}
+  qtyState={skuId,skuName:sku.name,avail,qty:1};
+  document.getElementById('qty-item-name').textContent=sku.name;
+  document.getElementById('qty-num').textContent='1';
+  document.getElementById('qty-avail').textContent=`${avail} available`;
+  document.getElementById('qty-minus').disabled=true;
+  document.getElementById('qty-plus').disabled=avail<=1;
+  showScreen('scr-qty');
+}
+function qtyStep(delta){
+  if(!qtyState)return;
+  const n=Math.max(1,Math.min(qtyState.avail,qtyState.qty+delta));
+  qtyState.qty=n;
+  document.getElementById('qty-num').textContent=n;
+  document.getElementById('qty-minus').disabled=n<=1;
+  document.getElementById('qty-plus').disabled=n>=qtyState.avail;
+}
+function confirmQty(){
+  if(!qtyState)return;
+  S.pendingSkuId=qtyState.skuId;
+  S.pendingSkuName=qtyState.skuName;
+  S.qtyRemaining=qtyState.qty;
+  renderUnitPicker();
+  showScreen('scr-unit');
+}
+function renderUnitPicker(){
+  const sku=skuCache[S.pendingSkuId];
+  document.getElementById('unit-item-name').textContent=S.pendingSkuName||(sku&&sku.name)||'';
+  const prog=S.qtyRemaining>1?` — ${S.qtyRemaining} more to pick`:'';
+  document.getElementById('unit-progress').textContent=`Pick the specific piece${prog}`;
+  const inCart=new Set(S.cart.map(c=>c.unit_id));
+  const avail=(itemPickerData.units||[]).filter(u=>u.sku_id===S.pendingSkuId && !inCart.has(u.id));
+  const grid=document.getElementById('unit-grid');
+  if(!avail.length){
+    grid.innerHTML='<div class="empty-state" style="padding:30px 0;"><p>No more pieces available for this item.</p></div>';
+    return;
+  }
+  // unit_code isn't cached from the item-picker query — fetch lazily once per sku visit.
+  sbGet('inventory_units',`?select=id,unit_code,sku_id&sku_id=eq.${S.pendingSkuId}&status=eq.available`).then(units=>{
+    const codeById={}; (units||[]).forEach(u=>codeById[u.id]=u.unit_code);
+    grid.innerHTML = avail.map(u=>`<div class="unit-chip" onclick="pickUnit('${u.id}')">${esc(codeById[u.id]||'—')}</div>`).join('');
+    grid.dataset.codes=JSON.stringify(codeById);
+  });
+}
+function pickUnit(unitId){
+  const sku=skuCache[S.pendingSkuId];
+  if(!sku)return;
+  let unitCode='—';
+  try{ const codes=JSON.parse(document.getElementById('unit-grid').dataset.codes||'{}'); unitCode=codes[unitId]||'—'; }catch{}
+  S.cart.push({unit_id:unitId,unit_code:unitCode,sku_id:sku.id,name:sku.name,variant:sku.display_variant,price:sku.sale_price});
+  S.qtyRemaining=(S.qtyRemaining||1)-1;
+  // Pull this unit out of the in-memory available list so the grid updates immediately.
+  itemPickerData.units=itemPickerData.units.filter(u=>u.id!==unitId);
+  renderCartBadge();
+  if(S.qtyRemaining>0){
+    renderUnitPicker();
+    return;
+  }
+  S.pendingSkuId=undefined;S.pendingSkuName=undefined;S.qtyRemaining=undefined;
+  showScreen('scr-cart');
+  renderCart();
+}
+
+// ═══════════════════════════════════════════════
+// CART — grouped by SKU like the bot's groupCartBySku(). Edit/Remove
+// buttons sit directly on each line (one screen) rather than the bot's
+// separate tap-to-open submenu (two Telegram screens) — same two actions,
+// fewer taps, the natural touch-UI equivalent.
+// ═══════════════════════════════════════════════
+function renderCart(){
+  const body=document.getElementById('cart-body');
+  const checkoutBtn=document.getElementById('cart-checkout-btn');
+  if(!S.cart.length){
+    body.innerHTML=`<div class="empty-state">
+      <div class="motif-bg" aria-hidden="true"><svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg"><path d="M40 20c0 60 20 70 20 110s-20 50-20 90M100 10c0 70 25 80 25 120s-25 60-25 100M160 20c0 60-20 70-20 110s20 50 20 90" fill="none" stroke="var(--gold-light)" stroke-width="2"/></svg></div>
+      <div class="es-inner"><p>Cart is empty — add an item to get started.</p></div>
+    </div>`;
+    checkoutBtn.disabled=true;
+    return;
+  }
+  checkoutBtn.disabled=false;
+  const groups=groupCartBySku();
+  const applied=S.appliedDiscounts||[];
+  body.innerHTML=groups.map(g=>{
+    const d=S.cart.filter(c=>c.sku_id===g.sku_id).reduce((a,c)=>a+(applied.find(x=>x.unit_id===c.unit_id)?.discount||0),0);
+    const discLine=d?`<div class="cl-disc">🎟️ Discount applied: -₹${fmt(d)}</div>`:'';
+    return `<div class="cart-line">
+      <div class="cl-top">
+        <div><div class="cl-name">${esc(g.name)}</div><div class="cl-sub">Qty ${g.qty}${g.variant?' · '+esc(g.variant):''}</div></div>
+        <div class="cl-amt">₹${fmt(g.subtotal)}</div>
+      </div>
+      ${discLine}
+      <div class="cl-actions">
+        <button class="btn btn-ghost btn-sm btn-flex" onclick="editCartGroup('${g.sku_id}')">✏️ Edit qty</button>
+        <button class="btn btn-danger btn-sm btn-flex" onclick="removeCartGroup('${g.sku_id}')">🗑 Remove</button>
+      </div>
+    </div>`;
+  }).join('') + `<div class="cart-total-strip"><div class="lbl">Subtotal</div><div class="amt">₹${fmt(S.cart.reduce((a,c)=>a+c.price,0))}</div></div>`;
+}
+function removeCartGroup(skuId){
+  clearDiscountIfUnitRemoved(skuId);
+  S.cart=S.cart.filter(c=>c.sku_id!==skuId);
+  renderCartBadge();
+  renderCart();
+}
+function editCartGroup(skuId){
+  const sku=skuCache[skuId];
+  clearDiscountIfUnitRemoved(skuId);
+  S.cart=S.cart.filter(c=>c.sku_id!==skuId);
+  renderCartBadge();
+  if(!sku){toast('That item is no longer available.');renderCart();return;}
+  const inCart=new Set(S.cart.map(c=>c.unit_id));
+  const avail=(itemPickerData.units||[]).filter(u=>u.sku_id===skuId && !inCart.has(u.id)).length;
+  if(!avail){toast('No pieces of this item are available right now.');renderCart();return;}
+  qtyState={skuId,skuName:sku.name,avail,qty:1};
+  document.getElementById('qty-item-name').textContent='New quantity of "'+sku.name+'"';
+  document.getElementById('qty-num').textContent='1';
+  document.getElementById('qty-avail').textContent=`${avail} available`;
+  document.getElementById('qty-minus').disabled=true;
+  document.getElementById('qty-plus').disabled=avail<=1;
+  showScreen('scr-qty');
+}
+
+// ═══════════════════════════════════════════════
+// CUSTOMER INFO
+// ═══════════════════════════════════════════════
+function goCustomerInfo(){
+  if(!S.cart.length){toast('Cart is empty — add an item first.');return;}
+  document.getElementById('cust-err').style.display='none';
+  document.getElementById('cust-wa').value=S.customer_wa?S.customer_wa.replace('+91',''):'';
+  document.getElementById('cust-name').value=S.customer_name||'';
+  showScreen('scr-customer');
+}
+function submitCustomerInfo(){
+  const waRaw=document.getElementById('cust-wa').value;
+  const name=document.getElementById('cust-name').value.trim();
+  const err=document.getElementById('cust-err');
+  const ten=digits10(waRaw);
+  if(ten.length!==10){err.textContent="That doesn't look like a valid 10-digit WhatsApp number.";err.style.display='block';return;}
+  if(!name){err.textContent='Enter the customer name.';err.style.display='block';return;}
+  err.style.display='none';
+  S.customer_wa='+91'+ten;
+  S.customer_name=name;
+  goDiscountPicker();
+}
+
+// ═══════════════════════════════════════════════
+// DISCOUNT PICKER — mirrors the bot's showDiscountPicker() query logic:
+// active, unused, source='admin' coupons + still-running voucher_events
+// (auto-expired via created_at + valid_days), excluding anything already
+// applied this sale. Direct table reads aren't available to the anon key
+// here (coupons has no SELECT policy), so this calls the same
+// admin_list_coupons()/admin_list_voucher_events() RPCs admin.html's own
+// Coupons/Events tabs use, then applies the identical client-side filter
+// the bot applies to its service-role table read — same data, same rules.
+// ═══════════════════════════════════════════════
+let discountCache=null;
+async function goDiscountPicker(){
+  showScreen('scr-discount');
+  document.getElementById('disc-code-box').classList.remove('open');
+  document.getElementById('disc-custom-box').classList.remove('open');
+  document.getElementById('disc-event-box').classList.remove('open');
+  document.getElementById('disc-options').innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading offers…</div>';
+  const [coupons,events]=await Promise.all([rpcA('admin_list_coupons',{}),rpcA('admin_list_voucher_events',{})]);
+  discountCache={coupons:coupons||[],events:events||[]};
+  renderDiscountPicker();
+}
+function renderDiscountPicker(){
+  const offerDone=(S.appliedDiscounts||[]).length>0;
+  document.getElementById('disc-sub').textContent = offerDone ? 'Add another discount, or finish up.' : 'Pick an offer, enter a code, or skip.';
+  document.getElementById('disc-done-btn').textContent = offerDone ? '✅ Done, no more discounts' : '➡️ No discount';
+
+  const applied=S.appliedDiscounts||[];
+  const alEl=document.getElementById('applied-list');
+  alEl.innerHTML = applied.map(d=>{
+    const item=S.cart.find(c=>c.unit_id===d.unit_id);
+    return `<div class="applied-chip"><span>🎟️ ${esc(d.code)}${item?' — '+esc(item.name):''}</span><span class="ac-amt">-₹${fmt(d.discount)}</span></div>`;
+  }).join('');
+
+  const today=todayStr();
+  const appliedCodes=applied.map(d=>d.code);
+  const appliedEventIds=applied.map(d=>d.event_id).filter(Boolean);
+  const validCoupons=(discountCache.coupons||[]).filter(c=>
+    c.active && !c.used && c.source==='admin' && ['india','all'].includes(c.region) &&
+    (!c.valid_from||c.valid_from<=today) && (!c.valid_until||c.valid_until>=today) &&
+    !appliedCodes.includes(c.code));
+  const now=new Date();
+  const availableEvents=(discountCache.events||[]).filter(e=>{
+    if(!e.active)return false;
+    if(!['india','all'].includes(e.region))return false;
+    if(appliedEventIds.includes(e.id))return false;
+    const expires=new Date(e.created_at);
+    expires.setDate(expires.getDate()+(e.valid_days||7));
+    return expires>=now;
+  });
+
+  const opts=document.getElementById('disc-options');
+  let html='';
+  validCoupons.forEach(c=>{
+    const label=c.discount_type==='percent'?`${c.discount_value}% off`:`₹${fmt(c.discount_value)} off`;
+    html+=`<button class="disc-opt" onclick="applyCouponTap('${c.id}')"><span>🎟️ ${esc(c.code)}</span><span class="dtag">${label}</span></button>`;
+  });
+  availableEvents.forEach(e=>{
+    const label=e.discount_type==='percent'?`${e.discount_value}% off`:`₹${fmt(e.discount_value)} off`;
+    html+=`<button class="disc-opt" onclick="openEventWa('${e.id}','${esc(e.title)}')"><span>🎉 ${esc(e.title)}</span><span class="dtag">${label}</span></button>`;
+  });
+  html+=`<button class="disc-opt" onclick="toggleInline('disc-code-box')"><span>🔑 Enter a code</span></button>`;
+  html+=`<button class="disc-opt" onclick="toggleInline('disc-custom-box')"><span>✏️ Custom discount amount</span></button>`;
+  opts.innerHTML=html;
+}
+function toggleInline(id){
+  ['disc-code-box','disc-custom-box','disc-event-box'].forEach(x=>{
+    if(x!==id)document.getElementById(x).classList.remove('open');
+  });
+  document.getElementById(id).classList.toggle('open');
+}
+function openEventWa(eventId,title){
+  S.pendingEventId=eventId;S.pendingEventTitle=title;
+  document.getElementById('disc-event-label').textContent=`Customer's WhatsApp number for their "${title}" code`;
+  document.getElementById('disc-event-wa').value='';
+  ['disc-code-box','disc-custom-box'].forEach(x=>document.getElementById(x).classList.remove('open'));
+  document.getElementById('disc-event-box').classList.add('open');
+}
+async function applyCouponTap(couponId){
+  const c=(discountCache.coupons||[]).find(x=>x.id===couponId);
+  if(!validateCouponLocal(c)){toast("That coupon isn't available anymore.");renderDiscountPicker();return;}
+  applyDiscountAndOffer(c,false,null);
+}
+async function submitDiscountCode(){
+  const raw=document.getElementById('disc-code-input').value.trim();
+  if(!raw)return;
+  const res=await rpcP('validate_coupon',{p_code:raw,p_wa:S.customer_wa,p_region:'india'});
+  if(!res||!res.valid){toast(res?.message||'Invalid coupon');return;}
+  document.getElementById('disc-code-input').value='';
+  document.getElementById('disc-code-box').classList.remove('open');
+  const coupon={code:res.code,discount_type:res.discount_type,discount_value:res.discount_value,customer_wa:res.public?null:S.customer_wa};
+  applyDiscountAndOffer(coupon,false,null);
+}
+async function submitDiscountCustom(){
+  const parsed=parseFloat(document.getElementById('disc-custom-input').value);
+  document.getElementById('disc-custom-box').classList.remove('open');
+  if(isNaN(parsed)||parsed<=0){ offerAnotherDiscountOrConfirm(); return; }
+  const excluded=(S.appliedDiscounts||[]).map(d=>d.unit_id);
+  const target=highestPricedCartItem(excluded);
+  if(!target){ toast('No remaining item in the cart to discount — skipping.'); offerAnotherDiscountOrConfirm(); return; }
+  const amount=applyCouponToItem({discount_type:'flat',discount_value:parsed,code:'Custom discount'},target,true,null);
+  if(amount<parsed){ toast(`₹${fmt(parsed)} is more than "${target.name}"'s price — capped to -₹${fmt(amount)}.`); }
+  document.getElementById('disc-custom-input').value='';
+  offerAnotherDiscountOrConfirm();
+}
+async function submitDiscountEventWa(){
+  const ten=digits10(document.getElementById('disc-event-wa').value);
+  if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
+  const eventId=S.pendingEventId, eventTitle=S.pendingEventTitle;
+  S.pendingEventId=undefined;S.pendingEventTitle=undefined;
+  document.getElementById('disc-event-box').classList.remove('open');
+  document.getElementById('disc-event-wa').value='';
+  const candidates=(discountCache.coupons||[]).filter(c=>c.event_id===eventId);
+  const match=candidates.find(c=>c.customer_wa && c.customer_wa.replace(/\D/g,'').slice(-10)===ten);
+  if(!match){ toast(`No "${eventTitle}" registration found for that number.`); renderDiscountPicker(); return; }
+  if(match.used){ toast(`Sorry — this customer has already used their "${eventTitle}" code.`); renderDiscountPicker(); return; }
+  if(!validateCouponLocal(match)){ toast(`This "${eventTitle}" code isn't currently valid (expired or inactive).`); renderDiscountPicker(); return; }
+  applyDiscountAndOffer(match,false,eventId);
+}
+function applyDiscountAndOffer(coupon,isCustom,eventId){
+  const excluded=(S.appliedDiscounts||[]).map(d=>d.unit_id);
+  const target=highestPricedCartItem(excluded);
+  if(!target){ toast(`No remaining item in the cart for ${coupon.code} to apply to — skipping.`); offerAnotherDiscountOrConfirm(); return; }
+  const amount=applyCouponToItem(coupon,target,isCustom,eventId);
+  toast(`🎟️ Applied ${coupon.code} to ${target.name} — -₹${fmt(amount)}`);
+  offerAnotherDiscountOrConfirm();
+}
+function offerAnotherDiscountOrConfirm(){
+  if((S.appliedDiscounts||[]).length>=S.cart.length){ goConfirm(); return; }
+  renderDiscountPicker();
+}
+function discountDoneOrNone(){ goConfirm(); }
+
+// ═══════════════════════════════════════════════
+// CONFIRM
+// ═══════════════════════════════════════════════
+function formatConfirmLines(){
+  const applied=S.appliedDiscounts||[];
+  return S.cart.map(c=>{
+    const d=applied.find(x=>x.unit_id===c.unit_id);
+    const discHtml=(d&&d.discount)?`<div class="fl-disc">↳ ${esc(d.isCustom?'Custom discount':d.code)}: -₹${fmt(d.discount)}</div>`:'';
+    return `<div class="confirm-line"><div class="fl-top"><span>${esc(c.name)}${c.variant?' ('+esc(c.variant)+')':''}</span><span>₹${fmt(c.price)}</span></div>${discHtml}</div>`;
+  }).join('');
+}
+function goConfirm(){
+  const subtotal=S.cart.reduce((a,c)=>a+c.price,0);
+  const total=orderTotal();
+  document.getElementById('confirm-customer').textContent=`${S.customer_name}  ·  ${S.customer_wa}`;
+  document.getElementById('confirm-lines').innerHTML=formatConfirmLines();
+  const disc=subtotal-total;
+  document.getElementById('confirm-totals').innerHTML=`
+    <div class="ct-row"><span>Subtotal</span><span>₹${fmt(subtotal)}</span></div>
+    ${disc?`<div class="ct-row"><span>Discount</span><span>-₹${fmt(disc)}</span></div>`:''}
+    <div class="ct-row grand"><span>Total</span><span>₹${fmt(total)}</span></div>`;
+  showScreen('scr-confirm');
+}
+function cancelConfirm(){
+  if(!confirm('Cancel this sale? Nothing has been saved.'))return;
+  resetSale();
+  goItems();
+}
+
+// ═══════════════════════════════════════════════
+// PAYMENT MODE
+// ═══════════════════════════════════════════════
+function goPaymentMode(){
+  document.getElementById('pay-other-box').classList.remove('open');
+  document.getElementById('upi-qr-area').innerHTML='';
+  document.getElementById('rzp-area').innerHTML='';
+  showScreen('scr-payment');
+}
+async function choosePayMode(mode){
+  if(mode==='other'){ document.getElementById('pay-other-box').classList.add('open'); return; }
+  if(mode==='cash'){ S.pay_mode='Cash'; goAmount(); return; }
+  if(mode==='upi'){ S.pay_mode='UPI Direct'; await showUpiQr(); goAmount(); return; }
+  if(mode==='razorpay'){ S.pay_mode='Razorpay'; await sendRazorpayLink(); return; }
+}
+function submitPayOther(){
+  const v=document.getElementById('pay-other-input').value.trim();
+  if(!v){toast('Enter how it was paid.');return;}
+  S.pay_mode=v;
+  goAmount();
+}
+// Static pre-uploaded QR image (settings.upi_qr_code_url, set via Maintenance
+// → Set UPI QR code in the bot) — same mechanism sendUpiQr() in the bot
+// uses; there's no on-the-fly QR generation for UPI Direct, verified in the
+// bot's own source before building this.
+async function showUpiQr(){
+  const total=orderTotal();
+  const rows=await sbGet('settings','?key=eq.upi_qr_code_url&select=value');
+  const qrUrl=rows && rows[0] && rows[0].value;
+  const waDigits=(S.customer_wa||'').replace(/\D/g,'');
+  const waMsg=encodeURIComponent(`Hi ${S.customer_name}! Please pay ₹${fmt(total)} for your Meensha order via UPI.`);
+  const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
+  const area=document.getElementById('upi-qr-area');
+  area.innerHTML = (qrUrl?`<div class="qr-box"><img src="${esc(qrUrl)}" alt="UPI QR"><p class="hint" style="margin-top:8px;">UPI QR — ₹${fmt(total)}</p></div>`
+    : `<div class="err-box" style="display:block;margin-top:16px;">No UPI QR code set yet (set one from the Telegram bot's Maintenance menu).</div>`)
+    + (waLink?`<a class="btn btn-outline btn-block" style="margin-top:10px;" href="${waLink}" target="_blank" rel="noopener">💬 Send WhatsApp draft to customer</a>`:'');
+}
+async function sendRazorpayLink(){
+  const area=document.getElementById('rzp-area');
+  area.innerHTML='<div class="center-wait" style="padding:20px 0;"><span class="spin"></span> Creating payment link…</div>';
+  const total=orderTotal();
+  const unit_ids=S.cart.map(c=>c.unit_id);
+  let linkData=null;
+  try{
+    const res=await fetch(`${SB}/functions/v1/create-payment-link`,{
+      method:'POST',headers:HDR(),
+      body:JSON.stringify({
+        items:S.cart.map(c=>({name:c.name})),
+        total,
+        customer:{name:S.customer_name,wa:S.customer_wa},
+        unit_ids,
+        currency:'INR',
+        coupons:(S.appliedDiscounts||[]).filter(d=>!d.isCustom).map(d=>({code:d.code,wa:d.wa})),
+        source:'kiosk_pwa',
+      }),
+    });
+    linkData=await res.json();
+    if(!res.ok || !linkData.short_url) throw new Error(linkData?.error||'unknown error');
+  }catch(e){
+    area.innerHTML=`<div class="err-box" style="display:block;">Couldn't create the Razorpay link: ${esc(e.message||'error')} — try Cash/UPI instead, or retry.</div>`;
+    return;
+  }
+  const waDigits=(S.customer_wa||'').replace(/\D/g,'');
+  const waMsg=encodeURIComponent(`Hi ${S.customer_name}! Please pay ₹${fmt(total)} for your Meensha order here: ${linkData.short_url}`);
+  const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
+  area.innerHTML=`<div class="qr-box" style="text-align:left;">
+    <p style="color:var(--gold-light);font-weight:700;">💳 Razorpay link created — ₹${fmt(total)}</p>
+    <p class="hint" style="word-break:break-all;margin-top:6px;"><a href="${linkData.short_url}" target="_blank" rel="noopener" style="color:var(--gold-light);">${linkData.short_url}</a></p>
+    ${waLink?`<a class="btn btn-outline btn-block" style="margin-top:14px;" href="${waLink}" target="_blank" rel="noopener">💬 Send to customer on WhatsApp</a>`:''}
+    <p class="hint" style="margin-top:14px;">This sale finalizes automatically once Razorpay confirms payment. Starting the next sale now.</p>
+    <button class="btn btn-primary btn-block" style="margin-top:14px;" onclick="afterRazorpay()">🛍️ Next sale</button>
+  </div>`;
+}
+function afterRazorpay(){
+  resetSale();
+  goItems();
+}
+
+// ═══════════════════════════════════════════════
+// AMOUNT RECEIVED
+// ═══════════════════════════════════════════════
+function goAmount(){
+  document.getElementById('amount-total-amt').textContent='₹'+fmt(orderTotal());
+  document.getElementById('amount-custom-input').value='';
+  showScreen('scr-amount');
+}
+function submitAmountFull(){
+  S.amount=orderTotal();
+  runFinalizeSale();
+}
+function submitAmountCustom(){
+  const parsed=parseFloat(document.getElementById('amount-custom-input').value);
+  S.amount=isNaN(parsed)?orderTotal():parsed;
+  runFinalizeSale();
+}
+
+// ═══════════════════════════════════════════════
+// FINALIZE SALE — direct port of the bot's finalizeSale(): invoice counter,
+// sales row insert, claim_unit per cart unit, consume_coupon per applied
+// (non-custom) discount, generate-invoice-pdf, then the customer-facing
+// invoice link. Table writes use AHDR (x-admin-session) the way every other
+// admin.html table write does; consume_coupon/generate-invoice-pdf use the
+// anon key alone, matching their exact call sites in admin.html/the bot.
+// ═══════════════════════════════════════════════
+async function runFinalizeSale(){
+  showScreen('scr-wait');
+  const total=orderTotal();
+  const paid=S.amount??total;
+
+  const ctrRows=await sbGet('settings','?key=eq.inv_counter&select=value');
+  const nextCtr=(parseInt(ctrRows?.[0]?.value??'1000')||1000)+1;
+  await sbPatch('settings','?key=eq.inv_counter',{value:String(nextCtr)});
+  const inv='MSH-'+nextCtr;
+
+  const saleBody={
+    inv, date:new Date().toISOString().slice(0,10),
+    customer:{name:S.customer_name,wa:S.customer_wa},
+    items:S.cart.map(c=>({
+      name:c.name, variant:c.variant||'', sku_code:c.unit_code, price:c.price,
+      discount:(S.appliedDiscounts||[]).find(d=>d.unit_id===c.unit_id)?.discount??0,
+    })),
+    total, paid, balance:total-paid,
+    pay_mode:S.pay_mode, delivery_mode:'offline', shipping_status:'na', taxes:[],
+    created_by: CU?.display_name || CU?.username || 'kiosk', source:'kiosk_pwa',
+  };
+  const saved=await sbInsert('sales',saleBody);
+  const saleRow=saved && saved[0];
+
+  if(saleRow){
+    for(const item of S.cart){
+      await rpcA('claim_unit',{p_unit_id:item.unit_id,p_sale_id:saleRow.id});
+    }
+  }
+  for(const d of (S.appliedDiscounts||[])){
+    if(d.isCustom)continue;
+    await rpcP('consume_coupon',{p_code:d.code,p_wa:d.wa});
+  }
+
+  let pdfUrl=null;
+  if(saleRow){
+    try{
+      const pr=await fetch(`${SB}/functions/v1/generate-invoice-pdf`,{method:'POST',headers:HDR(),body:JSON.stringify({sale_id:saleRow.id})});
+      const pj=await pr.json();
+      if(pj?.ok) pdfUrl=pj.url||null;
+    }catch{}
+  }
+
+  const waDigits=(S.customer_wa||'').replace(/\D/g,'');
+  const invoiceUrl=`${STOREFRONT_URL}/invoice.html?invoice=${encodeURIComponent(inv)}&wa=${waDigits}`;
+  const waMsg=encodeURIComponent(`Hi ${S.customer_name}! Thank you for your Meensha order. Your invoice (${inv}) is here: ${invoiceUrl}`+(pdfUrl?`\n\nPDF: ${pdfUrl}`:''));
+  const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
+
+  document.getElementById('success-inv').textContent='✅ Sale recorded — '+inv;
+  document.getElementById('success-amt').textContent=`Total ₹${fmt(total)} · Paid ₹${fmt(paid)}`+(total-paid>0?` · Balance ₹${fmt(total-paid)}`:'');
+  document.getElementById('success-actions').innerHTML=
+    (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send invoice to customer</a>`:'')
+    + `<a class="btn btn-ghost btn-block" href="${invoiceUrl}" target="_blank" rel="noopener">🧾 View / print invoice</a>`
+    + `<button class="btn btn-primary btn-block" onclick="afterSuccess()">🛍️ Next sale</button>`;
+  showScreen('scr-success');
+}
+function afterSuccess(){
+  resetSale();
+  goItems();
+}
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+boot();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('kiosk-sw.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>
