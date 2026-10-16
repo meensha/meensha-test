@@ -1394,7 +1394,7 @@ async function doLogin(){
 
   clearFails(u);
   await logAuthAttempt(u,true,'ok');
-  CU=user;sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
+  CU=user;localStorage.setItem('MSN_ADMIN_SESSION',JSON.stringify(CU));
   document.getElementById('LOV').classList.add('hi');
   // last_login is stamped server-side inside the login() RPC now.
 
@@ -1420,7 +1420,10 @@ async function handleEmailResetLandingIfAny(){
   // We'll validate on form submit
   setTimeout(()=>{document.getElementById('MO-EMTOK').classList.remove('hi');},500);
 }
-function doLogout(){sessionStorage.removeItem('MSN_USER');window.location.href='index.html';}
+async function doLogout(){
+  try{await fetch(`${SB}/rest/v1/rpc/logout_admin_session`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_token:CU?.session_token||''})});}catch(e){}
+  localStorage.removeItem('MSN_ADMIN_SESSION');window.location.href='index.html';
+}
 // Routes each owner's bot guide by username — falls back to the India
 // guide for anyone else (owner/admin accounts reviewing either bot).
 function openHelpGuide(){
@@ -1957,7 +1960,7 @@ async function checkAdminSession(){
   try{
     const r=await fetch(`${SB}/rest/v1/rpc/has_admin_session`,{method:'POST',headers:AHDR(),body:'{}'});
     if(r.ok&&(await r.json())===false){
-      sessionStorage.removeItem('MSN_USER');
+      localStorage.removeItem('MSN_ADMIN_SESSION');
       alert('Your session has expired. Please log in again.');
       location.reload();
       return false;
@@ -3151,7 +3154,7 @@ async function saveNewPassword(){
     await fetch(`${SB}/rest/v1/rpc/set_user_password`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_user_id:CU.id,p_new_password:nw})});
     await sbUpd('users',`?id=eq.${CU.id}`,body);
     CU.must_change_password=false;
-    sessionStorage.setItem('MSN_USER',JSON.stringify(CU));
+    localStorage.setItem('MSN_ADMIN_SESSION',JSON.stringify(CU));
     users=await sbQ('users','?order=created_at');
     closeMo('MO-CHPW');
     toast('✅ Password updated','#27ae60');
@@ -4678,7 +4681,7 @@ window.onload=()=>{
   const today=new Date().toISOString().split('T')[0];
   ['SI-DT','SI-PDT','SA-DT','OH-DT','OV-DT'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=today;});
   document.getElementById('SA-INV').value='MSH-'+(invCtr+1);
-  const stored=sessionStorage.getItem('MSN_USER');
+  const stored=localStorage.getItem('MSN_ADMIN_SESSION');
   // Sessions from before session tokens existed must log in again.
   if(stored&&JSON.parse(stored).session_token){CU=JSON.parse(stored);document.getElementById('LOV').classList.add('hi');initApp();}
   addSIRow();addSARow();
