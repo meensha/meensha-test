@@ -58,17 +58,29 @@ body{
 .flourish.bl{bottom:0;left:0;transform:scaleY(-1);}
 .flourish.br{bottom:0;right:0;transform:scale(-1,-1);}
 .flourish svg{width:100%;height:100%;display:block;}
-.card-body{display:flex;flex-direction:column;justify-content:space-between;height:100%;}
+/* Fabric-edge flourish — a woven sari-border style trim, sitting in the
+   thin band between the card's inner gold line (inset 7px, card::before)
+   and where the content padding starts (16px/20px) — so it never competes
+   with the logo/name/icons, and clear of the 66px corner flourish squares.
+   Two complementary variants (wavy scallop vs. tassel fringe) are swapped
+   in via JS per owner, one along the top edge and the other along the
+   bottom, so each printed card reads a little differently. */
+.fabric-edge{position:absolute;left:72px;right:72px;height:9px;pointer-events:none;opacity:.8;}
+.fabric-edge.top{top:7px;}
+.fabric-edge.bottom{bottom:7px;}
+.fabric-edge svg{width:100%;height:100%;display:block;}
+.card-body{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:space-between;height:100%;}
 .logo-block{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:6px;}
-.logo-block img{width:100px;height:100px;object-fit:contain;}
+.logo-block a{display:block;width:100px;height:100px;}
+.logo-block img{width:100px;height:100px;object-fit:contain;display:block;}
 .name-block{text-align:center;}
 .name{color:var(--ink);font-family:Georgia,serif;font-size:19px;font-weight:700;line-height:1.15;text-decoration:none;cursor:pointer;}
 .name:hover{text-decoration:underline;}
 .title{color:var(--gdk);font-size:9px;letter-spacing:.14em;text-transform:uppercase;margin-top:2px;}
-.icon-row{display:flex;justify-content:center;gap:5px;}
-.icon-link{display:flex;color:inherit;text-decoration:none;}
+.icon-row{display:flex;justify-content:center;align-items:center;gap:5px;}
+.icon-link{display:flex;align-items:center;color:inherit;text-decoration:none;overflow:hidden;}
 .icon-circle{
-  width:30px;height:30px;border-radius:50%;
+  width:30px;height:30px;border-radius:50%;flex:none;
   border:1.3px solid var(--gdk);
   display:flex;align-items:center;justify-content:center;
   background:rgba(255,255,255,.18);
@@ -77,6 +89,16 @@ body{
 .icon-link:active .icon-circle,.icon-link:hover .icon-circle{background:rgba(139,105,20,.2);}
 .icon-circle svg{width:15px;height:15px;stroke:var(--gdk);fill:none;}
 .icon-circle svg.filled{fill:var(--gdk);stroke:none;}
+/* Custom slide-out label — replaces the native title tooltip. Collapsed to
+   zero width/opacity by default; on hover/focus it slides out beside the
+   icon (max-width + opacity + margin transition, matching the card's gold
+   ink + serif-adjacent sans styling). */
+.icon-label{
+  max-width:0;opacity:0;margin-left:0;overflow:hidden;white-space:nowrap;
+  font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--gdk);
+  transition:max-width .28s ease,opacity .22s ease,margin-left .28s ease;
+}
+.icon-link:hover .icon-label,.icon-link:focus-visible .icon-label{max-width:140px;opacity:1;margin-left:6px;}
 .back-logo-stage{
   position:relative;flex:1;display:flex;align-items:center;justify-content:center;
 }
@@ -101,9 +123,13 @@ body{
       <div class="flourish tr" data-flip></div>
       <div class="flourish bl" data-flip></div>
       <div class="flourish br" data-flip></div>
+      <div class="fabric-edge top" id="FABRIC-TOP" aria-hidden="true"></div>
+      <div class="fabric-edge bottom" id="FABRIC-BOTTOM" aria-hidden="true"></div>
       <div id="CARD-BODY" class="card-body">
         <div class="logo-block">
-          <img id="FRONT-LOGO" src="meensha_logo_eng.png" alt="Meensha">
+          <a href="https://meensha.in" target="_blank" rel="noopener" aria-label="Visit meensha.in">
+            <img id="FRONT-LOGO" src="meensha_rotating_logo.webp" alt="Meensha">
+          </a>
         </div>
         <div class="name-block">
           <a class="name" id="P-NAME" href="about.html" target="_blank" rel="noopener"></a>
@@ -168,6 +194,32 @@ const FLOURISH_SVG=`
 
 document.querySelectorAll('.flourish, .bg-motif').forEach(el=>{el.innerHTML=FLOURISH_SVG;});
 
+// Fabric-edge flourish variants — a couple of different sari-border styles
+// (gold line art on the wood background, same palette as FLOURISH_SVG
+// above), tiled via SVG <pattern> so they stretch cleanly to any card
+// width. One is a wavy scallop trim, the other a tasseled fringe; JS below
+// picks which goes top/bottom per owner.
+const FABRIC_SCALLOP=`
+<svg viewBox="0 0 200 18" preserveAspectRatio="none" xmlns="${SVG_NS}">
+  <defs>
+    <pattern id="scallop" width="20" height="18" patternUnits="userSpaceOnUse">
+      <path d="M0,14 Q5,4 10,14 Q15,4 20,14" fill="none" stroke="#C9A84C" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
+      <circle cx="10" cy="14" r="1.3" fill="#1E2F66" opacity="0.6"/>
+    </pattern>
+  </defs>
+  <rect width="200" height="18" fill="url(#scallop)"/>
+</svg>`;
+const FABRIC_TASSEL=`
+<svg viewBox="0 0 196 18" preserveAspectRatio="none" xmlns="${SVG_NS}">
+  <defs>
+    <pattern id="tassel" width="14" height="18" patternUnits="userSpaceOnUse">
+      <path d="M2,2 L7,16 L12,2" fill="none" stroke="#C9A84C" stroke-width="1.1" stroke-linecap="round" opacity="0.75"/>
+      <circle cx="7" cy="2" r="1" fill="#C9A84C" opacity="0.75"/>
+    </pattern>
+  </defs>
+  <rect width="196" height="18" fill="url(#tassel)"/>
+</svg>`;
+
 const flipInner=document.getElementById('FLIPINNER');
 document.querySelectorAll('[data-flip]').forEach(el=>{
   el.addEventListener('click',()=>{flipInner.classList.toggle('flipped');});
@@ -199,9 +251,6 @@ const PEOPLE={
   shalini:{
     name:'Shalini Bharti',
     title:'Curator',
-    // Hindi-script logo for the India card (same medallion artwork the
-    // invoice PDF generator bundles — see generate-invoice-pdf/index.ts).
-    logo:'hindi_logo_main.png',
     // Confirmed from the physical card photo — hardcoded per TODO.md spec
     // (only Meenakshi's AU number needs a live settings lookup).
     waDigits:'918709525218',
@@ -209,8 +258,6 @@ const PEOPLE={
   meenakshi:{
     name:'Meenakshi Ranjan',
     title:'Curator',
-    // English-script logo for the Australia card.
-    logo:'meensha_logo_eng.png',
     // Read from settings.wa_num_au at generation time, not hardcoded — see
     // TODO.md: "+61 488 967 995, already a live DB value ... in case it
     // ever changes." waFallback only covers a lookup failure.
@@ -238,7 +285,7 @@ function iconLink(key,href,label){
   if(/^https?:/.test(href))a.target='_blank';
   if(key==='email'||key==='call')a.rel='noopener';
   else a.rel='noopener noreferrer';
-  a.innerHTML=`<span class="icon-circle">${ICONS[key]}</span>`;
+  a.innerHTML=`<span class="icon-circle">${ICONS[key]}</span><span class="icon-label">${esc(label)}</span>`;
   return a;
 }
 
@@ -261,11 +308,18 @@ function showError(msg){
     waDigits=(rows&&rows[0]&&rows[0].value?String(rows[0].value):'').replace(/\D/g,'')||person.waFallback;
   }
 
-  document.getElementById('FRONT-LOGO').src=person.logo;
   const nameEl=document.getElementById('P-NAME');
   nameEl.textContent=person.name;
   nameEl.href=`about.html#${personKey}`;
   document.getElementById('P-TITLE').textContent=person.title;
+
+  // Fabric-edge flourish: two complementary variants, swapped top/bottom
+  // per owner so Shalini's and Meenakshi's printed cards don't read
+  // identically.
+  const fabricTop=personKey==='meenakshi'?FABRIC_TASSEL:FABRIC_SCALLOP;
+  const fabricBottom=personKey==='meenakshi'?FABRIC_SCALLOP:FABRIC_TASSEL;
+  document.getElementById('FABRIC-TOP').innerHTML=fabricTop;
+  document.getElementById('FABRIC-BOTTOM').innerHTML=fabricBottom;
 
   const row=document.getElementById('ICON-ROW');
   row.appendChild(iconLink('call',`tel:+${waDigits}`,'Call'));

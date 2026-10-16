@@ -554,7 +554,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- ═══ NEW SALE ═══ -->
 <div id="tp-sale" class="tp">
   <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;"><div id="SA-HDR-TITLE" style="font-size:16px;font-weight:700;color:var(--gdk);">🛍️ New Sale</div></div>
-  <div id="SA-EDIT-WARN" style="display:none;background:#fff3cd;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#7a5b00;line-height:1.5;">⚠️ This sale was already invoiced. Editing customer, payment and notes is safe. Editing items, quantities or prices does <strong>not</strong> automatically adjust inventory stock counts — if you change what was sold, double-check stock levels manually afterward.</div>
+  <div id="SA-EDIT-WARN" style="display:none;background:#fff3cd;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12.5px;color:#7a5b00;line-height:1.5;">⚠️ This sale was already invoiced. Editing customer, payment and notes is safe. Editing items, quantities or prices does <strong>not</strong> automatically adjust inventory stock counts — if you change what was sold, double-check stock levels manually afterward.<br><a id="SA-INVOICE-LINK" href="#" target="_blank" rel="noopener" style="color:#7a5b00;font-weight:600;">🔗 View live invoice page (always reflects the current saved state)</a></div>
   <div class="card"><div class="ct">🛍️ Customer</div>
     <div class="fg">
       <div class="fi"><label>Customer Name *</label><input id="SA-NM" placeholder="Full name"></div>
@@ -4302,6 +4302,11 @@ function openEditSale(id){
   document.getElementById('SA-PAID').value=s.paid||0;
   calcSATot();
   document.getElementById('SA-EDIT-WARN').style.display='block';
+  // invoice.html loads live via get_invoice(inv, wa) -- a plain SELECT on
+  // the sales row, not a cached snapshot -- so this link always reflects
+  // whatever's currently saved, including edits made right here.
+  const waDigits=(s.customer?.wa||'').replace(/\D/g,'');
+  document.getElementById('SA-INVOICE-LINK').href=s.inv&&waDigits?`invoice.html?invoice=${encodeURIComponent(s.inv)}&wa=${encodeURIComponent(waDigits)}`:'#';
   document.getElementById('SA-HDR-TITLE').textContent='✏️ Edit Sale — '+(s.inv||'');
   document.getElementById('SA-SAVEBTN').textContent='💾 Save Changes';
   showTab('sale',document.getElementById('tb-sale'));
