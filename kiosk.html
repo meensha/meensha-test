@@ -3823,7 +3823,9 @@ function attachCardToInvoice(){
 // any future caller build the exact same message.
 function buildShareMessage(name,comments){
   const staff=CU?.display_name||CU?.username||'';
-  let msg=`Hey ${name}, thanks for showing an interest in reviving the heritage of the Indian loom. \n\nWe at Meensha look forward to your patronage. \n\nYou can reach us at any of the links in the card. \nJust click on icons.`;
+  const key=vcPersonKey();
+  const cardUrl=key?`${STOREFRONT_URL}/visiting-card.html?person=${key}`:'';
+  let msg=`Hey ${name}, thanks for showing an interest in reviving the heritage of the Indian loom. \n\nWe at Meensha look forward to your patronage. \n\nYou can reach us at any of the links in the card${cardUrl?': '+cardUrl:''}. \nJust click on icons.`;
   if(comments)msg+=`\n\n${comments}`;
   msg+=`\n\nRegards,\n${staff}`;
   return msg;
