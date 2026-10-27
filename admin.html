@@ -4195,14 +4195,24 @@ function printTags(){
     }
     const qrImg=`<img class="tqr" src="${qrCanvas.toDataURL('image/png')}" width="${qrSize}" height="${qrSize}">`;
     return `<div class="tag"><div class="tframe"><div class="tcorner tl">${corner}</div><div class="tcorner br">${corner}</div><img class="tlogo" src="${logoUrl}"><div class="tdiv"></div><div class="tbody"><div class="tcode">${sanitise(t.code)}</div><div class="trule"></div><div class="tname">${sanitise(t.name)}</div><div class="tprice">₹${fmt(t.price)}</div></div>${qrImg}</div></div>`;
-  }).join('');
+  });
+  // Chrome's print pagination doesn't reliably honor page-break-inside/
+  // break-inside:avoid on the children of a CSS Grid container (a known
+  // Chromium limitation) — that's what let a row get sliced across the
+  // page 1/2 boundary even though .tag had page-break-inside:avoid set.
+  // Pairing tags into plain block-flow row wrappers (.tagrow) and putting
+  // the avoid-break rule on the ROW instead fixes it reliably; verified
+  // via headless Chrome --print-to-pdf against a 20-tag sheet (3 pages,
+  // no tag split across any page boundary, 2-column layout intact).
+  let rowsHtml='';
+  for(let i=0;i<tagHtml.length;i+=2)rowsHtml+=`<div class="tagrow">${tagHtml[i]}${tagHtml[i+1]||''}</div>`;
   const w=window.open('','_blank');
   w.document.write(`<html><head><meta charset="utf-8"><title>Price Tags</title><style>
     @page{size:A4;margin:9mm 3mm;}
     *{box-sizing:border-box;}
     body{margin:0;font-family:Georgia,serif;}
-    .sheet{display:grid;grid-template-columns:repeat(2,100mm);grid-template-rows:repeat(8,35mm);}
-    .tag{width:105mm;height:34mm;padding:1.5mm;overflow:hidden;page-break-inside:avoid;}
+    .tagrow{display:flex;break-inside:avoid;page-break-inside:avoid;}
+    .tag{width:105mm;height:34mm;padding:1.5mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}
     .tframe{position:relative;width:100%;height:100%;border:0.75pt solid #C9A84C;border-radius:2px;padding:1.5mm 3mm;display:flex;align-items:center;gap:3mm;background:#fffdf8;}
     .tcorner{position:absolute;width:11mm;height:11mm;opacity:.22;pointer-events:none;z-index:0;}
     .tcorner svg{width:100%;height:100%;display:block;}
@@ -4216,7 +4226,7 @@ function printTags(){
     .trule{width:14mm;height:0.75pt;background:#C9A84C;margin:1.2mm 0;}
     .tname{font-size:13px;font-weight:600;color:#222;line-height:1.25;overflow:hidden;}
     .tprice{font-size:20px;font-weight:800;color:#000;margin-top:1.5mm;}
-  </style></head><body><div class="sheet">${tagHtml}</div><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
+  </style></head><body><div class="sheet">${rowsHtml}</div><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
   w.document.close();
 }
 function printInv(){const c=document.getElementById('PRINT-INV')?.outerHTML||'';const w=window.open('','_blank');w.document.write(`<html><head><title>Invoice</title><style>body{margin:20px;font-family:Georgia,serif;}@media print{body{margin:0;}}</style></head><body>${c}<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);w.document.close();}
