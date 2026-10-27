@@ -838,7 +838,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="tw"><table>
       <thead><tr>
         <th>Title</th><th>Kind</th><th>Region</th><th>Discount</th><th>Valid Days</th>
-        <th>Registrants</th><th>Active</th><th>Actions</th>
+        <th>Registrants</th><th>Active</th><th>Kiosk offer</th><th>Actions</th>
       </tr></thead>
       <tbody id="VE-BODY"></tbody>
     </table></div>
@@ -1908,6 +1908,7 @@ async function renderVoucherEvents(){
       <td>${ev.valid_days}</td>
       <td>${ev.registrant_count}</td>
       <td><input type="checkbox" ${ev.active?'checked':''} onchange="toggleVoucherEventActive('${ev.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
+      <td><input type="checkbox" ${ev.kiosk_offer_enabled?'checked':''} title="Show on the kiosk's Any discount? list" onchange="toggleKioskOfferAdmin('${ev.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
       <td>
         <button class="btn bo xs" onclick="openEventQR('${ev.id}')" title="QR code for the registration link">🖼️ QR</button>
         <button class="btn bo xs" onclick="exportEventRegistrants('${ev.id}')" title="Export registrants as CSV">📋 Export CSV</button>
@@ -1915,11 +1916,16 @@ async function renderVoucherEvents(){
         <button class="btn br xs" onclick="deleteVoucherEvent('${ev.id}')">🗑️</button>
       </td>
     </tr>`;
-  }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--gy);">No events or promotions yet</td></tr>';
+  }).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--gy);">No events or promotions yet</td></tr>';
 }
 async function toggleVoucherEventActive(id,active){
   await fetch(`${SB}/rest/v1/rpc/admin_set_voucher_event_active`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id,p_active:active})});
   toast(active?'Activated':'Paused','#27ae60');
+}
+async function toggleKioskOfferAdmin(id,enabled){
+  const r=await fetch(`${SB}/rest/v1/rpc/admin_set_voucher_event_kiosk_offer`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_id:id,p_enabled:enabled})});
+  toast(r.ok?(enabled?'Shown on kiosk':'Hidden from kiosk'):"Couldn't update the kiosk offer",r.ok?'#27ae60':'var(--red)');
+  if(!r.ok) renderVoucherEvents();
 }
 async function deleteVoucherEvent(id){
   if(!confirm('Delete this event/promotion? Coupons already issued to registrants stay valid.'))return;

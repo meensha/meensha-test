@@ -80,14 +80,21 @@
   .result .discount { font-size: 18px; margin-bottom: 8px; }
   .result .expiry { font-size: 13px; color: rgba(247,243,236,0.6); margin-bottom: 16px; }
   .result .note { font-size: 13px; color: rgba(247,243,236,0.7); border-top: 1px solid rgba(201,168,76,0.2); padding-top: 16px; }
-  .ig-gate { display: none; }
-  .ig-gate a.ig-btn {
+  .wa-row { display: flex; align-items: center; margin-bottom: 10px; }
+  .pfx { padding: 12px; border: 1px solid var(--gold); border-right: none; border-radius: 6px 0 0 6px; background: var(--dark2); color: var(--gold-light); font-weight: 700; }
+  .wa-row input { flex: 1; border-radius: 0 6px 6px 0; margin-bottom: 0; }
+  .ig-overlay {
+    position: fixed; inset: 0; z-index: 100; background: var(--dark);
+    align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+  }
+  .ig-panel { width: 100%; max-width: 360px; text-align: center; }
+  a.ig-btn {
     display: block; width: 100%; padding: 13px; margin-bottom: 14px;
     background: linear-gradient(135deg,#f58529,#dd2a7b,#8134af,#515bd4);
     color: #fff; border-radius: 6px; text-decoration: none; font-weight: 600;
     box-sizing: border-box;
   }
-  .ig-gate .hint { font-size: 13px; color: rgba(247,243,236,0.6); margin-bottom: 16px; }
+  .ig-panel .hint { font-size: 13px; color: rgba(247,243,236,0.6); margin-bottom: 16px; }
   .save-btn {
     display: block; box-sizing: border-box; width: 100%; margin: 12px 0 16px; padding: 13px;
     background: var(--gold); color: var(--dark); border-radius: 6px; text-decoration: none;
@@ -100,16 +107,27 @@
   <div id="form-view">
     <h1>मीनशा · Meensha</h1>
     <div class="sub">Register now and get an exclusive discount code</div>
-    <div class="ig-gate" id="ig-gate">
-      <a class="ig-btn" href="https://instagram.com/meensha_fabrics" target="_blank" rel="noopener">📸 Follow @meensha_fabrics on Instagram</a>
-      <div class="hint" id="ig-hint">Tap to follow, then come back and enter your handle below to continue.</div>
-    </div>
     <input id="reg-name" placeholder="Your name" autocomplete="name">
-    <input id="reg-wa" placeholder="WhatsApp number (with country code)" autocomplete="tel" inputmode="tel">
+    <div class="wa-row"><span class="pfx">+91</span><input id="reg-wa" placeholder="10-digit mobile number" autocomplete="tel-national" inputmode="numeric" maxlength="14"></div>
     <input id="reg-email" placeholder="Email address" autocomplete="email" inputmode="email" type="email" style="display:none">
     <input id="reg-ig" placeholder="Your Instagram handle (e.g. @yourname)" autocomplete="off" style="display:none">
     <button id="reg-submit" onclick="submitRegistration()">Get My Code</button>
     <div class="error" id="reg-error"></div>
+  </div>
+  <div id="ig-overlay" class="ig-overlay" style="display:none;">
+    <div class="ig-panel" id="ig-step-follow">
+      <h1>मीनशा · Meensha</h1>
+      <p class="hint">Follow us on Instagram to unlock your code.</p>
+      <a class="ig-btn" href="https://instagram.com/meensha_fabrics" target="_blank" rel="noopener">📸 Follow @meensha_fabrics</a>
+      <p class="hint">Handle entry opens in <span id="ig-countdown">10</span>s…</p>
+    </div>
+    <div class="ig-panel" id="ig-step-handle" style="display:none;">
+      <h1>Thanks!</h1>
+      <p class="hint">Enter your Instagram handle to continue.</p>
+      <div class="wa-row"><span class="pfx">@</span><input id="ig-handle-input" placeholder="yourhandle" autocomplete="off" autocapitalize="none"></div>
+      <div class="error" id="ig-error"></div>
+      <button onclick="confirmIgHandle()">Continue</button>
+    </div>
   </div>
   <div class="result" id="result-view">
     <h1 id="result-heading">You're registered!</h1>
@@ -168,18 +186,45 @@ async function initEventMode() {
   document.querySelector('.sub').textContent = `${ev.title} — register now and get ${discTxt}`;
   document.getElementById('reg-email').style.display = '';
   // Honor-system follow gate — no Instagram API access to verify a real
-  // follow, so this just surfaces the Follow link + collects the visitor's
-  // handle for staff to glance at and confirm manually at redemption.
-  if (ev.requires_instagram) {
-    document.getElementById('ig-gate').style.display = 'block';
-    document.getElementById('reg-ig').style.display = '';
-  }
+  // follow. Full-page Follow screen first; after 10 seconds it becomes the
+  // handle dialog. Staff check the follow on the kiosk after the code is made.
+  if (ev.requires_instagram) showIgFollowStep();
 }
 initEventMode();
 
+function showIgFollowStep() {
+  document.getElementById('ig-overlay').style.display = 'flex';
+  const cd = document.getElementById('ig-countdown');
+  let left = 10;
+  cd.textContent = left;
+  const timer = setInterval(() => {
+    left -= 1;
+    cd.textContent = left;
+    if (left <= 0) {
+      clearInterval(timer);
+      document.getElementById('ig-step-follow').style.display = 'none';
+      document.getElementById('ig-step-handle').style.display = 'block';
+      document.getElementById('ig-handle-input').focus();
+    }
+  }, 1000);
+}
+
+function confirmIgHandle() {
+  const handle = document.getElementById('ig-handle-input').value.trim().replace(/^@+/, '');
+  const errEl = document.getElementById('ig-error');
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
+    errEl.textContent = 'Enter a valid Instagram handle.';
+    errEl.style.display = 'block';
+    return;
+  }
+  document.getElementById('reg-ig').value = '@' + handle;
+  document.getElementById('ig-overlay').style.display = 'none';
+  document.querySelector('.sub').textContent = 'Thanks! Just one more step — your details below.';
+}
+
 async function submitRegistration() {
   const name = document.getElementById('reg-name').value.trim();
-  const wa = document.getElementById('reg-wa').value.trim();
+  const wa = document.getElementById('reg-wa').value.replace(/\D/g, '');
   const email = document.getElementById('reg-email').value.trim();
   const instagram = document.getElementById('reg-ig').value.trim();
   const errEl = document.getElementById('reg-error');
@@ -187,6 +232,11 @@ async function submitRegistration() {
 
   if (!name || !wa) {
     errEl.textContent = 'Please enter both your name and WhatsApp number.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (wa.length !== 10) {
+    errEl.textContent = 'Enter your 10-digit WhatsApp number (we add +91 for you).';
     errEl.style.display = 'block';
     return;
   }

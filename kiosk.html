@@ -1751,6 +1751,28 @@ setInterval(async ()=>{
   }
 },5*60*1000);
 
+// Instagram-handle alerts: an event registration that captured a handle means
+// staff should check that follow. Seen codes live per device in localStorage;
+// the first run seeds them silently so old registrations don't flood toasts.
+const IG_SEEN_KEY='MSN_IG_SEEN';
+function loadIgSeen(){ try{ return new Set(JSON.parse(localStorage.getItem(IG_SEEN_KEY)||'[]')); }catch{ return new Set(); } }
+function saveIgSeen(set){ try{ localStorage.setItem(IG_SEEN_KEY,JSON.stringify([...set].slice(-500))); }catch{} }
+let igAlertTimer=null;
+async function checkIgAlerts(){
+  if(!CU) return;
+  const firstRun=localStorage.getItem(IG_SEEN_KEY)===null;
+  const rows=await rpcA('admin_recent_ig_registrations',{p_since:new Date(Date.now()-24*3600e3).toISOString()});
+  if(!rows) return;
+  const seen=loadIgSeen();
+  rows.forEach(r=>{
+    if(seen.has(r.code)) return;
+    seen.add(r.code);
+    if(!firstRun) toast(`🔔 ${r.instagram_handle} generated code ${r.code}${r.event_title?' ('+r.event_title+')':''} — check they follow on Instagram`);
+  });
+  saveIgSeen(seen);
+}
+function pollIgAlerts(){ checkIgAlerts(); clearInterval(igAlertTimer); igAlertTimer=setInterval(checkIgAlerts,60*1000); }
+
 function startKiosk(){
   initRegionUI();
   resetSale();
@@ -1760,6 +1782,7 @@ function startKiosk(){
   loadItemPicker();
   rpcP('release_expired_reservations',{}).catch(()=>{});
   pollPrepBanner();
+  pollIgAlerts();
 }
 
 // Re-checks the prep banner every 2 minutes while logged in — frequent
