@@ -393,6 +393,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <button class="btn bg sm" onclick="exportInvXL()">📊 Excel</button>
     <button class="btn bb sm" onclick="exportInvPDF()">📄 PDF</button>
     <button class="btn bwa sm" onclick="printTags()">🏷️ Print Tags</button>
+    <button class="btn bo sm" onclick="printStockSheet()">🧾 Stock Sheet (A4)</button>
     <button class="btn bgn sm" onclick="showTab('stock',document.getElementById('tb-stock'))">➕ Add Stock</button>
   </div>
   <div class="tw"><table><thead><tr><th><input type="checkbox" id="I-SELALL" onchange="toggleAllInvSel(this)" style="accent-color:var(--gdk);width:15px;height:15px;"></th><th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Stock</th><th>Cost ₹</th><th>MRP ₹</th><th>Disc%</th><th>Sale ₹ (INR)</th><th>Sale ₹ (AUD)</th><th>Status</th><th>Market</th><th>Trending</th><th>Photos</th><th>Actions</th></tr></thead><tbody id="I-BODY"></tbody></table></div>
@@ -4561,6 +4562,43 @@ async function uploadTmpPhs(bucket,phs){const urls=[];for(const ph of phs){if(ph
 // ═══════════════════════════════════════════════
 function exportInvXL(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([['SKU Code','Name','Material','Variant','Total','Sold','Available','Cost ₹','MRP ₹','Disc%','Sale ₹ (INR)','Sale ₹ (AUD)','Stock Value ₹','Potential Revenue ₹','Status'],...skus.map(s=>{const av=skuAvail(s.id),tot=skuTotal(s.id);return[s.sku_code,s.name,s.display_material||'',s.display_variant||'',tot,skuSold(s.id),av,s.cost==null?'Pending':s.cost,s.mrp,s.disc+'%',s.sale_price,s.sale_price_aud||'',s.cost==null?'Pending':s.cost*av,s.sale_price*av,av<=0?'Sold Out':av<=2?'Low':'Available'];})]);ws['!cols']=[...Array(15)].map(()=>({wch:16}));XLSX.utils.book_append_sheet(wb,ws,'Inventory');XLSX.writeFile(wb,'Meensha_Inventory_'+new Date().toISOString().split('T')[0]+'.xlsx');}
 function exportInvPDF(){const w=window.open('','_blank');const rows=skus.map(s=>{const av=skuAvail(s.id),tot=skuTotal(s.id);return `<tr><td>${s.sku_code}</td><td>${s.name}</td><td>${s.display_material||'—'}</td><td>${av}/${tot}</td><td>₹${fmt(s.mrp)}</td><td>₹${fmt(s.sale_price)}</td><td>${av<=0?'Sold Out':av<=2?'Low':'Available'}</td></tr>`;}).join('');w.document.write(`<html><head><title>Inventory</title><style>body{font-family:Georgia,serif;margin:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#1A1208;color:#C9A84C;padding:8px;}td{padding:7px;border-bottom:1px solid #e0d5c0;}h2{color:#8B6914;}</style></head><body><h2>Meensha · Inventory · ${new Date().toLocaleDateString('en-IN')}</h2><table><thead><tr><th>SKU Code</th><th>Name</th><th>Material</th><th>Stock</th><th>MRP</th><th>Sale Price</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><script>window.print();<\/script></body></html>`);w.document.close();}
+// Stall stock sheet — a hand-tally backup sheet to take to a physical stall,
+// one A4 landscape page, same data exportInvXL() already produces (SKU
+// Code/Name/Material/Variant/Available/MRP/Disc%/Discount Price — Disc%
+// and Discount Price are inventory_skus.disc and .sale_price directly, not
+// computed here), plus blank "Sales" tally columns for marking off each
+// sale by hand during the day. Only in-stock items — nothing to sell/tally
+// for a sold-out line on the day of a stall.
+function printStockSheet(){
+  const w=window.open('','_blank');
+  const rows=skus.filter(s=>skuAvail(s.id)>0).map(s=>{
+    const av=skuAvail(s.id);
+    return `<tr><td>${sanitise(s.sku_code)}</td><td>${sanitise(s.name)}</td><td>${sanitise(s.display_material||'—')}</td><td>${sanitise(s.display_variant||'—')}</td><td>${av}</td><td>₹${fmt(s.mrp)}</td><td>${s.disc||0}%</td><td>₹${fmt(s.sale_price)}</td>${'<td></td>'.repeat(6)}</tr>`;
+  }).join('');
+  w.document.write(`<html><head><meta charset="utf-8"><title>Stock Sheet</title><style>
+    @page{size:A4 landscape;margin:8mm;}
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:Georgia,serif;}
+    h2{color:#8B6914;margin:0 0 2mm;font-size:13pt;}
+    table{width:100%;border-collapse:collapse;font-size:7.5pt;}
+    th,td{border:0.5pt solid #999;padding:1.5px 4px;text-align:left;}
+    th{background:#1A1208;color:#C9A84C;}
+    .sales-th{text-align:center;}
+    td:nth-child(n+5){text-align:right;}
+    td:nth-child(n+9){text-align:center;}
+  </style></head><body>
+    <h2>Meensha · Stock Sheet · ${new Date().toLocaleDateString('en-IN')}</h2>
+    <table>
+      <thead><tr>
+        <th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Available</th><th>MRP</th><th>Disc%</th><th>Discount Price</th>
+        <th colspan="6" class="sales-th">Sales</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
 function exportSalesXL(){const wb=XLSX.utils.book_new();const ws=XLSX.utils.aoa_to_sheet([['Invoice','Date','Customer','WhatsApp','Items','Total ₹','Paid ₹','Balance ₹','Mode','Ship Status','Courier','Tracking'],...sales.map(s=>[s.inv,s.date,s.customer?.name,s.customer?.wa,(s.items||[]).map(i=>i.name).join(', '),s.total,s.paid,s.balance,s.delivery_mode,s.shipping_status||'—',s.courier||'—',s.tracking||'—'])]);ws['!cols']=[...Array(12)].map(()=>({wch:18}));XLSX.utils.book_append_sheet(wb,ws,'Sales');XLSX.writeFile(wb,'Meensha_Sales_'+new Date().toISOString().split('T')[0]+'.xlsx');}
 function exportSalesPDF(){const w=window.open('','_blank');const rows=sales.map(s=>`<tr><td>${s.inv}</td><td>${s.date}</td><td>${s.customer?.name||''}</td><td>₹${fmt(s.total)}</td><td style="color:${(s.balance||0)>0?'red':'green'}">₹${fmt(s.balance||0)}</td><td>${s.delivery_mode==='shipping'?'🚚':'🏪'}</td><td>${s.shipping_status||'—'}</td></tr>`).join('');w.document.write(`<html><head><title>Sales</title><style>body{font-family:Georgia,serif;margin:20px;}table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#1A1208;color:#C9A84C;padding:8px;}td{padding:7px;border-bottom:1px solid #e0d5c0;}h2{color:#8B6914;}</style></head><body><h2>Meensha · Sales Report · ${new Date().toLocaleDateString('en-IN')}</h2><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Total</th><th>Balance</th><th>Mode</th><th>Shipping</th></tr></thead><tbody>${rows}</tbody></table><script>window.print();<\/script></body></html>`);w.document.close();}
 function exportPnLXL(){const wb=XLSX.utils.book_new();const rev=sales.reduce((a,s)=>a+(s.total||0),0),stockCost=purch.reduce((a,p)=>a+(p.total||0),0);const ohByCat={};ohs.filter(o=>o.cat!=='Stock Purchase').forEach(o=>{ohByCat[o.cat]=(ohByCat[o.cat]||0)+(o.total||0);});const totOH=Object.values(ohByCat).reduce((a,v)=>a+v,0),netP=rev-stockCost-totOH;const rows=[['Meensha P&L','',''],['Date',new Date().toLocaleDateString('en-IN'),''],['','',''],['REVENUE','',''],['Gross Sales',rev,''],['','',''],['COST OF GOODS','',''],['Stock Purchased',stockCost,''],['Gross Profit',rev-stockCost,''],['','',''],['OVERHEADS','',''],...Object.entries(ohByCat).map(([k,v])=>[k,v,'']),[`Total Overheads`,totOH,''],['','',''],['NET PROFIT / LOSS',netP,'']];const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:30},{wch:15},{wch:15}];XLSX.utils.book_append_sheet(wb,ws,'P&L');XLSX.writeFile(wb,'Meensha_PnL_'+new Date().toISOString().split('T')[0]+'.xlsx');}
