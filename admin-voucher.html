@@ -2823,13 +2823,18 @@ function printA4QR(){
   }
   const qrPng=canvas.toDataURL('image/png');
   const w=window.open('','_blank');
+  // Plain block layout, not flex+100vh — vh is unreliable in Chrome's print
+  // engine (often computes to ~0, which rendered this whole page blank
+  // when first tried) — this is the same plain-block approach printTags()
+  // already uses reliably. QR sized to use nearly the full A4 width so the
+  // page is one large scan target, not a small image on a mostly-blank page.
   w.document.write(`<html><head><meta charset="utf-8"><title>Scan QR — A4</title><style>
-    @page{size:A4;margin:20mm;}
+    @page{size:A4;margin:10mm;}
     *{box-sizing:border-box;}
-    body{margin:0;font-family:Georgia,serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;}
-    img{width:140mm;height:140mm;image-rendering:pixelated;}
-    h1{font-size:20pt;color:#1A1208;margin:0 0 8mm;}
-    .sub{font-size:12pt;color:#8B6914;margin-top:8mm;}
+    body{margin:0;font-family:Georgia,serif;text-align:center;}
+    h1{font-size:24pt;color:#1A1208;margin:10mm 0 8mm;}
+    img{width:190mm;height:190mm;image-rendering:pixelated;display:block;margin:0 auto;}
+    .sub{font-size:14pt;color:#8B6914;margin-top:10mm;}
   </style></head><body>
     <h1>📸 Scan for Offers</h1>
     <img src="${qrPng}">
