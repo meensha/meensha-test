@@ -138,26 +138,92 @@ each piece live.
   written by the assistant but **applied/deployed by the project owner
   directly** (`supabase db push` / `supabase functions deploy`) — an
   auto-mode safety gate blocks AI-triggered production database/deploy
-  actions in this environment, by design.
+  actions in this environment, by design. Exception in the follow-up round:
+  migration `20261028200000` was applied to production by the assistant on the
+  owner's explicit instruction, after a `supabase db push --dry-run` confirmed
+  it was the only pending migration.
 - A second, parallel session ("Meensha stall kiosk issues") worked
   concurrently on a separate set of kiosk fixes (Razorpay link, visiting-card
   auto-WhatsApp-send on 10-digit entry, the offer-toggle/unprefixed-codes
   work folded into this handoff) — both sessions' work was committed
   together in one push once confirmed to be the same person's work.
 
-## Outstanding / deferred
+## Follow-up round — kiosk payments, card share, codes, Instagram gate
 
-- Razorpay payment link failure in kiosk — reported broken, not yet
-  diagnosed (needs the actual error text or function logs).
-- Visiting-card WhatsApp share still requires a manual "Send" tap after
-  entering name + 10-digit number — ask was to auto-send the instant the
-  10th digit is typed; open question on whether auto-send should wait for
-  the name field too.
-- Discount-code entry UX: show `MSH-`/prefix-free codes as a fill-in box
-  rather than requiring the full string typed, plus a QR-scan option on
-  the code-entry screen (reusing the jsQR infrastructure already built for
-  unit-tag scanning) — not yet built.
-- admin.html's `EV-LIST` unescaped-title bug (see above) — separate
-  follow-up, not fixed this session.
-- No raw-notes viewer in admin.html before "Analyze & Submit" — QA flagged
-  this as a nice-to-have, not required by spec, not built.
+Second session, same day. Everything below is committed to `main` and
+pushed to `origin` (`0a59711`, `b63654d`, plus the kiosk/Razorpay/card-share
+work already in `e0b7fc4`). Live status: pushed, so meensha.in serves it once
+GitHub Pages redeploys. Not browser-tested end to end and not live-tested
+against Razorpay — verify before relying on it at the stall.
+
+### Kiosk fixes
+- **Razorpay link "doesn't work" — root cause found.** The kiosk sent the
+  `Prefer` header (via `HDR()`) to Edge Functions. `create-payment-link`
+  CORS allows only `authorization`, `apikey`, `content-type`, so the browser
+  rejected the preflight before the function ran, and the kiosk always showed
+  "Couldn't create the Razorpay link". Fixed with a `FN_HDR()` helper used for
+  `create-payment-link` and both `generate-invoice-pdf` calls.
+- **Custom ₹/A$ discount + Razorpay blocked.** `create-payment-link` only
+  knows coupon discounts, so a custom discount would be quoted but charged at
+  full price. The kiosk now refuses Razorpay in that case and points to
+  Cash/UPI/Other.
+- **Visiting-card share auto-sends.** The 10th digit (with a name entered)
+  saves the potential customer and opens `wa.me/91<number>`, once per number.
+  The old link had no `91`, so it went to the wrong chat.
+- **Event offer hidden per customer.** If the customer already holds a coupon
+  for an event, that event's generic button is hidden; they enter their own
+  code instead.
+- **Event offer on/off.** Kiosk "Create event or promotion" lists running
+  events with On/Off. Admin.html's Events & Promotions table has a matching
+  "Kiosk offer" checkbox column. Both use `admin_set_voucher_event_kiosk_offer`
+  (session-guarded). Migration `20261027250000_kiosk_offer_toggle.sql`
+  (applied).
+- **Code entry.** Plain code box, no `MSH-` prefix. A "📷 Scan customer's QR"
+  button opens the existing jsQR scanner in voucher mode: it ignores anything
+  that isn't a voucher code (unit tags included), keeps scanning, and applies
+  the scanned code as if typed. Unit-tag scanning on the Items screen is
+  unchanged.
+- **Discount-code display.** Event registration codes are 6 characters with no
+  prefix (`supabase/migrations/20261028100000_voucher_codes_no_prefix.sql`).
+  Existing `MSH-` codes do not exist, so nothing needed migrating.
+
+### Register page (`register.html`)
+- **Customer QR download.** The code screen shows a QR rendered locally with
+  `qrcode-generator` 1.4.4 (jsDelivr, no SRI hash yet) and a "⬇️ Save QR image"
+  button.
+- **Instagram follow gate (events with "require Instagram").** A full-page
+  Follow screen first. After 10 seconds it becomes a dialog asking only for
+  the `@handle`, then "Thanks!".
+- **WhatsApp field.** Exactly 10 digits, with +91 fixed in the UI. Sent to
+  the backend as 10 digits, matching how other customer numbers are stored.
+- **Email is still required on the event path.** The backend needs an email
+  to create the customer row. The Instagram-gate spec was name + WhatsApp
+  only, so this is a known gap.
+
+### Kiosk staff alert for Instagram handles
+- After login, the kiosk checks every 60 seconds for event registrations in
+  the last 24 hours that captured a handle. Each new one toasts "🔔 @handle
+  generated code X (event) — check they follow on Instagram". Seen codes are
+  stored per device in localStorage; the first run seeds silently.
+- Toasts show for about 2.6 seconds, so several at once may show only the
+  last one.
+- Backed by migration `20261028200000_ig_registration_alerts.sql`
+  (`admin_recent_ig_registrations`, session-guarded). **Applied to production
+  on 2026-10-28** with `supabase db push`, after a dry run confirmed it was the
+  only pending migration. An anonymous probe returned 403 as expected.
+
+### Still open
+- **Live test on the stall-day devices:** Razorpay link creation, the
+  card-share popup on a phone, the QR download, and the Instagram alert with a
+  real admin login.
+- **Custom-discount + Razorpay:** blocked, not solved. A real fix needs the
+  edge function to accept the custom discount, with server-side validation.
+- **Email on the Instagram-gate path:** decide whether to drop it (needs a
+  backend change to `register_event_visitor`).
+- **Telegram bot prompt** still shows "e.g. MSH-A3F92" (text only, needs an
+  edge-function redeploy to change).
+- **`admin.html`'s `EV-LIST` unescaped-title bug** (see above) — still open.
+- **No raw-notes viewer** in admin.html before "Analyze & Submit" — QA flagged
+  as nice-to-have, not built.
+- **Subresource integrity:** register.html loads `qrcode-generator` from
+  jsDelivr without an SRI hash.
