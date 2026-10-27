@@ -151,7 +151,7 @@ each piece live.
 ## Follow-up round — kiosk payments, card share, codes, Instagram gate
 
 Second session, same day. Everything below is committed to `main` and
-pushed to `origin` (`0a59711`, `b63654d`, plus the kiosk/Razorpay/card-share
+pushed to `origin` (`0a59711`, `b63654d`, `a2c822e`, `a081d87`, plus the kiosk/Razorpay/card-share
 work already in `e0b7fc4`). Live status: pushed, so meensha.in serves it once
 GitHub Pages redeploys. Not browser-tested end to end and not live-tested
 against Razorpay — verify before relying on it at the stall.
@@ -192,13 +192,18 @@ against Razorpay — verify before relying on it at the stall.
   `qrcode-generator` 1.4.4 (jsDelivr, no SRI hash yet) and a "⬇️ Save QR image"
   button.
 - **Instagram follow gate (events with "require Instagram").** A full-page
-  Follow screen first. After 10 seconds it becomes a dialog asking only for
-  the `@handle`, then "Thanks!".
+  Follow screen first, with an "I've followed — continue" button (no
+  countdown). Then a dialog asking only for the `@handle`, then "Thanks!".
+- **Logo.** The header and follow screen use the animated coin logo
+  (`meensha_rotating_logo.webp`, the same one the main site uses). The
+  Hindi logo was rejected.
 - **WhatsApp field.** Exactly 10 digits, with +91 fixed in the UI. Sent to
   the backend as 10 digits, matching how other customer numbers are stored.
-- **Email is still required on the event path.** The backend needs an email
-  to create the customer row. The Instagram-gate spec was name + WhatsApp
-  only, so this is a known gap.
+- **No email.** The page no longer asks for one. Migration
+  `20261028300000_event_register_optional_email.sql` makes email optional in
+  `register_event_visitor`; a customer row is created only when an email is
+  given. **Applied to production on 2026-10-28** after a dry run confirmed it
+  was the only pending migration. Committed and pushed as `a081d87`.
 
 ### Kiosk staff alert for Instagram handles
 - After login, the kiosk checks every 60 seconds for event registrations in
@@ -218,8 +223,6 @@ against Razorpay — verify before relying on it at the stall.
   real admin login.
 - **Custom-discount + Razorpay:** blocked, not solved. A real fix needs the
   edge function to accept the custom discount, with server-side validation.
-- **Email on the Instagram-gate path:** decide whether to drop it (needs a
-  backend change to `register_event_visitor`).
 - **Telegram bot prompt** still shows "e.g. MSH-A3F92" (text only, needs an
   edge-function redeploy to change).
 - **`admin.html`'s `EV-LIST` unescaped-title bug** (see above) — still open.
