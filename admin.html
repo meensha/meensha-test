@@ -320,10 +320,19 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div id="POPUP-SECTION">
     <div class="sa-title">📅 Pop-Up Events</div>
     <div style="margin-bottom:20px;">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px;">
+        <button class="btn bo sm" onclick="openChecklistTemplateEditor()">⚙️ Edit Checklist Template</button>
         <button class="btn bg sm" onclick="openEvModal()">+ Add Event</button>
       </div>
       <div id="EV-LIST"></div>
+    </div>
+    </div>
+
+    <div id="NOTES-SECTION">
+    <div class="sa-title">📝 Post-Event Notes &amp; AI Summaries</div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;color:var(--gy);margin-bottom:8px;">Past Pop-Up Events — staff add notes from the kiosk; tap "Analyze &amp; Submit" to summarize them with AI and send the debrief to Telegram.</div>
+      <div id="NOTES-LIST"></div>
     </div>
     </div>
 
@@ -1160,6 +1169,26 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
   <div class="mf"><button class="btn bg" onclick="saveEv()">Save Event</button><button class="btn bgy" onclick="closeMo('MO-EV')">Cancel</button></div>
 </div></div>
 
+<!-- Pop-Up Event prep checklist — shared read/check/uncheck UI, same
+     underlying popup_checklist_items rows kiosk.html's checklist screen
+     reads/writes via the same RPCs (popup_checklist_list/_toggle). -->
+<div class="mo hi" id="MO-EVCHK"><div class="md">
+  <div class="mt2">✅ Prep Checklist — <span id="EVCHK-TITLE" style="color:var(--gdk);"></span></div>
+  <div id="EVCHK-PREVNOTE" style="font-size:11px;color:var(--gy);margin-bottom:8px;"></div>
+  <div id="EVCHK-BODY"></div>
+  <div class="mf"><button class="btn bgy" onclick="closeMo('MO-EVCHK')">Close</button></div>
+</div></div>
+
+<!-- Checklist Template editor — the master template popup_checklist_* rows
+     snapshot from at popup-creation time (see trg_create_popup_checklist).
+     Editing here never changes an already-created event's checklist. -->
+<div class="mo hi" id="MO-TPL"><div class="md">
+  <div class="mt2">⚙️ Checklist Template</div>
+  <div style="font-size:11px;color:var(--gy);margin-bottom:10px;">Drag ⠿ to reorder phases, or items within their own phase. Double-click (or ✏️) to rename. New Pop-Up Events get a snapshot of this template at creation time — editing it later doesn't change already-created events.</div>
+  <div id="TPL-BODY"></div>
+  <div class="mf"><button class="btn bg sm" onclick="addTplPhase()">+ Add phase</button><button class="btn bgy" onclick="closeMo('MO-TPL')">Close</button></div>
+</div></div>
+
 <!-- Event/Promotion (coupon) Form Modal -->
 <div class="mo hi" id="MO-EVTP"><div class="md">
   <div class="mt2">🎉 Create Event / Promotion</div>
@@ -1227,6 +1256,9 @@ async function sbQ(table,q=''){try{const r=await fetch(`${SB}/rest/v1/${table}${
 async function sbIns(table,data){try{const r=await fetch(`${SB}/rest/v1/${table}`,{method:'POST',headers:AHDR(),body:JSON.stringify(data)});return r.ok?(await r.json()):null;}catch{return null;}}
 async function sbUpd(table,q,data){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'PATCH',headers:AHDR(),body:JSON.stringify(data)});return r.ok;}catch{return false;}}
 async function sbDel(table,q){try{const r=await fetch(`${SB}/rest/v1/${table}${q}`,{method:'DELETE',headers:AHDR()});return r.ok;}catch{return false;}}
+// Admin-session-gated RPC call (every popup checklist/notes RPC requires
+// require_admin_session() server-side — see 20261027240000_popup_prep_checklist.sql).
+async function rpcA(name,body){try{const r=await fetch(`${SB}/rest/v1/rpc/${name}`,{method:'POST',headers:AHDR(),body:JSON.stringify(body||{})});return r.ok?(await r.json()):null;}catch{return null;}}
 // Raw phone-camera photos were uploading at 4-10MB each, uncompressed —
 // slow/timing-out on venue wifi, looking like "images not rendering" on
 // the storefront. Resize to a sane max dimension and re-encode as JPEG
@@ -2139,7 +2171,8 @@ async function renderHome(){
   document.getElementById('H-LOW').innerHTML=low.length?low.map(i=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0e8d8;font-size:12px;"><span>${i.name}${i.subtype?' ('+i.subtype+')':''}</span><span class="bx ${(i.qty-(i.sold||0))<=0?'br2':'ba'}">${(i.qty-(i.sold||0))} left</span></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">All good ✅</p>';
   // Requests — H-REQ is now a static shortcut into the Requests tab (see tp-req), no longer populated here.
   // Events
-  document.getElementById('EV-LIST').innerHTML=popups.length?popups.map(ev=>`<div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:11px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;"><div><strong style="font-size:13px;">${ev.title}</strong><span class="bx ${ev.status==='upcoming'?'bg2':'bgy2'}" style="margin-left:7px;">${ev.status}</span><br><span style="font-size:11px;color:var(--gy);">${ev.dates||''} · ${ev.location||''}</span></div><div style="display:flex;gap:4px;"><button class="btn bgy xs" onclick="editEv('${ev.id}')">✏️</button><button class="btn br xs" onclick="delEv('${ev.id}')">🗑️</button></div></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">No events yet.</p>';
+  document.getElementById('EV-LIST').innerHTML=popups.length?popups.map(ev=>`<div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:11px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;"><div><strong style="font-size:13px;">${ev.title}</strong><span class="bx ${ev.status==='upcoming'?'bg2':'bgy2'}" style="margin-left:7px;">${ev.status}</span><br><span style="font-size:11px;color:var(--gy);">${ev.dates||''} · ${ev.location||''}</span></div><div style="display:flex;gap:4px;"><button class="btn bgn xs" onclick="openEvChecklist('${ev.id}')">✅ Checklist</button><button class="btn bgy xs" onclick="editEv('${ev.id}')">✏️</button><button class="btn br xs" onclick="delEv('${ev.id}')">🗑️</button></div></div>`).join(''):'<p style="color:var(--gy);font-size:12px;">No events yet.</p>';
+  renderNotesSection();
   // Instagram — draggable (reorder) + clickable (edit) cards
   document.getElementById('IG-LIST').innerHTML=igPosts.map(p=>`<div draggable="true" data-id="${p.id}" ondragstart="igDragStart(event)" ondragover="igDragOver(event)" ondrop="igDrop(event)" ondragend="igDragEnd(event)" onclick="openIgModal('${p.id}')" title="Drag to reorder, click to edit" style="position:relative;background:#f0f0f0;border-radius:8px;overflow:hidden;aspect-ratio:1;cursor:grab;">${p.image_url?`<img src="${p.image_url}" style="width:100%;height:100%;object-fit:cover;pointer-events:none;">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#999;pointer-events:none;">📷</div>'}<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);padding:3px 6px;font-size:10px;color:#fff;pointer-events:none;">${p.caption||''}</div><button class="btn br xs" style="position:absolute;top:3px;right:3px;" onclick="event.stopPropagation();delIg('${p.id}')">✕</button></div>`).join('');
 }
@@ -4475,6 +4508,181 @@ async function saveEv(){
   try{if(editEvId){await sbUpd('popups',`?id=eq.${editEvId}`,data);}else{await sbIns('popups',data);}popups=await sbQ('popups','?order=display_order,created_at.desc');renderHome();closeMo('MO-EV');toast('✅ Event saved','#27ae60');}catch(e){toast('Error: '+e.message,'var(--red)');}
 }
 async function delEv(id){if(!confirm('Delete event?'))return;await sbDel('popups',`?id=eq.${id}`);popups=popups.filter(p=>p.id!==id);renderHome();toast('Deleted','var(--red)');}
+
+// ── Pop-Up Event prep checklist ──────────────────────────────────────────
+// Per-popup SNAPSHOT of the editable template below (see
+// "Checklist Template editor" further down) — copied at creation time by
+// the popup_checklist_autocreate trigger, so editing the template later
+// never retroactively changes an already-created event's checklist. Same
+// rows/RPCs kiosk.html's checklist screens use — one shared source of
+// truth, never duplicated.
+let evchkPopupId=null;
+async function openEvChecklist(id){
+  evchkPopupId=id;
+  const ev=popups.find(p=>p.id===id);
+  document.getElementById('EVCHK-TITLE').textContent=ev?.title||'';
+  document.getElementById('MO-EVCHK').classList.remove('hi');
+  await loadEvChecklist();
+}
+async function loadEvChecklist(){
+  const items=await rpcA('popup_checklist_list',{p_popup_id:evchkPopupId})||[];
+  renderEvChecklist(items);
+  const prev=await rpcA('popup_previous_summary',{p_popup_id:evchkPopupId});
+  const p=prev&&prev[0];
+  document.getElementById('EVCHK-PREVNOTE').textContent=p&&p.summary?`Notes from previous event ("${p.title}"): ${p.summary}`:'No AI summary from a previous event yet.';
+}
+function renderEvChecklist(items){
+  const byPhase=new Map();
+  items.forEach(it=>{if(!byPhase.has(it.phase_id))byPhase.set(it.phase_id,{title:it.phase_title,order:it.phase_order,items:[]});byPhase.get(it.phase_id).items.push(it);});
+  const phases=[...byPhase.values()].sort((a,b)=>a.order-b.order);
+  document.getElementById('EVCHK-BODY').innerHTML=phases.map(ph=>`
+    <div style="margin-bottom:12px;">
+      <div style="font-weight:600;font-size:12px;color:var(--gdk);margin-bottom:6px;">${esc(ph.title)}</div>
+      ${ph.items.map(it=>`<label style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:13px;">
+        <input type="checkbox" ${it.checked?'checked':''} onchange="toggleEvChecklistItem('${it.item_id}',this.checked)" style="margin-top:3px;">
+        <span>${esc(it.item_title)}${it.checked?`<br><span style="font-size:10px;color:var(--gy);">✓ ${esc(it.checked_by_name||'')} ${it.checked_at?new Date(it.checked_at).toLocaleString():''}</span>`:''}</span>
+      </label>`).join('')}
+    </div>`).join('');
+}
+async function toggleEvChecklistItem(itemId,checked){
+  await rpcA('popup_checklist_toggle',{p_popup_id:evchkPopupId,p_item_id:itemId,p_checked:checked});
+  await loadEvChecklist();
+}
+
+// ── Checklist Template editor — shared with kiosk.html. The RPCs below
+//    (admin_checklist_template_*, admin_reorder_checklist_*) are gated
+//    only by require_admin_session(), same as every other RPC in this
+//    feature — not restricted to being called from admin.html. kiosk.html's
+//    scr-maint-tpl screen calls these exact same RPCs (see kiosk.html
+//    ~line 3565), with up/down buttons instead of drag-and-drop there
+//    (native HTML5 DnD is unreliable on that touch WebView).
+// Phases reorder among phases; items reorder within their own phase only.
+// Native HTML5 drag-and-drop here in admin.html, no new library.
+let tplPhases=[],tplDragPhaseId=null,tplDragItem=null;
+async function openChecklistTemplateEditor(){
+  document.getElementById('MO-TPL').classList.remove('hi');
+  await loadChecklistTemplate();
+}
+async function loadChecklistTemplate(){
+  const rows=await rpcA('admin_checklist_template_list',{})||[];
+  const byPhase=new Map();
+  rows.forEach(r=>{
+    if(!byPhase.has(r.phase_id))byPhase.set(r.phase_id,{id:r.phase_id,title:r.phase_title,order:r.phase_order,items:[]});
+    if(r.item_id)byPhase.get(r.phase_id).items.push({id:r.item_id,title:r.item_title,order:r.item_order});
+  });
+  tplPhases=[...byPhase.values()].sort((a,b)=>a.order-b.order);
+  tplPhases.forEach(ph=>ph.items.sort((a,b)=>a.order-b.order));
+  renderChecklistTemplate();
+}
+function renderChecklistTemplate(){
+  document.getElementById('TPL-BODY').innerHTML=tplPhases.map(ph=>`
+    <div class="hi" style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:10px;margin-bottom:10px;" draggable="true"
+         data-phase-id="${ph.id}" ondragstart="tplPhaseDragStart(event,'${ph.id}')" ondragover="tplPhaseDragOver(event)" ondrop="tplPhaseDrop(event,'${ph.id}')" ondragend="tplDragEnd()">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:grab;">
+        <span style="opacity:.5;">⠿</span>
+        <strong style="flex:1;font-size:13px;" ondblclick="renameTplPhase('${ph.id}','${esc(ph.title).replace(/'/g,"\\'")}')">${esc(ph.title)}</strong>
+        <button class="btn bgy xs" onclick="renameTplPhase('${ph.id}','${esc(ph.title).replace(/'/g,"\\'")}')">✏️</button>
+        <button class="btn br xs" onclick="delTplPhase('${ph.id}')">🗑️</button>
+      </div>
+      <div data-phase-items="${ph.id}">
+        ${ph.items.map(it=>`<div draggable="true" data-item-id="${it.id}" ondragstart="tplItemDragStart(event,'${ph.id}','${it.id}')" ondragover="tplItemDragOver(event)" ondrop="tplItemDrop(event,'${ph.id}','${it.id}')" ondragend="tplDragEnd()"
+          style="display:flex;align-items:center;gap:6px;padding:4px 0 4px 18px;font-size:12px;cursor:grab;">
+          <span style="opacity:.4;">⠿</span><span style="flex:1;" ondblclick="renameTplItem('${it.id}','${esc(it.title).replace(/'/g,"\\'")}')">${esc(it.title)}</span>
+          <button class="btn bgy xs" onclick="renameTplItem('${it.id}','${esc(it.title).replace(/'/g,"\\'")}')">✏️</button>
+          <button class="btn br xs" onclick="delTplItem('${it.id}')">🗑️</button>
+        </div>`).join('')}
+      </div>
+      <button class="btn bo xs" style="margin-top:6px;margin-left:18px;" onclick="addTplItem('${ph.id}')">+ Add item</button>
+    </div>`).join('');
+}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+async function addTplPhase(){
+  const title=prompt('New phase title:');
+  if(!title||!title.trim())return;
+  await rpcA('admin_checklist_template_add_phase',{p_title:title.trim()});
+  await loadChecklistTemplate();
+}
+async function addTplItem(phaseId){
+  const title=prompt('New item title:');
+  if(!title||!title.trim())return;
+  await rpcA('admin_checklist_template_add_item',{p_phase_id:phaseId,p_title:title.trim()});
+  await loadChecklistTemplate();
+}
+async function renameTplPhase(phaseId,current){
+  const title=prompt('Rename phase:',current);
+  if(!title||!title.trim()||title.trim()===current)return;
+  await rpcA('admin_checklist_template_rename_phase',{p_phase_id:phaseId,p_title:title.trim()});
+  await loadChecklistTemplate();
+}
+async function renameTplItem(itemId,current){
+  const title=prompt('Rename item:',current);
+  if(!title||!title.trim()||title.trim()===current)return;
+  await rpcA('admin_checklist_template_rename_item',{p_item_id:itemId,p_title:title.trim()});
+  await loadChecklistTemplate();
+}
+async function delTplPhase(phaseId){
+  if(!confirm('Delete this phase and all its items from the template? (Existing events keep their already-created checklist.)'))return;
+  await rpcA('admin_checklist_template_delete_phase',{p_phase_id:phaseId});
+  await loadChecklistTemplate();
+}
+async function delTplItem(itemId){
+  if(!confirm('Delete this item from the template?'))return;
+  await rpcA('admin_checklist_template_delete_item',{p_item_id:itemId});
+  await loadChecklistTemplate();
+}
+function tplPhaseDragStart(e,phaseId){tplDragPhaseId=phaseId;e.stopPropagation();}
+function tplPhaseDragOver(e){if(tplDragPhaseId)e.preventDefault();}
+async function tplPhaseDrop(e,targetPhaseId){
+  e.preventDefault();e.stopPropagation();
+  if(!tplDragPhaseId||tplDragPhaseId===targetPhaseId)return;
+  const from=tplPhases.findIndex(p=>p.id===tplDragPhaseId),to=tplPhases.findIndex(p=>p.id===targetPhaseId);
+  if(from<0||to<0)return;
+  const [moved]=tplPhases.splice(from,1);tplPhases.splice(to,0,moved);
+  renderChecklistTemplate();
+  await rpcA('admin_reorder_checklist_phases',{p_phase_ids:tplPhases.map(p=>p.id)});
+}
+function tplItemDragStart(e,phaseId,itemId){tplDragItem={phaseId,itemId};e.stopPropagation();}
+function tplItemDragOver(e){if(tplDragItem)e.preventDefault();}
+async function tplItemDrop(e,phaseId,targetItemId){
+  e.preventDefault();e.stopPropagation();
+  if(!tplDragItem||tplDragItem.phaseId!==phaseId||tplDragItem.itemId===targetItemId)return;
+  const ph=tplPhases.find(p=>p.id===phaseId);if(!ph)return;
+  const from=ph.items.findIndex(i=>i.id===tplDragItem.itemId),to=ph.items.findIndex(i=>i.id===targetItemId);
+  if(from<0||to<0)return;
+  const [moved]=ph.items.splice(from,1);ph.items.splice(to,0,moved);
+  renderChecklistTemplate();
+  await rpcA('admin_reorder_checklist_items',{p_phase_id:phaseId,p_item_ids:ph.items.map(i=>i.id)});
+}
+function tplDragEnd(){tplDragPhaseId=null;tplDragItem=null;}
+
+// ── Post-event notes: AI summary section ─────────────────────────────────
+async function renderNotesSection(){
+  const past=popups.filter(p=>p.status==='past');
+  const el=document.getElementById('NOTES-LIST');
+  if(!el)return;
+  const summaries=await rpcA('popup_note_summaries_list',{})||[];
+  const byId={};summaries.forEach(s=>byId[s.popup_id]=s);
+  el.innerHTML=past.length?past.map(ev=>{
+    const s=byId[ev.id];
+    return `<div style="background:#fff;border:1px solid var(--bd);border-radius:8px;padding:11px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <strong style="font-size:13px;">${esc(ev.title)}</strong>
+        <button class="btn bgn xs" onclick="analyzePopupNotes('${ev.id}')">🤖 Analyze &amp; Submit</button>
+      </div>
+      ${s?`<div style="font-size:12px;color:var(--gdk);margin-top:6px;white-space:pre-wrap;">${esc(s.summary)}</div><div style="font-size:10px;color:var(--gy);margin-top:4px;">Generated ${new Date(s.generated_at).toLocaleString()}</div>`:'<div style="font-size:11px;color:var(--gy);margin-top:6px;">No AI summary yet.</div>'}
+    </div>`;
+  }).join(''):'<p style="color:var(--gy);font-size:12px;">No past events yet.</p>';
+}
+async function analyzePopupNotes(id){
+  toast('Analyzing notes…');
+  try{
+    const r=await fetch(`${SB}/functions/v1/popup-notes-digest`,{method:'POST',headers:AHDR(),body:JSON.stringify({popup_id:id})});
+    const j=await r.json();
+    if(!r.ok||!j.ok){toast(j.reason==='no_notes'?'No notes yet for this event':'Error generating summary','var(--red)');return;}
+    toast('✅ Summary generated and sent','#27ae60');
+    renderNotesSection();
+  }catch(e){toast('Error: '+e.message,'var(--red)');}
+}
 
 // ═══════════════════════════════════════════════
 // INSTAGRAM

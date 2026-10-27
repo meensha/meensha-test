@@ -55,6 +55,20 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 }
 .topbar img{height:30px;display:block;}
 .topbar .tb-title{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--gold-light);flex:1;}
+/* Pop-up prep nag banner — pinned under the topbar on every screen once
+   logged in, visible whenever any upcoming/live event has an unchecked
+   checklist item. Red version of index.html's .new-badge pulse +
+   .live-now-badge liveBreathe (see index.html lines ~347-363). */
+.prep-banner{
+  display:none; align-items:center; gap:8px; cursor:pointer;
+  position:sticky; top:54px; z-index:49;
+  padding:9px 16px; background:#7a1f1f; color:#fff;
+  font-size:12px; font-weight:600; border-bottom:1px solid #a33;
+  animation:prepPulse 2s infinite, prepBreathe 1.8s infinite;
+}
+.prep-banner.show{display:flex;}
+@keyframes prepPulse{0%,100%{opacity:1}50%{opacity:.8}}
+@keyframes prepBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.01)}}
 .tb-btn{
   background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);
   padding:7px 13px;font-size:14px;cursor:pointer;white-space:nowrap;
@@ -96,7 +110,7 @@ button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit
 .sidebar-group.open .sidebar-children{max-height:240px;}
 .sidebar-children .sidebar-item{padding-left:34px;font-size:14px;color:rgba(247,243,236,.75);}
 /* Maintenance group has 12 children — taller than the shared 240px cap. */
-#sg-maintenance.open .sidebar-children{max-height:620px;}
+#sg-maintenance.open .sidebar-children{max-height:700px;}
 .sidebar{overflow-y:auto;}
 
 main{flex:1;display:flex;flex-direction:column;position:relative;}
@@ -380,10 +394,18 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     </button>
     <button class="tb-btn tb-cart" id="tb-cart-btn" onclick="goCart()">🧺 <span id="tb-cart-count">0</span><span class="badge" id="tb-cart-badge" style="display:none;"></span></button>
     <button class="tb-btn" id="tb-help-btn" onclick="openMaintHowWorks()" aria-label="Help / Ask me">💬</button>
+    <button class="tb-btn" id="tb-notes-btn" onclick="openPopupNotes()" aria-label="Post-event notes">📝</button>
     <button class="tb-btn tb-sharecard" id="tb-sharecard-btn" style="display:none;" onclick="openShareCardModal();" aria-label="Share my Visiting Card">
       <span class="card-stack"><span class="cs-card"></span><span class="cs-card"></span><span class="cs-card"></span></span>
     </button>
     <button class="tb-btn" onclick="confirmLogout()">Logout</button>
+  </div>
+
+  <!-- Pop-up prep nag banner — see pollPrepBanner()/openPrepBanner(). Pinned
+       under the topbar; tapping opens the relevant checklist (a pick-list
+       first if several events have open items). -->
+  <div class="prep-banner" id="prep-banner" onclick="openPrepBanner()">
+    <span>⚠️</span><span id="prep-banner-text">Pop-up prep items pending</span>
   </div>
 
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -432,6 +454,8 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <button class="sidebar-item" onclick="closeSidebar();openMaintEventPromo();">🎉 Create event/promotion</button>
         <button class="sidebar-item" onclick="closeSidebar();openMaintShareCard();">📇 Share visiting card</button>
         <button class="sidebar-item" onclick="closeSidebar();openMaintEvPhoto();">📸 Event photo submissions</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintNewPopup();">🎪 New Pop-up Event</button>
+        <button class="sidebar-item" onclick="closeSidebar();openMaintChecklistTemplate();">⚙️ Edit Checklist Template</button>
       </div>
     </div>
 
@@ -476,8 +500,8 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     <div class="vc-modal" id="vc-send-modal">
       <button class="vc-close" onclick="closeShareSendModal()">✕</button>
       <h2>💬 Share on WhatsApp</h2>
-      <div class="field"><label>Name</label><input type="text" id="vcs-name" placeholder="Customer name" oninput="updateShareMessage()"></div>
-      <div class="field"><label>WhatsApp number</label><input type="tel" id="vcs-wa" placeholder="10-digit number"></div>
+      <div class="field"><label>Name</label><input type="text" id="vcs-name" placeholder="Customer name" oninput="updateShareMessage();onShareWaInput()"></div>
+      <div class="field"><label>WhatsApp number</label><input type="tel" id="vcs-wa" placeholder="10-digit number" inputmode="numeric" oninput="onShareWaInput()"></div>
       <div class="field"><label>Comments (optional)</label><textarea id="vcs-comments" class="vendor-msg-box" rows="2" placeholder="Anything to add to the message…" oninput="updateShareMessage()"></textarea></div>
       <div class="field"><label>Message</label><textarea id="vcs-message" class="vendor-msg-box" rows="7"></textarea></div>
       <button class="btn btn-primary btn-block" onclick="submitShareCard()">Send</button>
@@ -616,8 +640,9 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <div id="disc-options"></div>
 
         <div class="disc-inline" id="disc-code-box">
-          <div class="field" style="margin-bottom:10px;"><label>Coupon code</label><input type="text" id="disc-code-input" placeholder="e.g. MSH-A3F92" autocapitalize="characters"></div>
+          <div class="field" style="margin-bottom:10px;"><label>Coupon code</label><input type="text" id="disc-code-input" placeholder="e.g. A3F92B or DIWALI200" autocapitalize="characters"></div>
           <button class="btn btn-primary btn-block btn-sm" onclick="submitDiscountCode()">Apply code</button>
+          <button class="btn btn-ghost btn-block btn-sm" style="margin-top:8px;" onclick="openCodeScanner()">📷 Scan customer's QR</button>
         </div>
         <div class="disc-inline" id="disc-custom-box">
           <div class="field" style="margin-bottom:10px;"><label>Custom discount (<span id="disc-custom-cur">₹</span>)</label><input type="number" id="disc-custom-input" min="0" inputmode="decimal"></div>
@@ -1067,6 +1092,97 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       </div>
     </section>
 
+    <!-- NEW POP-UP EVENT (decision #4 — same fields as admin.html's MO-EV
+         modal, writes via popup_create_from_kiosk RPC; the checklist
+         autocreate trigger fires on that INSERT same as admin's saveEv()). -->
+    <section class="screen" id="scr-maint-newpopup">
+      <div class="scr-body">
+        <div class="scr-head"><h1>🎪 New Pop-up Event</h1></div>
+        <div class="err-box" id="mnp-err"></div>
+        <div class="field"><label>Title *</label><input type="text" id="mnp-title" placeholder="e.g. AFWWA Exhibition"></div>
+        <div class="field"><label>Dates (display text) *</label><input type="text" id="mnp-dates" placeholder="26-27 March 2025"></div>
+        <div class="field"><label>From *</label><input type="date" id="mnp-from"></div>
+        <div class="field"><label>To * (same as From for a one-day event)</label><input type="date" id="mnp-to"></div>
+        <div class="field"><label>Timings</label><input type="text" id="mnp-timings" placeholder="10 AM – 7 PM"></div>
+        <div class="field"><label>Location *</label><input type="text" id="mnp-location" placeholder="AFWWA Complex, Jalahalli, Bengaluru"></div>
+        <div class="field"><label>Map Link (optional)</label><input type="text" id="mnp-locurl" placeholder="https://maps.app.goo.gl/..."></div>
+        <div class="field"><label>Status</label><select id="mnp-status"><option value="upcoming">Upcoming</option><option value="live">Live</option><option value="past">Past</option></select></div>
+        <div class="field"><label>Write-up</label><textarea id="mnp-writeup" rows="3" placeholder="Brief description..."></textarea></div>
+        <input type="file" accept="image/*" capture="environment" id="mnp-photo-input" style="display:none;" onchange="onNewPopupPhotoChosen(event)">
+        <button class="btn btn-outline btn-block" onclick="document.getElementById('mnp-photo-input').click()">📷 Add photo (optional)</button>
+        <div class="photo-thumb-row" id="mnp-photos"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Cancel</button>
+        <button class="btn btn-primary btn-flex" id="mnp-save-btn" onclick="saveNewPopup()">Save ▶</button>
+      </div>
+    </section>
+
+    <!-- CHECKLIST TEMPLATE editor — same admin_checklist_template_*/
+         admin_reorder_checklist_* RPCs as admin.html's MO-TPL modal, gated
+         only by require_admin_session() (any logged-in role, from either
+         UI). Up/down buttons instead of drag-and-drop here — native HTML5
+         DnD is unreliable on this kiosk's touch WebView; see report. -->
+    <section class="screen" id="scr-maint-tpl">
+      <div class="scr-body">
+        <div class="scr-head"><h1>⚙️ Checklist Template</h1><p>Every new Pop-up Event gets a snapshot of this at creation — editing it later doesn't change existing events.</p></div>
+        <div id="ktpl-body"></div>
+        <button class="btn btn-outline btn-block" style="margin-top:10px;" onclick="addKtplPhase()">+ Add phase</button>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <!-- PREP CHECKLIST — pick-list shown only when 2+ upcoming/live events
+         have open items (see openPrepBanner()). -->
+    <section class="screen" id="scr-prep-picklist">
+      <div class="scr-body">
+        <div class="scr-head"><h1>⚠️ Prep items pending</h1><p>Pick an event</p></div>
+        <div id="prep-pick-list"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <!-- PREP CHECKLIST — one event. Same rows/RPCs as admin.html's
+         MO-EVCHK modal (popup_checklist_list/_toggle) — one shared source
+         of truth, checkable from kiosk directly. -->
+    <section class="screen" id="scr-prep-checklist">
+      <div class="scr-body">
+        <div class="scr-head"><h1 id="pchk-title"></h1></div>
+        <div id="pchk-prevnote" style="font-size:12px;opacity:.75;margin-bottom:10px;"></div>
+        <div id="pchk-body"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+
+    <!-- POST-EVENT NOTES — write only; kiosk never triggers the AI summary
+         (that's admin.html's "Analyze & Submit" button). -->
+    <section class="screen" id="scr-popup-notes-pick">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📝 Add a note</h1><p>Which event is this about?</p></div>
+        <div id="pn-pick-list"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-popup-notes-write">
+      <div class="scr-body">
+        <div class="scr-head"><h1>📝 Add a note</h1><p id="pnw-event"></p></div>
+        <div id="pnw-list" style="margin-bottom:14px;"></div>
+        <div class="field"><label>New note</label><textarea id="pnw-text" rows="4" placeholder="What happened, what to remember for next time…"></textarea></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
+        <button class="btn btn-primary btn-flex" id="pnw-save-btn" onclick="savePopupNoteWrite()">Save ▶</button>
+      </div>
+    </section>
+
     <!-- PENDING AU COSTS (mirrors showAucostPicker / startAucost / handleMaintenanceAucostText) -->
     <section class="screen" id="scr-maint-aucost-list">
       <div class="scr-body">
@@ -1217,7 +1333,15 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         </div>
         <div class="field"><label id="mep-value-label">Discount value</label><input type="number" id="mep-value" min="0" inputmode="decimal"><div class="field" style="margin:4px 0 0;"><span id="mep-value-hint" style="font-size:13px;color:rgba(247,243,236,.5);"></span></div></div>
         <div class="field"><label>Valid for how many days after registering?</label><input type="number" id="mep-days" min="1" value="7"></div>
+        <div class="field"><label>Offer on the kiosk discount picker?</label>
+          <div class="pair-btns">
+            <button class="btn btn-ghost btn-flex" id="mep-kiosk-on" onclick="setMepKioskOffer(true)">✅ On</button>
+            <button class="btn btn-ghost btn-flex" id="mep-kiosk-off" onclick="setMepKioskOffer(false)">⛔ Off</button>
+          </div>
+          <div class="field" style="margin:4px 0 0;"><span style="font-size:13px;color:rgba(247,243,236,.5);">On by default. Off hides it from "Any discount?" on new sales — registrants can still enter their own code.</span></div>
+        </div>
         <div id="mep-result"></div>
+        <div class="field" style="margin-top:18px;"><label>Running events — kiosk offer</label><div id="mep-events-list"></div></div>
       </div>
       <div class="bottombar">
         <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Cancel</button>
@@ -1387,6 +1511,10 @@ const SB='https://eglanmhhcccsuhbxywua.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
 const STOREFRONT_URL='https://meensha.in';
 const HDR=()=>({'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','Prefer':'return=representation'});
+// Edge Functions (create-payment-link, generate-invoice-pdf) allow only
+// authorization/apikey/content-type in CORS — HDR()'s Prefer header makes the
+// browser's preflight fail before the function even runs.
+const FN_HDR=()=>({'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json'});
 let CU=null;
 const AHDR=()=>({...HDR(),'x-admin-session':CU?.session_token||''});
 
@@ -1631,7 +1759,13 @@ function startKiosk(){
   showScreen('scr-items');
   loadItemPicker();
   rpcP('release_expired_reservations',{}).catch(()=>{});
+  pollPrepBanner();
 }
+
+// Re-checks the prep banner every 2 minutes while logged in — frequent
+// enough to notice a staffer checking items off from the admin side, cheap
+// enough not to matter (one small RPC call).
+setInterval(()=>{ if(CU)pollPrepBanner(); },2*60*1000);
 
 // ═══════════════════════════════════════════════
 // SALE STATE — mirrors the Telegram bot's kiosk session `data` object
@@ -1941,7 +2075,14 @@ async function pickUnit(unitId, unitCodeOverride){
 // exact reserve_unit() gate — no new RPC, no bypass of the manual flow.
 // ═══════════════════════════════════════════════
 let scanStream=null, scanRafId=null, scanCanvas=null;
-async function openScanner(){
+// Same camera scanner, two jobs: unit tags (default) and a customer's
+// voucher QR on the discount screen (scanTarget 'code').
+let scanTarget='unit';
+function openCodeScanner(){ openScanner('code'); }
+function scanReturnScreen(){ return scanTarget==='code' ? 'scr-discount' : 'scr-items'; }
+async function openScanner(target='unit'){
+  scanTarget=target;
+  document.getElementById('scan-hint').textContent = target==='code' ? "Point the camera at the customer's QR" : 'Point the camera at a tag';
   showScreen('scr-scan');
   try{
     scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
@@ -1971,7 +2112,7 @@ async function openScanner(){
   }catch{
     toast('Camera not available — check permissions.');
     closeScanner();
-    showScreen('scr-items');
+    showScreen(scanReturnScreen());
   }
 }
 function closeScanner(){
@@ -1982,10 +2123,20 @@ function closeScanner(){
 }
 function closeScannerAndGoItems(){
   closeScanner();
-  showScreen('scr-items');
+  showScreen(scanReturnScreen());
+}
+// A scanned voucher code fills the discount box and applies it, exactly as if
+// staff had typed it — same validateCouponRPC() path as the manual box.
+async function applyScannedCode(text){
+  const code=(text||'').trim();
+  showScreen('scr-discount');
+  if(!code || /^MSNU1:/.test(code)){ toast('That QR is not a Meensha voucher code.'); return; }
+  document.getElementById('disc-code-input').value=code;
+  await submitDiscountCode();
 }
 async function handleScanResult(text){
   closeScanner();
+  if(scanTarget==='code'){ return applyScannedCode(text); }
   const m=/^MSNU1:([0-9a-f-]{36})$/i.exec(text||'');
   if(!m){ toast('Not a recognized Meensha tag.'); showScreen('scr-items'); return; }
   const unitId=m[1];
@@ -2141,6 +2292,8 @@ function renderDiscountPicker(){
     if(!e.active)return false;
     if(!regionAllowed(e.region))return false;
     if(appliedEventIds.includes(e.id))return false;
+    if(e.kiosk_offer_enabled===false)return false;
+    if(customerHasEventCoupon(e.id))return false;
     const expires=new Date(e.created_at);
     expires.setDate(expires.getDate()+(e.valid_days||7));
     return expires>=now;
@@ -2159,6 +2312,12 @@ function renderDiscountPicker(){
   html+=`<button class="disc-opt" onclick="toggleInline('disc-code-box')"><span>🔑 Enter a code</span></button>`;
   html+=`<button class="disc-opt" onclick="toggleInline('disc-custom-box')"><span>✏️ Custom discount amount</span></button>`;
   opts.innerHTML=html;
+}
+// Once this customer already holds a code for an event, the generic event
+// button is hidden — they enter their own MSH- code instead (no double offer).
+function customerHasEventCoupon(eventId){
+  const ten=digits10(S.customer_wa);
+  return !!ten && (discountCache.coupons||[]).some(c=>c.event_id===eventId && (c.customer_wa||'').replace(/\D/g,'').slice(-10)===ten);
 }
 function toggleInline(id){
   ['disc-code-box','disc-custom-box','disc-event-box'].forEach(x=>{
@@ -2299,7 +2458,12 @@ async function choosePayMode(mode){
   if(mode==='cash'){ S.pay_mode='Cash'; goAmount(); return; }
   if(mode==='card'){ S.pay_mode='Card'; goAmount(); return; }
   if(mode==='upi'){ S.pay_mode='UPI Direct'; await showUpiQr(); goAmount(); return; }
-  if(mode==='razorpay'){ S.pay_mode='Razorpay'; await sendRazorpayLink(); return; }
+  if(mode==='razorpay'){
+    // create-payment-link only knows coupon-based discounts — a custom ₹/A$
+    // discount would be quoted here but charged at the full price.
+    if((S.appliedDiscounts||[]).some(d=>d.isCustom)){ toast('Razorpay can\'t include a custom discount — use Cash/UPI or Other instead.'); return; }
+    S.pay_mode='Razorpay'; await sendRazorpayLink(); return;
+  }
 }
 function submitPayOther(){
   const v=document.getElementById('pay-other-input').value.trim();
@@ -2331,7 +2495,7 @@ async function sendRazorpayLink(){
   let linkData=null;
   try{
     const res=await fetch(`${SB}/functions/v1/create-payment-link`,{
-      method:'POST',headers:HDR(),
+      method:'POST',headers:FN_HDR(),
       body:JSON.stringify({
         items:S.cart.map(c=>({name:c.name})),
         total,
@@ -2434,7 +2598,7 @@ async function runFinalizeSale(){
   let pdfUrl=null;
   if(saleRow){
     try{
-      const pr=await fetch(`${SB}/functions/v1/generate-invoice-pdf`,{method:'POST',headers:HDR(),body:JSON.stringify({sale_id:saleRow.id})});
+      const pr=await fetch(`${SB}/functions/v1/generate-invoice-pdf`,{method:'POST',headers:FN_HDR(),body:JSON.stringify({sale_id:saleRow.id})});
       const pj=await pr.json();
       if(pj?.ok) pdfUrl=pj.url||null;
     }catch{}
@@ -2560,7 +2724,7 @@ async function sendHistoryInvoice(saleId){
   actions.innerHTML='<div class="center-wait" style="padding:10px 0;"><span class="spin"></span> Preparing invoice…</div>';
   let pdfUrl=null;
   try{
-    const pr=await fetch(`${SB}/functions/v1/generate-invoice-pdf`,{method:'POST',headers:HDR(),body:JSON.stringify({sale_id:saleId})});
+    const pr=await fetch(`${SB}/functions/v1/generate-invoice-pdf`,{method:'POST',headers:FN_HDR(),body:JSON.stringify({sale_id:saleId})});
     const pj=await pr.json();
     if(pj?.ok) pdfUrl=pj.url||null;
   }catch{}
@@ -3397,6 +3561,252 @@ async function saveMaintNote(){
   closeSidebar();goItems();
 }
 
+// ───────── New Pop-up Event (decision #4) ─────────
+let newPopupPhotos=[];
+function openMaintNewPopup(){
+  ['mnp-title','mnp-dates','mnp-from','mnp-to','mnp-timings','mnp-location','mnp-locurl','mnp-writeup'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mnp-status').value='upcoming';
+  document.getElementById('mnp-err').style.display='none';
+  newPopupPhotos=[];
+  document.getElementById('mnp-photos').innerHTML='';
+  showScreen('scr-maint-newpopup');
+}
+async function onNewPopupPhotoChosen(e){
+  const file=e.target.files[0]; e.target.value='';
+  if(!file)return;
+  try{
+    const url=await uploadFile('item-photos',file);
+    newPopupPhotos.push(url);
+    document.getElementById('mnp-photos').innerHTML=newPopupPhotos.map(u=>`<div class="photo-thumb"><img src="${u}"></div>`).join('');
+  }catch{ toast("Couldn't upload that photo — try again."); }
+}
+async function saveNewPopup(){
+  const title=document.getElementById('mnp-title').value.trim();
+  const location=document.getElementById('mnp-location').value.trim();
+  const dateFrom=document.getElementById('mnp-from').value, dateTo=document.getElementById('mnp-to').value;
+  const errEl=document.getElementById('mnp-err');
+  if(!title||!location||!dateFrom||!dateTo){errEl.textContent='Title, location, From and To dates are required.';errEl.style.display='block';return;}
+  if(dateTo<dateFrom){errEl.textContent="To date can't be before the From date.";errEl.style.display='block';return;}
+  errEl.style.display='none';
+  const btn=document.getElementById('mnp-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const res=await rpcA('popup_create_from_kiosk',{
+    p_title:title, p_dates:document.getElementById('mnp-dates').value.trim(),
+    p_date_from:dateFrom, p_date_to:dateTo, p_timings:document.getElementById('mnp-timings').value.trim(),
+    p_location:location, p_location_url:document.getElementById('mnp-locurl').value.trim()||null,
+    p_writeup:document.getElementById('mnp-writeup').value.trim(), p_status:document.getElementById('mnp-status').value,
+    p_photos:newPopupPhotos,
+  });
+  btn.disabled=false;btn.textContent='Save ▶';
+  if(res===null){toast("Couldn't save that event — try again.");return;}
+  toast('🎪 Event saved — prep checklist created.');
+  pollPrepBanner();
+  closeSidebar();goItems();
+}
+
+// ───────── Checklist Template editor (kiosk side) ─────────
+// Same RPCs as admin.html's MO-TPL modal (admin_checklist_template_*,
+// admin_reorder_checklist_phases/_items) — gated only by
+// require_admin_session(), not by which UI calls them, so any logged-in
+// role can edit the template from either kiosk.html or admin.html. Uses
+// up/down buttons instead of drag-and-drop: native HTML5 DnD on this
+// kiosk's touch WebView is unreliable, and up/down still satisfies
+// "reorder" with much less code to get right on a touchscreen.
+let ktplPhases=[];
+async function openMaintChecklistTemplate(){
+  showScreen('scr-maint-tpl');
+  await loadKtplTemplate();
+}
+async function loadKtplTemplate(){
+  const rows=await rpcA('admin_checklist_template_list',{})||[];
+  const byPhase=new Map();
+  rows.forEach(r=>{
+    if(!byPhase.has(r.phase_id))byPhase.set(r.phase_id,{id:r.phase_id,title:r.phase_title,order:r.phase_order,items:[]});
+    if(r.item_id)byPhase.get(r.phase_id).items.push({id:r.item_id,title:r.item_title,order:r.item_order});
+  });
+  ktplPhases=[...byPhase.values()].sort((a,b)=>a.order-b.order);
+  ktplPhases.forEach(ph=>ph.items.sort((a,b)=>a.order-b.order));
+  renderKtplTemplate();
+}
+function renderKtplTemplate(){
+  document.getElementById('ktpl-body').innerHTML=ktplPhases.map((ph,pi)=>`
+    <div style="border:1px solid rgba(247,243,236,.15);border-radius:10px;padding:10px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <button class="btn btn-ghost btn-sm" ${pi===0?'disabled':''} onclick="moveKtplPhase(${pi},-1)">▲</button>
+          <button class="btn btn-ghost btn-sm" ${pi===ktplPhases.length-1?'disabled':''} onclick="moveKtplPhase(${pi},1)">▼</button>
+        </div>
+        <strong style="flex:1;font-size:14px;">${esc(ph.title)}</strong>
+        <button class="btn btn-ghost btn-sm" onclick="renameKtplPhase('${ph.id}','${esc(ph.title).replace(/'/g,"\\'")}')">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="delKtplPhase('${ph.id}')">🗑️</button>
+      </div>
+      ${ph.items.map((it,ii)=>`<div style="display:flex;align-items:center;gap:6px;padding:4px 0 4px 20px;font-size:13px;">
+        <div style="display:flex;flex-direction:column;gap:1px;">
+          <button class="btn btn-ghost btn-sm" ${ii===0?'disabled':''} onclick="moveKtplItem(${pi},${ii},-1)">▲</button>
+          <button class="btn btn-ghost btn-sm" ${ii===ph.items.length-1?'disabled':''} onclick="moveKtplItem(${pi},${ii},1)">▼</button>
+        </div>
+        <span style="flex:1;">${esc(it.title)}</span>
+        <button class="btn btn-ghost btn-sm" onclick="renameKtplItem('${it.id}','${esc(it.title).replace(/'/g,"\\'")}')">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="delKtplItem('${it.id}')">🗑️</button>
+      </div>`).join('')}
+      <button class="btn btn-ghost btn-sm" style="margin-top:6px;margin-left:20px;" onclick="addKtplItem('${ph.id}')">+ Add item</button>
+    </div>`).join('');
+}
+async function addKtplPhase(){
+  const title=prompt('New phase title:');
+  if(!title||!title.trim())return;
+  await rpcA('admin_checklist_template_add_phase',{p_title:title.trim()});
+  await loadKtplTemplate();
+}
+async function addKtplItem(phaseId){
+  const title=prompt('New item title:');
+  if(!title||!title.trim())return;
+  await rpcA('admin_checklist_template_add_item',{p_phase_id:phaseId,p_title:title.trim()});
+  await loadKtplTemplate();
+}
+async function renameKtplPhase(phaseId,current){
+  const title=prompt('Rename phase:',current);
+  if(!title||!title.trim()||title.trim()===current)return;
+  await rpcA('admin_checklist_template_rename_phase',{p_phase_id:phaseId,p_title:title.trim()});
+  await loadKtplTemplate();
+}
+async function renameKtplItem(itemId,current){
+  const title=prompt('Rename item:',current);
+  if(!title||!title.trim()||title.trim()===current)return;
+  await rpcA('admin_checklist_template_rename_item',{p_item_id:itemId,p_title:title.trim()});
+  await loadKtplTemplate();
+}
+async function delKtplPhase(phaseId){
+  if(!confirm('Delete this phase and all its items from the template? (Existing events keep their already-created checklist.)'))return;
+  await rpcA('admin_checklist_template_delete_phase',{p_phase_id:phaseId});
+  await loadKtplTemplate();
+}
+async function delKtplItem(itemId){
+  if(!confirm('Delete this item from the template?'))return;
+  await rpcA('admin_checklist_template_delete_item',{p_item_id:itemId});
+  await loadKtplTemplate();
+}
+async function moveKtplPhase(idx,dir){
+  const to=idx+dir;
+  if(to<0||to>=ktplPhases.length)return;
+  const [moved]=ktplPhases.splice(idx,1);ktplPhases.splice(to,0,moved);
+  renderKtplTemplate();
+  await rpcA('admin_reorder_checklist_phases',{p_phase_ids:ktplPhases.map(p=>p.id)});
+}
+async function moveKtplItem(phaseIdx,itemIdx,dir){
+  const ph=ktplPhases[phaseIdx];
+  const to=itemIdx+dir;
+  if(!ph||to<0||to>=ph.items.length)return;
+  const [moved]=ph.items.splice(itemIdx,1);ph.items.splice(to,0,moved);
+  renderKtplTemplate();
+  await rpcA('admin_reorder_checklist_items',{p_phase_id:ph.id,p_item_ids:ph.items.map(i=>i.id)});
+}
+
+// ───────── Pop-up prep nag banner + checklist (decision #5) ─────────
+// pollPrepBanner() is the single source of truth for whether the banner
+// shows — same popup_checklist_open_summary() RPC admin.html could call,
+// though admin.html doesn't need the banner itself. Polled after login,
+// after every checklist toggle, and periodically while logged in.
+let prepOpenEvents=[];
+async function pollPrepBanner(){
+  if(!CU)return;
+  prepOpenEvents=await rpcA('popup_checklist_open_summary',{})||[];
+  const banner=document.getElementById('prep-banner');
+  if(prepOpenEvents.length){
+    const totalOpen=prepOpenEvents.reduce((n,e)=>n+e.open_count,0);
+    document.getElementById('prep-banner-text').textContent=prepOpenEvents.length===1
+      ? `${totalOpen} prep item(s) pending — ${prepOpenEvents[0].title}`
+      : `${totalOpen} prep item(s) pending across ${prepOpenEvents.length} events`;
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+function openPrepBanner(){
+  if(!prepOpenEvents.length)return;
+  if(prepOpenEvents.length===1){ openPrepChecklist(prepOpenEvents[0].popup_id); return; }
+  document.getElementById('prep-pick-list').innerHTML=prepOpenEvents.map(e=>
+    `<button class="disc-opt" onclick="openPrepChecklist('${e.popup_id}')"><span>${esc(e.title)}</span><span class="dtag">${e.open_count} open</span></button>`
+  ).join('');
+  showScreen('scr-prep-picklist');
+}
+let prepChecklistPopupId=null;
+async function openPrepChecklist(popupId){
+  prepChecklistPopupId=popupId;
+  const ev=prepOpenEvents.find(e=>e.popup_id===popupId);
+  document.getElementById('pchk-title').textContent=ev?`✅ ${ev.title}`:'✅ Prep Checklist';
+  showScreen('scr-prep-checklist');
+  await loadPrepChecklist();
+}
+async function loadPrepChecklist(){
+  const items=await rpcA('popup_checklist_list',{p_popup_id:prepChecklistPopupId})||[];
+  renderPrepChecklist(items);
+  const prev=await rpcA('popup_previous_summary',{p_popup_id:prepChecklistPopupId});
+  const p=prev&&prev[0];
+  document.getElementById('pchk-prevnote').textContent=p&&p.summary?`Notes from previous event ("${p.title}"): ${p.summary}`:'No AI summary from a previous event yet.';
+}
+// Shape from popup_checklist_list: item_id/phase_id/phase_title/phase_order/
+// item_title/item_order/checked/checked_by_name/checked_at — items are a
+// per-popup snapshot of the (editable) checklist template, addressed by
+// item_id, not a fixed item_key. Mirrors admin.html's renderEvChecklist().
+function renderPrepChecklist(items){
+  const byPhase=new Map();
+  items.forEach(it=>{if(!byPhase.has(it.phase_id))byPhase.set(it.phase_id,{title:it.phase_title,order:it.phase_order,items:[]});byPhase.get(it.phase_id).items.push(it);});
+  const phases=[...byPhase.values()].sort((a,b)=>a.order-b.order);
+  document.getElementById('pchk-body').innerHTML=phases.map(ph=>`
+    <div style="margin-bottom:16px;">
+      <div class="label-sm" style="margin-bottom:6px;display:block;">${esc(ph.title)}</div>
+      ${ph.items.map(it=>`<label style="display:flex;align-items:flex-start;gap:10px;padding:7px 0;font-size:14px;">
+        <input type="checkbox" ${it.checked?'checked':''} onchange="togglePrepChecklistItem('${it.item_id}',this.checked)" style="margin-top:3px;width:20px;height:20px;">
+        <span>${esc(it.item_title)}${it.checked?`<br><span style="font-size:11px;opacity:.65;">✓ ${esc(it.checked_by_name||'')} ${it.checked_at?new Date(it.checked_at).toLocaleString():''}</span>`:''}</span>
+      </label>`).join('')}
+    </div>`).join('');
+}
+async function togglePrepChecklistItem(itemId,checked){
+  await rpcA('popup_checklist_toggle',{p_popup_id:prepChecklistPopupId,p_item_id:itemId,p_checked:checked});
+  await loadPrepChecklist();
+  pollPrepBanner(); // banner disappears the instant the last open item is checked
+}
+
+// ───────── Post-event notes (decision #7, kiosk write side) ─────────
+// "Active event" resolution, as a judgment call (spec left it as a
+// best-guess): the current live popup if there is exactly one; else the
+// most recently past/live one by date_to; if that's still ambiguous (zero
+// or 2+ candidates tie), fall through to a short recent-events pick-list.
+async function openPopupNotes(){
+  const all=await sbGet('popups','?select=id,title,status,date_to&order=date_to.desc&limit=8')||[];
+  const live=all.filter(e=>e.status==='live');
+  if(live.length===1){ openPopupNotesWrite(live[0].id,live[0].title); return; }
+  if(!live.length && all.length===1){ openPopupNotesWrite(all[0].id,all[0].title); return; }
+  document.getElementById('pn-pick-list').innerHTML=all.length?all.map(e=>
+    `<button class="disc-opt" onclick="openPopupNotesWrite('${e.id}','${esc(e.title).replace(/'/g,"\\'")}')"><span>${esc(e.title)}</span><span class="dtag">${e.status}</span></button>`
+  ).join(''):'<div>No Pop-up Events yet.</div>';
+  showScreen('scr-popup-notes-pick');
+}
+let popupNotesPopupId=null;
+async function openPopupNotesWrite(popupId,title){
+  popupNotesPopupId=popupId;
+  document.getElementById('pnw-event').textContent=title||'';
+  document.getElementById('pnw-text').value='';
+  showScreen('scr-popup-notes-write');
+  const notes=await rpcA('popup_notes_list',{p_popup_id:popupId})||[];
+  document.getElementById('pnw-list').innerHTML=notes.length?notes.map(n=>
+    `<div style="padding:7px 0;border-bottom:1px solid rgba(247,243,236,.1);font-size:12px;"><div>${esc(n.note)}</div><div style="opacity:.55;margin-top:2px;">${esc(n.written_by_name||'')} · ${new Date(n.created_at).toLocaleString()}</div></div>`
+  ).join(''):'<div style="opacity:.6;font-size:12px;">No notes yet for this event.</div>';
+}
+async function savePopupNoteWrite(){
+  const note=document.getElementById('pnw-text').value.trim();
+  if(!note){toast("Note can't be empty.");return;}
+  const btn=document.getElementById('pnw-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+  const res=await rpcA('popup_notes_add',{p_popup_id:popupNotesPopupId,p_note:note});
+  btn.disabled=false;btn.textContent='Save ▶';
+  if(res===null){toast("Couldn't save that note — try again.");return;}
+  toast('📝 Note saved.');
+  const title=document.getElementById('pnw-event').textContent;
+  openPopupNotesWrite(popupNotesPopupId,title);
+}
+
 // ───────── Pending AU costs ─────────
 let MAC_LIST=[], MAC_CUR=null;
 async function openMaintAucost(){
@@ -3687,8 +4097,26 @@ function openMaintEventPromo(){
   document.getElementById('mep-value').value='';
   document.getElementById('mep-days').value='7';
   document.getElementById('mep-result').innerHTML='';
-  setMepKind('event'); setMepType('percent');
+  setMepKind('event'); setMepType('percent'); setMepKioskOffer(true);
   showScreen('scr-maint-eventpromo');
+  loadMepEvents();
+}
+let MEP_KIOSK_OFFER=true;
+function setMepKioskOffer(on){
+  MEP_KIOSK_OFFER=on;
+  document.getElementById('mep-kiosk-on').classList.toggle('btn-primary',on);
+  document.getElementById('mep-kiosk-off').classList.toggle('btn-primary',!on);
+}
+async function loadMepEvents(){
+  const list=document.getElementById('mep-events-list');
+  list.innerHTML='<div class="center-wait" style="padding:10px 0;"><span class="spin"></span></div>';
+  const events=((await rpcA('admin_list_voucher_events',{}))||[]).filter(e=>e.active);
+  list.innerHTML=events.length ? events.map(e=>`<div class="applied-chip"><span>${e.kind==='promotion'?'🏷️':'🎉'} ${esc(e.title)}</span><button class="btn btn-ghost btn-sm" onclick="toggleKioskOffer('${e.id}',${!e.kiosk_offer_enabled})">${e.kiosk_offer_enabled?'✅ On':'⛔ Off'}</button></div>`).join('') : '<p class="hint">No running events or promotions.</p>';
+}
+async function toggleKioskOffer(id,enabled){
+  const ok=await rpcA('admin_set_voucher_event_kiosk_offer',{p_id:id,p_enabled:enabled});
+  if(ok===null) toast("Couldn't update that offer — try again.");
+  loadMepEvents();
 }
 function setMepKind(k){
   MEP_KIND=k;
@@ -3724,6 +4152,8 @@ async function saveMaintEventPromo(){
   });
   btn.disabled=false;btn.textContent='Create ▶';
   if(!ev||!ev.id){ return show("Couldn't create the event/promotion — try again."); }
+  if(!MEP_KIOSK_OFFER) await rpcA('admin_set_voucher_event_kiosk_offer',{p_id:ev.id,p_enabled:false});
+  loadMepEvents();
   const link=`${STOREFRONT_URL}/register.html?event=${ev.id}`;
   const discTxt=MEP_TYPE==='percent'?`${val}% off`:`${fmtMoney(val)} off`;
   document.getElementById('mep-result').innerHTML=
@@ -3967,6 +4397,7 @@ function updateShareMessage(){
 function openShareSendModal(){
   document.getElementById('vcs-name').value='';
   document.getElementById('vcs-wa').value='';
+  vcAutoSentWa=null;
   document.getElementById('vcs-comments').value='';
   updateShareMessage();
   document.getElementById('vc-send-overlay').classList.add('open');
@@ -3984,9 +4415,20 @@ async function submitShareCard(){
   if(!name){toast('Enter a name.');return;}
   const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||''});
   if(!ok){toast("Couldn't save — try again.");return;}
-  window.open(`https://wa.me/${ten}?text=${encodeURIComponent(message)}`,'_blank');
+  window.open(`https://wa.me/91${ten}?text=${encodeURIComponent(message)}`,'_blank');
   closeShareSendModal();
   closeShareCardModal();
+}
+// Auto-send: as soon as a full 10-digit number is entered (with a name), save
+// the potential customer and open WhatsApp to +91 — once per number, so
+// typing on past 10 digits or editing the name doesn't reopen the chat.
+let vcAutoSentWa=null;
+function onShareWaInput(){
+  const ten=digits10(document.getElementById('vcs-wa').value);
+  if(ten.length!==10){ vcAutoSentWa=null; return; }
+  if(ten===vcAutoSentWa || !document.getElementById('vcs-name').value.trim()) return;
+  vcAutoSentWa=ten;
+  submitShareCard();
 }
 
 // ═══════════════════════════════════════════════
