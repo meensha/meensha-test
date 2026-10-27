@@ -2408,7 +2408,13 @@ let CU=null;
 function toast(m,c='#C9A84C'){const t=document.getElementById('toast');t.textContent=m;t.style.borderLeftColor=c;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
 
 function initGate(){
-  const stored=sessionStorage.getItem('MSN_USER');
+  // admin.html's login has stored its session under localStorage.MSN_ADMIN_SESSION
+  // since the persistent-login upgrade (7-day/30-day sliding session) — this
+  // page's own gate was never updated to match, so it was checking a
+  // sessionStorage.MSN_USER key nothing has written in a long time, blocking
+  // every admin.html -> admin-voucher.html handoff (coupon vouchers and
+  // event QR codes alike). Same storage admin.html's own boot() reads.
+  const stored=localStorage.getItem('MSN_ADMIN_SESSION');
   if(!stored){document.getElementById('GATE-ERR').style.display='block';return false;}
   try{
     CU=JSON.parse(stored);
