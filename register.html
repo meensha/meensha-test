@@ -140,7 +140,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="qrcode.js"></script>
 <script>
 // Rendered locally (not a remote image) so the QR can be saved as a PNG.
 function renderCodeQr(code){
@@ -148,7 +148,19 @@ function renderCodeQr(code){
     const qr = qrcode(0, 'M');
     qr.addData(code);
     qr.make();
-    const url = qr.createDataURL(8, 2);
+    // Draw to a canvas and export a real PNG (the library's own data URL is a
+    // GIF, which would be saved under a .png name).
+    const n = qr.getModuleCount(), cell = 8, margin = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = (n + margin * 2) * cell;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (qr.isDark(r, c)) ctx.fillRect((c + margin) * cell, (r + margin) * cell, cell, cell);
+    }
+    const url = canvas.toDataURL('image/png');
     const img = document.getElementById('result-qr');
     img.src = url;
     img.style.display = 'block';
@@ -243,7 +255,9 @@ async function submitRegistration() {
 
   try {
     const rpc = eventId ? 'register_event_visitor' : 'register_visitor';
-    const body = eventId ? { p_event_id: eventId, p_name: name, p_wa: wa, p_instagram: instagram || null } : { p_name: name, p_wa: wa };
+    // p_email is sent blank: the RPC signature still has p_email without a
+    // default, so omitting it makes PostgREST return 404 (PGRST202).
+    const body = eventId ? { p_event_id: eventId, p_name: name, p_wa: wa, p_email: '', p_instagram: instagram || null } : { p_name: name, p_wa: wa };
     const res = await fetch(`${_SB}/rest/v1/rpc/${rpc}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
