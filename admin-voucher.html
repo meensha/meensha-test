@@ -2831,14 +2831,10 @@ function printA4QR(){
   w.document.write(`<html><head><meta charset="utf-8"><title>Scan QR — A4</title><style>
     @page{size:A4;margin:10mm;}
     *{box-sizing:border-box;}
-    body{margin:0;font-family:Georgia,serif;text-align:center;}
-    h1{font-size:24pt;color:#1A1208;margin:10mm 0 8mm;}
-    img{width:190mm;height:190mm;image-rendering:pixelated;display:block;margin:0 auto;}
-    .sub{font-size:14pt;color:#8B6914;margin-top:10mm;}
+    body{margin:0;text-align:center;}
+    img{width:190mm;height:190mm;image-rendering:pixelated;display:block;margin:40mm auto 0;}
   </style></head><body>
-    <h1>📸 Scan for Offers</h1>
     <img src="${qrPng}">
-    <div class="sub">meensha.in</div>
     <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
   </body></html>`);
   w.document.close();
