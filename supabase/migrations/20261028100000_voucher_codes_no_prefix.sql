@@ -1,7 +1,6 @@
 -- Event-registration vouchers are now minted as a bare 6-character code
 -- (e.g. A3F92B), no MSH- prefix. Same as manual vouchers (DIWALI200), so
--- staff type or scan one code the same way for every voucher. Existing
--- MSH- codes stay valid — only newly minted codes change.
+-- staff type or scan one code the same way for every voucher.
 -- Body is identical to 20261027220000's register_event_visitor except the
 -- code generation line.
 

@@ -88,6 +88,11 @@
     box-sizing: border-box;
   }
   .ig-gate .hint { font-size: 13px; color: rgba(247,243,236,0.6); margin-bottom: 16px; }
+  .save-btn {
+    display: block; box-sizing: border-box; width: 100%; margin: 12px 0 16px; padding: 13px;
+    background: var(--gold); color: var(--dark); border-radius: 6px; text-decoration: none;
+    font-weight: 600; text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -110,14 +115,34 @@
     <h1 id="result-heading">You're registered!</h1>
     <div class="discount" id="result-discount"></div>
     <div class="code" id="result-code"></div>
-    <div class="qr-box"><img id="result-qr" alt="QR for your code" width="200" height="200"></div>
+    <div class="qr-box"><img id="result-qr" alt="QR for your code" width="200" height="200" style="display:none;background:#fff;padding:8px;border-radius:6px;"></div>
+    <a id="result-qr-save" class="save-btn" style="display:none;" download="meensha-code.png">⬇️ Save QR image</a>
     <div class="expiry" id="result-expiry"></div>
     <div class="note">Show this code to our team at checkout to apply your discount.</div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
-const _SB = 'https://eglanmhhcccsuhbxywua.supabase.co';
+// Rendered locally (not a remote image) so the QR can be saved as a PNG.
+function renderCodeQr(code){
+  try{
+    const qr = qrcode(0, 'M');
+    qr.addData(code);
+    qr.make();
+    const url = qr.createDataURL(8, 2);
+    const img = document.getElementById('result-qr');
+    img.src = url;
+    img.style.display = 'block';
+    const save = document.getElementById('result-qr-save');
+    save.href = url;
+    save.download = 'meensha-' + code + '.png';
+    save.style.display = 'block';
+  }catch(e){
+    // QR is a convenience — the code itself is still shown above.
+  }
+}
+const _SB ='https://eglanmhhcccsuhbxywua.supabase.co';
 const _SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVnbGFubWhoY2Njc3VoYnh5d3VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4Nzc2MDQsImV4cCI6MjA5MDQ1MzYwNH0.0qjzkMVVajqMkx7SM-hhd6J62zVVFduVDbdr6juiNgo';
 
 // ?event=<id> switches this page from the generic stall-registration form
@@ -207,7 +232,7 @@ async function submitRegistration() {
     const sym = currentEvent && currentEvent.region === 'australia' ? 'A$' : '₹';
     document.getElementById('result-discount').textContent = data.discount_type === 'flat' ? sym + data.discount_value + ' off your order' : data.discount_value + '% off your order';
     document.getElementById('result-code').textContent = data.code;
-    document.getElementById('result-qr').src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(data.code);
+    renderCodeQr(data.code);
     document.getElementById('result-expiry').textContent = 'Valid until ' + new Date(data.valid_until).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   } catch (e) {
     errEl.textContent = 'Could not connect — please check your internet and try again.';

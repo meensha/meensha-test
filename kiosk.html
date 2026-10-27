@@ -2100,7 +2100,9 @@ async function openScanner(target='unit'){
         try{
           const imageData=ctx.getImageData(0,0,scanCanvas.width,scanCanvas.height);
           const result=jsQR(imageData.data,scanCanvas.width,scanCanvas.height);
-          if(result && result.data){
+          // Discount-code mode ignores anything that isn't a voucher code
+          // (e.g. a unit tag) and keeps scanning.
+          if(result && result.data && (scanTarget!=='code' || isVoucherCode(result.data))){
             handleScanResult(result.data);
             return;
           }
@@ -2127,11 +2129,12 @@ function closeScannerAndGoItems(){
 }
 // A scanned voucher code fills the discount box and applies it, exactly as if
 // staff had typed it — same validateCouponRPC() path as the manual box.
+function isVoucherCode(text){
+  return /^[A-Za-z0-9-]{4,30}$/.test((text||'').trim());
+}
 async function applyScannedCode(text){
-  const code=(text||'').trim();
   showScreen('scr-discount');
-  if(!code || /^MSNU1:/.test(code)){ toast('That QR is not a Meensha voucher code.'); return; }
-  document.getElementById('disc-code-input').value=code;
+  document.getElementById('disc-code-input').value=text.trim();
   await submitDiscountCode();
 }
 async function handleScanResult(text){
