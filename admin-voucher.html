@@ -78,7 +78,7 @@ body{font-family:'Segoe UI',sans-serif;background:var(--bg);color:#2d2d2d;font-s
   <div id="CANVAS-CARD" class="card" style="display:none;">
     <div class="ct">Preview</div>
     <div id="CANVAS-WRAP"><canvas id="V-CANVAS" width="1200" height="700"></canvas></div>
-    <div id="EQR-ACTIONS" style="text-align:center;margin-top:10px;display:none;"><button class="btn bgn" onclick="downloadVoucher()">⬇️ Download PNG</button></div>
+    <div id="EQR-ACTIONS" style="text-align:center;margin-top:10px;display:none;"><button class="btn bgn" onclick="downloadVoucher()">⬇️ Download PNG</button> <button class="btn bgy" id="PRINT-A4-BTN" style="display:none;" onclick="printA4QR()">🖨️ Print A4</button></div>
     <div style="display:flex;gap:16px;justify-content:center;margin-top:10px;font-size:12px;">
       <a href="https://meensha.in" target="_blank" rel="noopener">meensha.in</a>
       <a href="https://instagram.com/meensha_fabrics" target="_blank" rel="noopener">@meensha_fabrics</a>
@@ -2755,11 +2755,12 @@ async function renderVoucher(){
   });
 }
 
+let currentPosterTitle=null;
 function downloadVoucher(){
   const canvas=document.getElementById('V-CANVAS');
   const link=document.createElement('a');
-  const code=currentCoupon?currentCoupon.code:'voucher';
-  link.download=`meensha-voucher-${code}.png`;
+  const name=currentPosterTitle?('poster-'+currentPosterTitle.replace(/[^a-z0-9]+/gi,'-').toLowerCase()):(currentCoupon?'voucher-'+currentCoupon.code:'voucher');
+  link.download=`meensha-${name}.png`;
   link.href=canvas.toDataURL('image/png');
   link.click();
 }
@@ -2767,8 +2768,11 @@ function downloadVoucher(){
 // Simple QR-only render for an Events & Promotions registration link (see
 // admin.html's openEventQR) — reuses the already-vendored qrcode() library
 // above instead of a full ornate voucher composite.
+let currentQrOnly=null;
 function renderEventQR(title,url){
   currentCoupon=null;
+  currentPosterTitle=null;
+  currentQrOnly={title,url};
   const canvas=document.getElementById('V-CANVAS');
   canvas.width=560;canvas.height=680;
   const ctx=canvas.getContext('2d');
@@ -2792,11 +2796,152 @@ function renderEventQR(title,url){
   document.getElementById('GEN-CARD').style.display='none';
   document.getElementById('CANVAS-CARD').style.display='block';
   document.getElementById('EQR-ACTIONS').style.display='block';
+  document.getElementById('PRINT-A4-BTN').style.display='inline-block';
+}
+// A4 print sheet for the plain registration QR (no poster artwork/discount
+// text) — for sticking onto an existing physical stall banner/standee,
+// where a big clean scan target matters more than branding. Regenerates
+// the QR at a larger cell size directly for print, rather than upscaling
+// the small on-screen preview canvas, so it stays crisp at A4 size.
+function printA4QR(){
+  if(!currentQrOnly)return;
+  const qr=qrcode(0,'M');
+  qr.addData(currentQrOnly.url);
+  qr.make();
+  const moduleCount=qr.getModuleCount();
+  const cellSize=10,margin=20;
+  const size=moduleCount*cellSize+margin*2;
+  const canvas=document.createElement('canvas');
+  canvas.width=size;canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,size,size);
+  ctx.fillStyle='#000000';
+  for(let row=0;row<moduleCount;row++){
+    for(let col=0;col<moduleCount;col++){
+      if(qr.isDark(row,col))ctx.fillRect(margin+col*cellSize,margin+row*cellSize,cellSize,cellSize);
+    }
+  }
+  const qrPng=canvas.toDataURL('image/png');
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><meta charset="utf-8"><title>Scan QR — A4</title><style>
+    @page{size:A4;margin:20mm;}
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:Georgia,serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center;}
+    img{width:140mm;height:140mm;image-rendering:pixelated;}
+    h1{font-size:20pt;color:#1A1208;margin:0 0 8mm;}
+    .sub{font-size:12pt;color:#8B6914;margin-top:8mm;}
+  </style></head><body>
+    <h1>📸 Scan for Offers</h1>
+    <img src="${qrPng}">
+    <div class="sub">meensha.in</div>
+    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+// Stall poster — the linked Pop-Up Event's own first uploaded photo as a
+// full-bleed background (confirmed CORS-safe: Supabase Storage's public
+// bucket sends access-control-allow-origin:* so this doesn't taint the
+// canvas), a dark gradient for text legibility, title + discount, and a
+// small QR to the registration link so the poster itself is scannable.
+async function renderEventPoster(title,photoUrl,discount,url){
+  currentCoupon=null;
+  currentPosterTitle=title;
+  currentQrOnly=null;
+  const canvas=document.getElementById('V-CANVAS');
+  canvas.width=900;canvas.height=1200;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#1A1208';ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const img=new Image();
+  img.crossOrigin='anonymous';
+  await new Promise((resolve)=>{
+    img.onload=resolve;
+    img.onerror=resolve; // draw the rest even if the photo fails to load
+    img.src=photoUrl;
+  });
+  if(img.complete&&img.naturalWidth){
+    // cover-fit crop, matching how the storefront's own photo tiles crop
+    const s=Math.max(canvas.width/img.naturalWidth,canvas.height/img.naturalHeight);
+    const w=img.naturalWidth*s,h=img.naturalHeight*s;
+    ctx.drawImage(img,(canvas.width-w)/2,(canvas.height-h)/2,w,h);
+  }
+
+  const grad=ctx.createLinearGradient(0,canvas.height*0.42,0,canvas.height);
+  grad.addColorStop(0,'rgba(14,10,4,0)');
+  grad.addColorStop(1,'rgba(14,10,4,0.92)');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  ctx.textAlign='center';
+  ctx.fillStyle='#E8D5A3';
+  ctx.font='600 26px Georgia, serif';
+  ctx.fillText('मीनशा · MEENSHA',canvas.width/2,70);
+
+  ctx.fillStyle='#C9A84C';
+  ctx.font='bold 70px Georgia, serif';
+  ctx.fillText(discount||'',canvas.width/2,canvas.height-330);
+
+  ctx.fillStyle='#F7F3EC';
+  ctx.font='bold 40px Georgia, serif';
+  wrapCenteredText(ctx,title||'Special Offer',canvas.width/2,canvas.height-260,canvas.width-120,46);
+
+  // QR panel, bottom-left, over the darkened area
+  const qr=qrcode(0,'M');
+  qr.addData(url);
+  qr.make();
+  const moduleCount=qr.getModuleCount();
+  const qrSize=150,qrMargin=10,qrX=50,qrY=canvas.height-170;
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(qrX,qrY,qrSize+qrMargin*2,qrSize+qrMargin*2);
+  const cellSize=qrSize/moduleCount;
+  ctx.fillStyle='#000000';
+  for(let row=0;row<moduleCount;row++){
+    for(let col=0;col<moduleCount;col++){
+      if(qr.isDark(row,col))ctx.fillRect(qrX+qrMargin+col*cellSize,qrY+qrMargin+row*cellSize,cellSize,cellSize);
+    }
+  }
+  ctx.fillStyle='#F7F3EC';
+  ctx.font='16px Arial, sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText('📸 Scan to register &',qrX+qrSize+qrMargin*2+16,qrY+70);
+  ctx.fillText('get your code',qrX+qrSize+qrMargin*2+16,qrY+94);
+  ctx.fillStyle='#C9A84C';
+  ctx.font='14px Arial, sans-serif';
+  ctx.fillText('meensha.in',qrX+qrSize+qrMargin*2+16,qrY+124);
+
+  document.getElementById('GEN-CARD').style.display='none';
+  document.getElementById('CANVAS-CARD').style.display='block';
+  document.getElementById('EQR-ACTIONS').style.display='block';
+  document.getElementById('PRINT-A4-BTN').style.display='none';
+}
+// Simple top-down word-wrap for canvas text, centered — used by the poster
+// title, since titles vary in length and the voucher/QR renders never
+// needed wrapping before.
+function wrapCenteredText(ctx,text,cx,y,maxWidth,lineHeight){
+  const words=text.split(' ');
+  let line='',lines=[];
+  for(const w of words){
+    const test=line?line+' '+w:w;
+    if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=w;}
+    else line=test;
+  }
+  if(line)lines.push(line);
+  const startY=y-(lines.length-1)*lineHeight/2;
+  lines.forEach((l,i)=>ctx.fillText(l,cx,startY+i*lineHeight));
 }
 
 (async function(){
   if(!initGate())return;
   document.getElementById('LOOKUP-CARD').style.display='block';
+
+  // Handoff from admin.html's Events & Promotions "Poster" button.
+  const posterPending=sessionStorage.getItem('MSN_EVENT_POSTER_PENDING');
+  if(posterPending){
+    sessionStorage.removeItem('MSN_EVENT_POSTER_PENDING');
+    try{const d=JSON.parse(posterPending);await renderEventPoster(d.title,d.photoUrl,d.discount,d.url);}catch(e){toast('Could not generate poster: '+e.message,'var(--red)');}
+    return;
+  }
 
   // Handoff from admin.html's Events & Promotions "QR" button — just a
   // plain QR for the registration link, not a full voucher composite.
