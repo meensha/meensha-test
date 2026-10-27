@@ -1169,6 +1169,7 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     <div class="fi"><label>Discount Type *</label><select id="EVP-DTYPE"><option value="percent">% Off</option><option value="flat">₹/A$ Off (flat)</option></select></div>
     <div class="fi"><label>Discount Value *</label><input type="number" id="EVP-DVAL" placeholder="10"></div>
     <div class="fi"><label>Valid Days *</label><input type="number" id="EVP-DAYS" value="7" min="1"></div>
+    <div class="fi" style="grid-column:1/-1;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="EVP-REQIG" style="width:16px;height:16px;accent-color:var(--gdk);"><label for="EVP-REQIG" style="margin:0;">Require Instagram follow before code (honor system — visitor enters their handle, staff can check it at redemption)</label></div>
   </div>
   <div class="mf"><button class="btn bg" onclick="saveEventPromo()">Create</button><button class="btn bgy" onclick="closeMo('MO-EVTP')">Cancel</button></div>
 </div></div>
@@ -1820,6 +1821,7 @@ function createEventForm(){
   document.getElementById('EVP-DTYPE').value='percent';
   document.getElementById('EVP-DVAL').value='10';
   document.getElementById('EVP-DAYS').value='7';
+  document.getElementById('EVP-REQIG').checked=false;
   document.getElementById('MO-EVTP').classList.remove('hi');
 }
 function onEvpKindChange(){
@@ -1834,8 +1836,9 @@ async function saveEventPromo(){
   const val=parseFloat(document.getElementById('EVP-DVAL').value);
   if(!val||val<=0){toast('Enter a valid discount value','var(--red)');return;}
   const days=parseInt(document.getElementById('EVP-DAYS').value,10)||7;
+  const reqIg=document.getElementById('EVP-REQIG').checked;
   try{
-    const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_voucher_event`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_title:title,p_region:region,p_discount_type:type,p_discount_value:val,p_valid_days:days,p_created_by:CU.username||'admin',p_kind:kind})});
+    const rr=await fetch(`${SB}/rest/v1/rpc/admin_create_voucher_event`,{method:'POST',headers:AHDR(),body:JSON.stringify({p_title:title,p_region:region,p_discount_type:type,p_discount_value:val,p_valid_days:days,p_created_by:CU.username||'admin',p_kind:kind,p_requires_instagram:reqIg})});
     const ev=await rr.json();
     if(!rr.ok||!ev?.id)throw new Error('Could not create event');
     const link=`https://meensha.in/register.html?event=${ev.id}`;
@@ -1858,8 +1861,9 @@ async function renderVoucherEvents(){
   const kindLbl={event:'<span style="background:#e8f0fe;color:#1a56db;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;">EVENT</span>',promotion:'<span style="background:#fdf2e8;color:#b45309;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;">PROMO</span>'};
   body.innerHTML=voucherEvents.map(ev=>{
     const disc=ev.discount_type==='percent'?`${ev.discount_value}%`:`${ev.region==='australia'?'A$':'₹'}${ev.discount_value}`;
+    const igBadge=ev.requires_instagram?' <span title="Requires Instagram follow before code">📸</span>':'';
     return `<tr>
-      <td>${sanitise(ev.title)}</td>
+      <td>${sanitise(ev.title)}${igBadge}</td>
       <td>${kindLbl[ev.kind]||sanitise(ev.kind)}</td>
       <td>${regionLbl[ev.region]||sanitise(ev.region)}</td>
       <td>${disc}</td>
@@ -1921,9 +1925,10 @@ async function renderCoupons(){
   body.innerHTML=coupons.map(c=>{
     const disc=c.discount_type==='percent'?`${c.discount_value}%`:`${c.region==='australia'?'A$':'₹'}${c.discount_value}`;
     const valid=[c.valid_from,c.valid_until].filter(Boolean).join(' → ')||'No limit';
+    const igLine=c.instagram_handle?`<br><span style="font-size:11px;color:#b45309;" title="Check this follow at redemption">📸 ${sanitise(c.instagram_handle)}</span>`:'';
     return `<tr>
       <td style="font-family:monospace;font-weight:700;">${sanitise(c.code)}</td>
-      <td>${c.customer_name?sanitise(c.customer_name):'🌐 Public'}</td>
+      <td>${c.customer_name?sanitise(c.customer_name):'🌐 Public'}${igLine}</td>
       <td>${c.customer_wa?sanitise(c.customer_wa):(c.category_filter?sanitise(c.category_filter)+' only':'any item')}</td>
       <td>${disc}</td>
       <td>${regionLbl[c.region]||c.region}</td>
