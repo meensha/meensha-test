@@ -188,9 +188,8 @@ against Razorpay — verify before relying on it at the stall.
   Existing `MSH-` codes do not exist, so nothing needed migrating.
 
 ### Register page (`register.html`)
-- **Customer QR download.** The code screen shows a QR rendered locally with
-  `qrcode-generator` 1.4.4 (jsDelivr, no SRI hash yet) and a "⬇️ Save QR image"
-  button.
+- **Customer QR download.** The code screen shows a QR rendered locally from
+  the vendored `qrcode.js` (no CDN) and a "⬇️ Save QR image" PNG button.
 - **Instagram follow gate (events with "require Instagram").** A full-page
   Follow screen first, with an "I've followed — continue" button (no
   countdown). Then a dialog asking only for the `@handle`, then "Thanks!".
@@ -225,8 +224,45 @@ against Razorpay — verify before relying on it at the stall.
   edge function to accept the custom discount, with server-side validation.
 - **Telegram bot prompt** still shows "e.g. MSH-A3F92" (text only, needs an
   edge-function redeploy to change).
-- **`admin.html`'s `EV-LIST` unescaped-title bug** (see above) — still open.
 - **No raw-notes viewer** in admin.html before "Analyze & Submit" — QA flagged
   as nice-to-have, not built.
-- **Subresource integrity:** register.html loads `qrcode-generator` from
-  jsDelivr without an SRI hash.
+
+### Supervised audit round (2026-10-28, ~02:40 IST)
+A supervisor run delegated a QA agent and a security agent (both read-only,
+all network stubbed, nothing submitted to production), then triaged.
+
+- **Live break found and fixed (HIGH).** Commit `a081d87` made
+  `register.html` stop sending `p_email`, but `register_event_visitor`'s
+  signature still has `p_email` without a default, so PostgREST returned
+  404/PGRST202 and **every event registration failed** from that push until
+  `e3a748a`. Confirmed with a harmless probe (zero-UUID event, no writes).
+  Fixed client-side by sending `p_email: ''` (the function accepts blank).
+  Lesson: after changing an RPC's inputs, probe it with the page's exact body.
+- **Fixed in `e3a748a`:** `register.html` QR now comes from the vendored
+  `qrcode.js` (no CDN, no integrity-hash gap) and is exported as a real PNG
+  (the library's own data URL is a GIF); `admin.html` `EV-LIST` and
+  `renderRevs` now escape customer/staff text (the reviews list was a stored
+  XSS into the admin session).
+- **QA results (all PASS):** handle validation, 10-digit WhatsApp (9/11 digits
+  and letters rejected, spaces stripped, body has no email), QR decodes to the
+  code with a PNG download link, no console errors or local 404s on register
+  and kiosk, no horizontal scroll at 375px. Notes: `@@x` is accepted and stored
+  as `@x` (intended); admin.html logged one "failed to fetch script" console
+  error, most likely the xlsx CDN (not investigated).
+- **Prepared, NOT applied:** `20261028400000_register_event_visitor_hardening.sql`
+  — gives `p_email` a default, stops the anon path from UPDATEing existing
+  unverified customer rows (account-overwrite risk), caps name/WhatsApp lengths,
+  and validates/normalizes the Instagram handle server-side. Apply with
+  `supabase db push` after review; the client keeps working before and after.
+- **Audit findings left open (decisions for the owner):**
+  - MEDIUM: no rate limit on minting codes (the event link is public).
+  - LOW: `register_event_visitor` returns an existing code to anyone who types
+    that WhatsApp number (front-running risk; mitigation is to return only
+    "already registered" and let staff look it up).
+  - MEDIUM: `admin_list_voucher_events()` is anon-readable (event names,
+    registrant counts) — needs a session guard, but check storefront callers
+    first.
+  - LOW: kiosk `esc()` does not escape `'` and a few `onclick` handlers embed
+    staff-entered titles; changing `esc` globally would break those handlers, so
+    pass ids instead.
+  - Instagram follow is honor-system only (staff check on the kiosk alert).
