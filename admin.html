@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meensha · Karigar</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="qrcode.js"></script>
 <style>
 :root{--gold:#C9A84C;--gdk:#8B6914;--dark:#1A1208;--d2:#2A1F0E;--cream:#F7F3EC;--bd:#e0d5c0;--bg:#fdfaf4;--wh:#fff;--red:#e74c3c;--grn:#27ae60;--blu:#2980b9;--orn:#e67e22;--gy:#95a5a6;--sh:0 2px 12px rgba(139,105,20,.1);}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -4166,13 +4167,35 @@ function printTags(){
     const avUnits=units.filter(u=>u.sku_id===skuId&&u.status==='available');
     avUnits.forEach(u=>{
       const nm=s.name+(s.display_variant?' · '+s.display_variant:'');
-      tags.push({code:u.unit_code,name:nm,price:s.sale_price});
+      tags.push({code:u.unit_code,name:nm,price:s.sale_price,id:u.id});
     });
   });
   if(!tags.length){toast('No available units for the selected items','var(--red)');return;}
   const logoUrl=new URL('logo.svg',location.href).href;
   const corner=`<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><path d="M100,0 C70,5 40,20 25,45 C15,62 12,80 20,100" fill="none" stroke="#C9A84C" stroke-width="3" stroke-linecap="round"/><path d="M100,15 C75,20 50,32 38,55 C30,70 28,85 35,100" fill="none" stroke="#C9A84C" stroke-width="2.4" stroke-linecap="round" opacity="0.75"/><path d="M100,30 C82,34 62,45 52,63 C46,74 45,87 50,100" fill="none" stroke="#C9A84C" stroke-width="1.8" stroke-linecap="round" opacity="0.55"/><circle cx="22" cy="48" r="2.6" fill="#C9A84C"/><circle cx="38" cy="58" r="1.8" fill="#C9A84C" opacity="0.7"/></svg>`;
-  const tagHtml=tags.map(t=>`<div class="tag"><div class="tframe"><div class="tcorner tl">${corner}</div><div class="tcorner br">${corner}</div><img class="tlogo" src="${logoUrl}"><div class="tdiv"></div><div class="tbody"><div class="tcode">${sanitise(t.code)}</div><div class="trule"></div><div class="tname">${sanitise(t.name)}</div><div class="tprice">₹${fmt(t.price)}</div></div></div></div>`).join('');
+  const tagHtml=tags.map(t=>{
+    const qr=qrcode(0,'M');
+    qr.addData('MSNU1:'+t.id);
+    qr.make();
+    // qr.createImgTag() emits a GIF data URI — Chrome's print-to-PDF pipeline
+    // silently drops GIF data URIs (confirmed: renders fine on-screen, missing
+    // from the printed/exported PDF), so draw the modules onto a canvas and
+    // export PNG instead, same primitives (getModuleCount/isDark) admin-voucher.html
+    // already uses for its own on-page QR canvases.
+    const cellSize=4,margin=1,moduleCount=qr.getModuleCount(),qrSize=moduleCount*cellSize+margin*2;
+    const qrCanvas=document.createElement('canvas');
+    qrCanvas.width=qrSize;qrCanvas.height=qrSize;
+    const qctx=qrCanvas.getContext('2d');
+    qctx.fillStyle='#ffffff';qctx.fillRect(0,0,qrSize,qrSize);
+    qctx.fillStyle='#000000';
+    for(let row=0;row<moduleCount;row++){
+      for(let col=0;col<moduleCount;col++){
+        if(qr.isDark(row,col))qctx.fillRect(margin+col*cellSize,margin+row*cellSize,cellSize,cellSize);
+      }
+    }
+    const qrImg=`<img class="tqr" src="${qrCanvas.toDataURL('image/png')}" width="${qrSize}" height="${qrSize}">`;
+    return `<div class="tag"><div class="tframe"><div class="tcorner tl">${corner}</div><div class="tcorner br">${corner}</div><img class="tlogo" src="${logoUrl}"><div class="tdiv"></div><div class="tbody"><div class="tcode">${sanitise(t.code)}</div><div class="trule"></div><div class="tname">${sanitise(t.name)}</div><div class="tprice">₹${fmt(t.price)}</div></div>${qrImg}</div></div>`;
+  }).join('');
   const w=window.open('','_blank');
   w.document.write(`<html><head><meta charset="utf-8"><title>Price Tags</title><style>
     @page{size:A4;margin:9mm 3mm;}
@@ -4185,9 +4208,10 @@ function printTags(){
     .tcorner svg{width:100%;height:100%;display:block;}
     .tcorner.tl{bottom:0;left:0;width:6mm;height:6mm;transform:rotate(180deg);}
     .tcorner.br{bottom:0;right:0;transform:rotate(180deg);}
-    .tlogo{position:relative;z-index:1;width:24mm;height:24mm;object-fit:contain;flex-shrink:0;}
+    .tlogo{position:relative;z-index:1;width:20mm;height:20mm;object-fit:contain;flex-shrink:0;}
     .tdiv{position:relative;z-index:1;width:0.75pt;align-self:stretch;background:#e0d5c0;flex-shrink:0;}
     .tbody{position:relative;z-index:1;flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+    .tqr{position:relative;z-index:1;width:19mm;height:19mm;flex-shrink:0;image-rendering:pixelated;}
     .tcode{font-family:monospace;font-size:11px;color:#8B6914;letter-spacing:0.3px;}
     .trule{width:14mm;height:0.75pt;background:#C9A84C;margin:1.2mm 0;}
     .tname{font-size:13px;font-weight:600;color:#222;line-height:1.25;overflow:hidden;}

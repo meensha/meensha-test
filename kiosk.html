@@ -365,6 +365,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
 .mhw-input{flex:1;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;color:var(--warm-white);padding:13px 14px;font-size:16px;min-height:48px;}
 .mhw-input:focus{outline:none;border-color:var(--gold-light);}
 </style>
+<script src="jsqr.js"></script>
 </head>
 <body>
 <div id="app">
@@ -440,6 +441,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       </button>
       <div class="sidebar-children">
         <button class="sidebar-item" onclick="closeSidebar();openPotentialCustomers();">View list</button>
+        <button class="sidebar-item" id="pc-new-btn" style="display:none;" onclick="closeSidebar();openPcNew();">➕ New</button>
       </div>
     </div>
 
@@ -525,9 +527,22 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <div class="search-row">
           <input type="text" id="item-search" placeholder="Search by name, material, variant…" oninput="onItemSearch()">
           <button class="btn btn-ghost btn-sm" id="item-search-clear" style="display:none;" onclick="clearItemSearch()">✕</button>
+          <button class="btn btn-ghost btn-sm" onclick="openScanner()">📷 Scan</button>
         </div>
         <div id="cart-strip" class="cart-summary-strip" style="display:none;"></div>
         <div id="item-grid-wrap"></div>
+      </div>
+    </section>
+
+    <!-- SCAN TAG -->
+    <section class="screen" id="scr-scan">
+      <div class="scr-body">
+        <div class="scr-head"><h1>Scan tag</h1></div>
+        <div class="hint" id="scan-hint">Point the camera at a tag</div>
+        <video id="scan-video" playsinline muted style="width:100%;border-radius:8px;"></video>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeScannerAndGoItems()">◀ Cancel</button>
       </div>
     </section>
 
@@ -1258,6 +1273,35 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       </div>
     </section>
 
+    <!-- POTENTIAL CUSTOMERS — NEW (sidebar: 📋 Potential Customers → ➕ New,
+         india-only). Parses a pasted WhatsApp query for a SKU code
+         (product.html's own "Interested in: {name} — {sku_code}" message
+         template) and sends back either a direct item link (?buy=<sku_id>,
+         same mechanism as Insta Link / generateMaintIglink() below) or a
+         pre-filtered shop search link (?shop=<term>, same mechanism
+         index.html's own shareable shop links already use) — never a
+         kiosk-side cart; the customer does their own shopping on the real
+         site. Saves the contact via the same save_potential_customer RPC
+         submitShareCard() already uses. -->
+    <section class="screen" id="scr-pc-new">
+      <div class="scr-body">
+        <div class="scr-head"><h1>➕ New potential customer</h1><p>Paste their WhatsApp query, then send a link</p></div>
+        <div class="field"><label>Customer name</label><input type="text" id="pcn-name" placeholder="Full name"></div>
+        <div class="field"><label>WhatsApp number</label><input type="tel" id="pcn-wa" placeholder="98765 43210" inputmode="numeric"></div>
+        <div class="field"><label>Pasted query</label><textarea id="pcn-query" class="vendor-msg-box" rows="4" placeholder="Paste their WhatsApp message…" oninput="onPcnQueryInput()"></textarea></div>
+        <div id="pcn-match"></div>
+        <div class="field"><label>Search term (edit to broaden, e.g. just the category)</label><input type="text" id="pcn-term" placeholder="e.g. Kalamkari" oninput="renderPcnActions()"></div>
+        <div id="pcn-actions"></div>
+        <div id="pcn-send-box" style="display:none;">
+          <div class="field"><label>Message (edit before sending)</label><textarea id="pcn-message" class="vendor-msg-box" rows="6"></textarea></div>
+          <button class="btn btn-primary btn-block" onclick="sendPcnSelected()">📤 Send via WhatsApp</button>
+        </div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();openPotentialCustomers();">◀ Cancel</button>
+      </div>
+    </section>
+
     <!-- GODOWN CHECK (mirrors handleGodown's full EOD/spot-check/discrepancy state machine) -->
     <section class="screen" id="scr-maint-godown-menu">
       <div class="scr-body">
@@ -1506,6 +1550,11 @@ function setActiveRegion(r){
 // kiosk too, and vice versa.
 // ═══════════════════════════════════════════════
 function showScreen(id){
+  // Leaving the scan screen by any route (topbar/sidebar nav, not just the
+  // scanner's own cancel/decode handlers) must stop the camera + decode loop —
+  // otherwise it keeps running in the background after the user navigates away.
+  const leavingScan=document.getElementById('scr-scan')?.classList.contains('active');
+  if(leavingScan && id!=='scr-scan' && typeof closeScanner==='function') closeScanner();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.getElementById('topbar').style.display = id==='scr-login' ? 'none' : 'flex';
@@ -1578,6 +1627,7 @@ function startKiosk(){
   initRegionUI();
   resetSale();
   renderSidebarShareCard();
+  updatePcNewVisibility();
   showScreen('scr-items');
   loadItemPicker();
   rpcP('release_expired_reservations',{}).catch(()=>{});
@@ -1858,11 +1908,13 @@ function renderUnitPicker(){
     grid.dataset.codes=JSON.stringify(codeById);
   });
 }
-async function pickUnit(unitId){
+async function pickUnit(unitId, unitCodeOverride){
   const sku=skuCache[S.pendingSkuId];
   if(!sku)return;
-  let unitCode='—';
-  try{ const codes=JSON.parse(document.getElementById('unit-grid').dataset.codes||'{}'); unitCode=codes[unitId]||'—'; }catch{}
+  let unitCode=unitCodeOverride || '—';
+  if(!unitCodeOverride){
+    try{ const codes=JSON.parse(document.getElementById('unit-grid').dataset.codes||'{}'); unitCode=codes[unitId]||'—'; }catch{}
+  }
   // Hold the physical piece server-side for CART_HOLD_MS before adding it to
   // the cart — same reserve_unit() gate index.html's addToCart() uses, so a
   // kiosk sale and a storefront customer can't both walk off with it.
@@ -1880,6 +1932,82 @@ async function pickUnit(unitId){
   S.pendingSkuId=undefined;S.pendingSkuName=undefined;S.qtyRemaining=undefined;
   showScreen('scr-cart');
   renderCart();
+}
+
+// ═══════════════════════════════════════════════
+// SCAN-TO-CART — decodes the proprietary MSNU1:<unit_id> token admin.html's
+// printTags() QR encodes on each unit's price tag (not a URL, deliberately
+// meaningless to a customer's own phone camera), then reuses pickUnit()'s
+// exact reserve_unit() gate — no new RPC, no bypass of the manual flow.
+// ═══════════════════════════════════════════════
+let scanStream=null, scanRafId=null, scanCanvas=null;
+async function openScanner(){
+  showScreen('scr-scan');
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    const video=document.getElementById('scan-video');
+    video.srcObject=scanStream;
+    await video.play();
+    if(!scanCanvas) scanCanvas=document.createElement('canvas');
+    const tick=()=>{
+      if(!scanStream)return; // closeScanner() already ran
+      if(video.readyState===video.HAVE_ENOUGH_DATA){
+        scanCanvas.width=video.videoWidth;
+        scanCanvas.height=video.videoHeight;
+        const ctx=scanCanvas.getContext('2d');
+        ctx.drawImage(video,0,0,scanCanvas.width,scanCanvas.height);
+        try{
+          const imageData=ctx.getImageData(0,0,scanCanvas.width,scanCanvas.height);
+          const result=jsQR(imageData.data,scanCanvas.width,scanCanvas.height);
+          if(result && result.data){
+            handleScanResult(result.data);
+            return;
+          }
+        }catch{}
+      }
+      scanRafId=requestAnimationFrame(tick);
+    };
+    scanRafId=requestAnimationFrame(tick);
+  }catch{
+    toast('Camera not available — check permissions.');
+    closeScanner();
+    showScreen('scr-items');
+  }
+}
+function closeScanner(){
+  if(scanRafId){ cancelAnimationFrame(scanRafId); scanRafId=null; }
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+  const video=document.getElementById('scan-video');
+  if(video) video.srcObject=null;
+}
+function closeScannerAndGoItems(){
+  closeScanner();
+  showScreen('scr-items');
+}
+async function handleScanResult(text){
+  closeScanner();
+  const m=/^MSNU1:([0-9a-f-]{36})$/i.exec(text||'');
+  if(!m){ toast('Not a recognized Meensha tag.'); showScreen('scr-items'); return; }
+  const unitId=m[1];
+  const rows=await sbGet('inventory_units','?id=eq.'+unitId+'&status=eq.available&select=id,sku_id,unit_code');
+  if(!rows || !rows.length){ toast('That piece is no longer available.'); showScreen('scr-items'); return; }
+  const row=rows[0];
+  if(!skuCache[row.sku_id]){
+    const skuRows=await sbGet('inventory_skus','?id=eq.'+row.sku_id+'&select=*');
+    if(skuRows && skuRows[0]) skuCache[row.sku_id]=skuRows[0];
+  }
+  if(!skuCache[row.sku_id]){ toast('Item data unavailable.'); showScreen('scr-items'); return; }
+  S.pendingSkuId=row.sku_id;
+  S.pendingSkuName=skuCache[row.sku_id].name;
+  S.qtyRemaining=1;
+  await pickUnit(row.id, row.unit_code);
+  if(S.cart.some(c=>c.unit_id===row.id)){
+    toast('Added to cart: '+(skuCache[row.sku_id]?.name||'item'));
+  }else{
+    // pickUnit already toasted its own failure (e.g. "just taken") but — unlike
+    // the manual picker — there's no scr-unit screen to fall back to here.
+    showScreen('scr-items');
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -2758,8 +2886,9 @@ let siInvoicePhotosLocal=[]; // {dataUrl,base64,mimeType}
 async function onSiInvoicePhotoChosen(e){
   const file=e.target.files[0]; e.target.value='';
   if(!file)return;
-  const dataUrl=await readFileAsDataUrl(file);
-  siInvoicePhotosLocal.push({dataUrl,base64:dataUrl.split(',')[1],mimeType:file.type||'image/jpeg'});
+  const compressed=await compressImage(file,1600,0.85);
+  const dataUrl=await readFileAsDataUrl(compressed);
+  siInvoicePhotosLocal.push({dataUrl,base64:dataUrl.split(',')[1],mimeType:compressed.type||'image/jpeg'});
   renderPhotoThumbs('sii-photos',siInvoicePhotosLocal,'removeSiInvoicePhoto');
 }
 
@@ -3137,7 +3266,7 @@ async function callGeminiText(prompt){
 // "knowledge base" — there's no vector DB/retrieval here, just a static,
 // hand-written, kept-accurate summary of kiosk.html's actual finalized
 // screens and flows, sent via Gemini's systemInstruction on every call.
-const MHW_SYSTEM_PROMPT=`You are the in-app help assistant for the Meensha Kiosk, a staff-facing point-of-sale web app (not the customer storefront, and not the separate Telegram bot). Only answer questions about HOW TO USE this kiosk app — its screens, buttons and flows. Do NOT answer general business questions like "how much stock do we have" or "what were yesterday's sales" — those need the separate business chatbot, which isn't built yet; if asked, say so briefly and point to Sales History / Godown check / asking admin instead. Don't invent features that don't exist. Keep answers short (2-5 sentences), concrete, and in plain staff-friendly language — name the actual screen/button to tap. When explaining how to REACH a feature, always state the exact path as "Sidebar → [Group] → [Item]" — the real sidebar groups, top to bottom, are Sales, Inventory, Maintenance, Potential Customers and Account — instead of vague phrases like "go to the menu" or "find the option".
+const MHW_SYSTEM_PROMPT=`You are the in-app help assistant for the Meensha Kiosk, an owner-facing point-of-sale web app (not the customer storefront, and not the separate Telegram bot). Only answer questions about HOW TO USE this kiosk app — its screens, buttons and flows. Do NOT answer general business questions like "how much stock do we have" or "what were yesterday's sales" — those need the separate business chatbot, which isn't built yet; if asked, say so briefly and point to Sales History / Godown check / asking admin instead. Don't invent features that don't exist. Keep answers short (2-5 sentences), concrete, and in plain, owner-friendly language — name the actual screen/button to tap. When explaining how to REACH a feature, always state the exact path as "Sidebar → [Group] → [Item]" — the real sidebar groups, top to bottom, are Sales, Inventory, Maintenance, Potential Customers and Account — instead of vague phrases like "go to the menu" or "find the option".
 
 Here is exactly how the real, finalized kiosk app works today:
 
@@ -3145,7 +3274,7 @@ CORE SALE FLOW: Tap an item on the Items screen (search box filters by name/mate
 
 CART & TOP BAR: the topbar basket icon shows how many pieces are in the current cart and opens Cart directly. The topbar also has a 💬 Help icon (this chat) and, for Shalini/Meenakshi logins, the visiting-card icon described below. Sidebar → Sales → New Sale clears the in-progress cart (with a confirm) and starts over; Sidebar → Sales → Current Cart jumps to Cart. Picking a specific piece holds it for 15 minutes (shown on the Cart screen as "Reserved for you · M:SS remaining") so it can't be sold to someone else in the meantime; if the hold lapses before checkout finishes, that one piece is automatically dropped from the cart and released back to stock, with a message to pick it again if it's still wanted.
 
-REGION TOGGLE: most staff logins are locked to one region (India ₹ or Australia A$). Only an untied login sees a region toggle at Sidebar → Account → India / Australia / All, which changes which items and prices show and which currency is used; switching regions mid-sale clears the current cart since prices are in a different currency.
+REGION TOGGLE: most owner logins are locked to one region (India ₹ or Australia A$). Only an untied login sees a region toggle at Sidebar → Account → India / Australia / All, which changes which items and prices show and which currency is used; switching regions mid-sale clears the current cart since prices are in a different currency.
 
 SALES HISTORY — Sidebar → Sales → Sales history: read-only, newest first, 5 per page; tap a sale to see its full item/payment breakdown and resend its invoice link on WhatsApp.
 
@@ -3167,7 +3296,7 @@ MAINTENANCE — Sidebar → Maintenance has these items, each reached as Sidebar
 - Share visiting card — shows/copies the shared Meensha digital visiting-card link to send to a contact.
 - Event photo submissions — a simple ON/OFF switch for whether the public can submit event photos.
 
-SHARE MY VISITING CARD (the small stacked-card icon in the topbar, only shown for Shalini's/Meenakshi's own logins — not a sidebar item): opens that staff member's own digital visiting card. "Share" is always offered — it asks for a customer's name, WhatsApp number and optional comments, saves them as a Potential Customer, and opens a prefilled WhatsApp message with the card. If there's an active cart, "Add to invoice" is ALSO offered alongside Share (the card link gets appended to that sale's WhatsApp invoice message) — the two aren't exclusive when a cart is active.
+SHARE MY VISITING CARD (the small stacked-card icon in the topbar, only shown for Shalini's/Meenakshi's own logins — not a sidebar item): opens that owner's own digital visiting card. "Share" is always offered — it asks for a customer's name, WhatsApp number and optional comments, saves them as a Potential Customer, and opens a prefilled WhatsApp message with the card. If there's an active cart, "Add to invoice" is ALSO offered alongside Share (the card link gets appended to that sale's WhatsApp invoice message) — the two aren't exclusive when a cart is active.
 
 POTENTIAL CUSTOMERS — Sidebar → Potential Customers → View list: everyone whose visiting card has been shared with them (from the kiosk or the Telegram bot), showing their name, WhatsApp number, total purchases so far, whether their card is marked shared, any logged customer "requests" (tap "Requests: N" to expand), and an editable follow-up note per person.
 
@@ -3943,6 +4072,141 @@ async function savePcFollowup(){
   const ok=await sbPatch('potential_customers',`?id=eq.${PC_EDIT_ID}`,{follow_up:text});
   if(!ok){toast("Couldn't save — try again.");return;}
   toast('Saved.');
+  showScreen('scr-pc-list');
+  loadPotentialCustomers();
+}
+
+// ═══════════════════════════════════════════════
+// POTENTIAL CUSTOMERS — NEW ENTRY (➕ New, india-only / Shalini's login
+// specifically — gated on CU.region, same locked-account pattern
+// effRegion()/priceField() use elsewhere, not the shameen toggle). Parses a
+// pasted WhatsApp query for a SKU code, then sends back a link — never a
+// kiosk-side cart, no payment/shipping logic. Reuses generateMaintIglink()'s
+// own ?buy=<sku_id> link format and index.html's own ?shop=<term>
+// shareable-search-link format (loadShop()'s "Shareable shop link" block).
+// ═══════════════════════════════════════════════
+const PCN_SKU_CODE_RE=/[A-Z]{2,}(?:-[A-Z0-9]{2,})+/;
+let PCN_SKU=null;
+// true once staff explicitly say "not this item" on a matched SKU — sends
+// just the browse/search link instead, without clearing the match itself
+// (so they can flip back). Reset whenever the screen (re)opens or the
+// pasted text is re-parsed.
+let PCN_FORCE_SEARCH=false;
+function updatePcNewVisibility(){
+  const btn=document.getElementById('pc-new-btn');
+  if(btn)btn.style.display=(CU && CU.region==='india')?'flex':'none';
+}
+function openPcNew(){
+  if(!(CU && CU.region==='india'))return;
+  document.getElementById('pcn-name').value='';
+  document.getElementById('pcn-wa').value='';
+  document.getElementById('pcn-query').value='';
+  document.getElementById('pcn-term').value='';
+  document.getElementById('pcn-match').innerHTML='';
+  document.getElementById('pcn-actions').innerHTML='';
+  document.getElementById('pcn-message').value='';
+  document.getElementById('pcn-send-box').style.display='none';
+  PCN_SKU=null;
+  PCN_FORCE_SEARCH=false;
+  showScreen('scr-pc-new');
+}
+// Pulls a clean default search term out of product.html's own message
+// template ("Hi Meensha! Interested in: {name} — {sku_code}\nCould you
+// share details? 🙏") when present, else just falls back to the raw text.
+function guessPcnTerm(text){
+  const m=text.match(/Interested in:\s*(.+?)(?:\s*[—-]\s*[A-Z]{2,}[A-Z0-9-]*|\n|$)/i);
+  return (m?m[1]:text).trim().slice(0,60);
+}
+async function onPcnQueryInput(){
+  const text=document.getElementById('pcn-query').value;
+  const matchBox=document.getElementById('pcn-match');
+  const m=text.match(PCN_SKU_CODE_RE);
+  PCN_SKU=null;
+  PCN_FORCE_SEARCH=false;
+  if(m){
+    const rows=await sbGet('inventory_skus',`?sku_code=eq.${encodeURIComponent(m[0])}&select=id,name,sku_code`);
+    const sku=rows&&rows[0];
+    if(sku){
+      PCN_SKU=sku;
+      matchBox.innerHTML=`<div class="disc-inline open">✅ Matched: ${esc(sku.name)} (${esc(sku.sku_code)})</div>`;
+      if(!document.getElementById('pcn-term').value.trim())document.getElementById('pcn-term').value=sku.name||'';
+      renderPcnActions();
+      return;
+    }
+    matchBox.innerHTML=`<div class="hint">No item found for code "${esc(m[0])}" — showing a search link instead.</div>`;
+  } else {
+    matchBox.innerHTML='';
+  }
+  if(!document.getElementById('pcn-term').value.trim())document.getElementById('pcn-term').value=guessPcnTerm(text);
+  renderPcnActions();
+}
+// Renders the action area for the matched/typed state. A matched SKU offers
+// an "also include a browse-more link" checkbox (→ combined message) plus a
+// way to drop the item entirely and go search-only ("not this item"). Hides
+// any already-prepared draft below — term/item changed, so re-prepare.
+function renderPcnActions(){
+  const term=document.getElementById('pcn-term').value.trim();
+  const box=document.getElementById('pcn-actions');
+  document.getElementById('pcn-send-box').style.display='none';
+  let html='';
+  if(PCN_SKU && !PCN_FORCE_SEARCH){
+    html+=`<label class="field" style="display:flex;align-items:center;gap:8px;flex-direction:row;"><input type="checkbox" id="pcn-also-filter"> <span>Also include a browse-more link${term?' for "'+esc(term)+'"':''}</span></label>`;
+    html+=`<button class="btn btn-primary btn-block" style="margin-bottom:8px;" onclick="preparePcnSend('item')">💬 Prepare message ▶</button>`;
+    html+=`<button class="btn btn-ghost btn-sm btn-block" onclick="PCN_FORCE_SEARCH=true;renderPcnActions();">Not this item — just send a browse link</button>`;
+  } else {
+    if(PCN_SKU)html+=`<button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:8px;" onclick="PCN_FORCE_SEARCH=false;renderPcnActions();">◀ Back to matched item</button>`;
+    html+=`<button class="btn btn-outline btn-block" ${term?'':'disabled'} onclick="preparePcnSend('search')">💬 Prepare message ▶</button>`;
+  }
+  box.innerHTML=html;
+}
+// Exact three templates the owner specified, matching buildShareMessage()'s
+// tone. itemLink null → search-only template; itemLink set + filterLink
+// null → single-item template; both set → combined template.
+function pcnMessage(name,staff,itemLink,itemName,filterLink,term){
+  let body;
+  if(itemLink){
+    body=`Hi ${name}, thanks for reaching out about ${itemName}! Here's the link to view it and order directly:\n${itemLink}`;
+    if(filterLink)body+=`\n\nYou might also like to browse more of our ${term} collection here:\n${filterLink}`;
+  } else {
+    body=`Hi ${name}, thanks for reaching out! Here's a link to browse what you're looking for:\n${filterLink}`;
+  }
+  return `${body}\n\nAny questions, just reply here — happy to help!\n\nRegards,\n${staff}`;
+}
+// Builds the draft and shows it in the editable textarea below — same
+// review-before-send principle as updateShareMessage() above; nothing is
+// saved or sent until sendPcnSelected(). `kind` ('item'/'search') mirrors
+// which of the two buttons in renderPcnActions() was tapped; the actual
+// item-vs-search-only branching still comes from PCN_SKU/PCN_FORCE_SEARCH
+// (the "not this item" toggle), and the "also include a browse-more link"
+// checkbox can still combine both links into one message even on the
+// 'item' path — kept because the owner asked for that combined template
+// in the same round of feedback that introduced it.
+function preparePcnSend(kind){
+  const name=document.getElementById('pcn-name').value.trim();
+  const ten=digits10(document.getElementById('pcn-wa').value);
+  if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
+  if(!name){toast('Enter a name.');return;}
+  const term=document.getElementById('pcn-term').value.trim();
+  const useItem=kind==='item' && PCN_SKU && !PCN_FORCE_SEARCH;
+  if(!useItem && !term){toast('Enter a search term.');return;}
+  const includeFilter=useItem?document.getElementById('pcn-also-filter').checked:true;
+  const itemLink=useItem?`${STOREFRONT_URL}/index.html?buy=${PCN_SKU.id}`:null;
+  const filterLink=(!useItem||includeFilter)?`${STOREFRONT_URL}/index.html?shop=${encodeURIComponent(term)}`:null;
+  const itemName=useItem?PCN_SKU.name:'';
+  const staff=CU?.display_name||CU?.username||'';
+  document.getElementById('pcn-message').value=pcnMessage(name,staff,itemLink,itemName,filterLink,term);
+  document.getElementById('pcn-send-box').style.display='block';
+}
+// Sends exactly the (possibly staff-edited) text sitting in the textarea —
+// never rebuilds the message/links from scratch, so what was previewed is
+// what gets sent.
+async function sendPcnSelected(){
+  const name=document.getElementById('pcn-name').value.trim();
+  const ten=digits10(document.getElementById('pcn-wa').value);
+  const message=document.getElementById('pcn-message').value;
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||''});
+  if(!ok){toast("Couldn't save — try again.");return;}
+  window.open(`https://wa.me/${ten}?text=${encodeURIComponent(message)}`,'_blank');
   showScreen('scr-pc-list');
   loadPotentialCustomers();
 }
