@@ -1426,6 +1426,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       <div class="scr-body">
         <div class="scr-head"><h1>Follow up note</h1><p id="pcf-who"></p></div>
         <div class="field"><label>Note</label><input type="text" id="pcf-text" placeholder="Follow-up note"></div>
+        <button class="btn btn-danger btn-block" style="margin-top:28px;" onclick="deletePotentialCustomer()">🗑️ Delete this customer</button>
       </div>
       <div class="bottombar">
         <button class="btn btn-ghost btn-flex" onclick="showScreen('scr-pc-list')">◀ Cancel</button>
@@ -4758,6 +4759,21 @@ async function savePcFollowup(){
   const ok=await sbPatch('potential_customers',`?id=eq.${PC_EDIT_ID}`,{follow_up:text});
   if(!ok){toast("Couldn't save — try again.");return;}
   toast('Saved.');
+  showScreen('scr-pc-list');
+  loadPotentialCustomers();
+}
+async function deletePotentialCustomer(){
+  const p=PC_DATA.find(x=>x.id===PC_EDIT_ID);
+  if(!p)return;
+  if(!confirm(`Delete ${p.name||'this customer'} (${p.wa||'no number'}) from Potential Customers?\n\nThis can't be undone.`))return;
+  let ok=false;
+  try{
+    const r=await fetch(`${SB}/rest/v1/potential_customers?id=eq.${encodeURIComponent(p.id)}`,{method:'DELETE',headers:AHDR()});
+    ok=r.ok;
+  }catch{}
+  if(!ok){toast("Couldn't delete — try again.");return;}
+  PC_EDIT_ID=null;
+  toast('Deleted.');
   showScreen('scr-pc-list');
   loadPotentialCustomers();
 }
