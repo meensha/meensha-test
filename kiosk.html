@@ -434,6 +434,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       <div class="sidebar-children">
         <button class="sidebar-item" onclick="closeSidebar();startVendorPurchase();">Vendor Purchase</button>
         <button class="sidebar-item" onclick="closeSidebar();startStockIntake();">Stock Intake</button>
+        <button class="sidebar-item" onclick="closeSidebar();printKioskStockSheet();">🧾 Stock Sheet (A4)</button>
       </div>
     </div>
 
@@ -1900,6 +1901,52 @@ function todayStr(){
 function digits10(text){
   const d=(text||'').replace(/\D/g,'');
   return d.length===12 && d.startsWith('91') ? d.slice(2) : d;
+}
+
+// ═══════════════════════════════════════════════
+// STOCK SHEET (A4) — same one-page hand-tally sheet admin.html prints
+// (printStockSheet): in-stock SKUs only, SKU/Name/Material/Variant/Available/
+// MRP/Disc%/Discount Price straight from inventory_skus, plus six blank
+// "Sales" columns for marking off each sale by hand during the stall.
+// ═══════════════════════════════════════════════
+async function printKioskStockSheet(){
+  const w=window.open('','_blank');
+  if(!w){ toast("Pop-up blocked — allow pop-ups to print the stock sheet."); return; }
+  w.document.write('<html><body style="font-family:Georgia,serif;padding:20px;">Preparing stock sheet…</body></html>');
+  const [skus,units]=await Promise.all([
+    sbGet('inventory_skus','?select=id,sku_code,name,mrp,disc,sale_price,sale_price_aud,display_variant,display_material'),
+    sbGet('inventory_units','?select=id,sku_id,status&status=eq.available'),
+  ]);
+  const avail={};
+  (units||[]).forEach(u=>{ avail[u.sku_id]=(avail[u.sku_id]||0)+1; });
+  const pf=priceField();
+  const rows=(skus||[]).filter(s=>(avail[s.id]||0)>0).map(s=>
+    `<tr><td>${esc(s.sku_code)}</td><td>${esc(s.name)}</td><td>${esc(s.display_material||'—')}</td><td>${esc(s.display_variant||'—')}</td><td>${avail[s.id]}</td><td>${esc(fmtMoney(s.mrp))}</td><td>${s.disc||0}%</td><td>${esc(fmtMoney(s[pf]))}</td>${'<td></td>'.repeat(6)}</tr>`
+  ).join('');
+  w.document.open();
+  w.document.write(`<html><head><meta charset="utf-8"><title>Stock Sheet</title><style>
+    @page{size:A4 landscape;margin:8mm;}
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:Georgia,serif;}
+    h2{color:#8B6914;margin:0 0 2mm;font-size:13pt;}
+    table{width:100%;border-collapse:collapse;font-size:7.5pt;}
+    th,td{border:0.5pt solid #999;padding:1.5px 4px;text-align:left;}
+    th{background:#1A1208;color:#C9A84C;}
+    .sales-th{text-align:center;}
+    td:nth-child(n+5){text-align:right;}
+    td:nth-child(n+9){text-align:center;}
+  </style></head><body>
+    <h2>Meensha · Stock Sheet · ${new Date().toLocaleDateString('en-IN')}</h2>
+    <table>
+      <thead><tr>
+        <th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Available</th><th>MRP</th><th>Disc%</th><th>Discount Price</th>
+        <th colspan="6" class="sales-th">Sales</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+  </body></html>`);
+  w.document.close();
 }
 
 // ═══════════════════════════════════════════════
