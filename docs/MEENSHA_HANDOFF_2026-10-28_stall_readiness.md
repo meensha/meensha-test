@@ -249,11 +249,15 @@ all network stubbed, nothing submitted to production), then triaged.
   and kiosk, no horizontal scroll at 375px. Notes: `@@x` is accepted and stored
   as `@x` (intended); admin.html logged one "failed to fetch script" console
   error, most likely the xlsx CDN (not investigated).
-- **Prepared, NOT applied:** `20261028400000_register_event_visitor_hardening.sql`
-  — gives `p_email` a default, stops the anon path from UPDATEing existing
-  unverified customer rows (account-overwrite risk), caps name/WhatsApp lengths,
-  and validates/normalizes the Instagram handle server-side. Apply with
-  `supabase db push` after review; the client keeps working before and after.
+- **Hardening migration — APPLIED to production 2026-10-28** (after a dry run
+  confirmed it was the only pending migration):
+  `20261028400000_register_event_visitor_hardening.sql` gives `p_email` a
+  default, stops the anon path from UPDATEing existing unverified customer rows
+  (account-overwrite risk), caps name/WhatsApp lengths, and validates and
+  normalizes the Instagram handle server-side. Post-apply probes (zero-UUID
+  event, no writes) resolved with HTTP 200 both with and without `p_email`. The
+  server-side validations themselves have not been exercised end to end; do one
+  real registration on a test event to confirm.
 - **Audit findings left open (decisions for the owner):**
   - MEDIUM: no rate limit on minting codes (the event link is public).
   - LOW: `register_event_visitor` returns an existing code to anyone who types
