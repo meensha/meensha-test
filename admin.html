@@ -843,6 +843,18 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
       <tbody id="VE-BODY"></tbody>
     </table></div>
   </div>
+  <div class="card">
+    <div class="ct">🖼️ Item/Label Poster Generator <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Headline + optional subtext on the ornate blank template — for stall signage, limited-stock labels, festival banners, etc.</span></div>
+    <div class="fg">
+      <div class="fi" style="grid-column:1/-1;"><label>Headline *</label><input id="POST-HEAD" placeholder="e.g. Colours of Festivity"></div>
+      <div class="fi" style="grid-column:1/-1;"><label>Subtext <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input id="POST-SUB" placeholder="e.g. LIMITED STOCK"></div>
+    </div>
+    <button class="btn bg" onclick="renderItemPoster()">🔄 Generate</button>
+    <button class="btn bgy" style="margin-left:6px;" onclick="downloadItemPoster()">⬇️ Save PNG</button>
+    <button class="btn bo" style="margin-left:6px;" onclick="printItemPoster()">🖨️ Print</button>
+    <div id="POST-WRAP" style="margin-top:12px;max-width:420px;"><canvas id="POST-CANVAS" width="1240" height="1754" style="width:100%;border:1px solid var(--bd);border-radius:6px;display:none;"></canvas></div>
+    <div id="POST-ERR" style="display:none;margin-top:8px;font-size:12px;color:var(--red);">Template image not found — save the blank template as <code>poster_template_blank.png</code> in the project root first.</div>
+  </div>
 </div>
 
 <!-- Vendor Modal -->
@@ -1910,7 +1922,6 @@ async function renderVoucherEvents(){
       <td><input type="checkbox" ${ev.active?'checked':''} onchange="toggleVoucherEventActive('${ev.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
       <td><input type="checkbox" ${ev.kiosk_offer_enabled?'checked':''} title="Show on the kiosk's Any discount? list" onchange="toggleKioskOfferAdmin('${ev.id}',this.checked)" style="accent-color:var(--gdk);width:16px;height:16px;"></td>
       <td>
-        <button class="btn bo xs" onclick="openEventQR('${ev.id}')" title="QR code for the registration link">🖼️ QR</button>
         <button class="btn bo xs" onclick="exportEventRegistrants('${ev.id}')" title="Export registrants as CSV">📋 Export CSV</button>
         <button class="btn bgy xs" onclick="generateEventPoster('${ev.id}')" title="Generate a stall poster">🖼️ Poster</button>
         <button class="btn br xs" onclick="deleteVoucherEvent('${ev.id}')">🗑️</button>
@@ -1975,6 +1986,99 @@ function generateEventPoster(id){
     url:CURRENT_EVENT_LINK
   }));
   window.open('admin-voucher.html','_blank');
+}
+// Item/Label Poster Generator — headline + optional subtext over a blank
+// ornate template (owner-supplied PNG, same "ask for the file, don't invent
+// brand art" pattern as hindi_logo_main.png/logo.svg elsewhere in this repo).
+// Canvas sized for A4 portrait at ~150dpi (1240x1754) so the PNG download
+// prints cleanly at full page size. Occasion-specific bottom illustrations
+// (dancers etc.) are explicitly out of scope for this pass — text only.
+async function renderItemPoster(){
+  const head=document.getElementById('POST-HEAD').value.trim();
+  if(!head){toast('Enter a headline','var(--red)');return;}
+  const sub=document.getElementById('POST-SUB').value.trim();
+  const canvas=document.getElementById('POST-CANVAS');
+  const errEl=document.getElementById('POST-ERR');
+  const ctx=canvas.getContext('2d');
+  const img=new Image();
+  const templateUrl=new URL('poster_template_blank.png',location.href).href;
+  const loaded=await new Promise(resolve=>{
+    img.onload=()=>resolve(true);
+    img.onerror=()=>resolve(false);
+    img.src=templateUrl;
+  });
+  if(!loaded){
+    errEl.style.display='block';
+    canvas.style.display='none';
+    return;
+  }
+  errEl.style.display='none';
+  canvas.style.display='block';
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  ctx.textAlign='center';
+  // Positions calibrated against the owner's "Fresh from the Loom" /
+  // "LIMITED STOCK" reference: headline sits in the gap between the two
+  // ornate arcs (~59% down), subtext lower, just above the bottom
+  // decorative line (~86% down).
+  ctx.fillStyle='#6B5B1E';
+  // Auto-shrink to fit one line within the circle's safe width before
+  // falling back to wrapping. 0.40 was reached iteratively against the
+  // real template via actual full-resolution print renders — the gap
+  // between the two ornate arcs narrows quickly away from center (the arcs
+  // curve upward toward the sides), so a much wider guess (0.68, then
+  // 0.52) still overlapped the scrollwork at the text's outer edges even
+  // though it measured "under width" against a too-generous estimate.
+  const safeWidth=canvas.width*0.40;
+  let headFontPx=76;
+  ctx.font=`bold ${headFontPx}px Georgia, serif`;
+  while(headFontPx>44 && ctx.measureText(head).width>safeWidth){
+    headFontPx-=4;
+    ctx.font=`bold ${headFontPx}px Georgia, serif`;
+  }
+  wrapCenteredText2(ctx,head,canvas.width/2,canvas.height*0.59,safeWidth,headFontPx*1.15);
+  if(sub){
+    ctx.font='600 42px Georgia, serif';
+    ctx.fillStyle='#8B6914';
+    ctx.fillText(sub.toUpperCase(),canvas.width/2,canvas.height*0.86);
+  }
+}
+function printItemPoster(){
+  const canvas=document.getElementById('POST-CANVAS');
+  if(canvas.style.display==='none'){toast('Generate the poster first','var(--red)');return;}
+  const dataUrl=canvas.toDataURL('image/png');
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><meta charset="utf-8"><title>Print Poster</title><style>
+    @page{size:A4 portrait;margin:0;}
+    *{box-sizing:border-box;}
+    body{margin:0;}
+    img{width:210mm;height:297mm;object-fit:contain;display:block;}
+  </style></head><body>
+    <img src="${dataUrl}">
+    <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+function wrapCenteredText2(ctx,text,cx,y,maxWidth,lineHeight){
+  const words=text.split(' ');
+  let line='',lines=[];
+  for(const w of words){
+    const test=line?line+' '+w:w;
+    if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=w;}
+    else line=test;
+  }
+  if(line)lines.push(line);
+  const startY=y-(lines.length-1)*lineHeight/2;
+  lines.forEach((l,i)=>ctx.fillText(l,cx,startY+i*lineHeight));
+}
+function downloadItemPoster(){
+  const canvas=document.getElementById('POST-CANVAS');
+  if(canvas.style.display==='none'){toast('Generate the poster first','var(--red)');return;}
+  const head=document.getElementById('POST-HEAD').value.trim();
+  const a=document.createElement('a');
+  a.download=`meensha-poster-${head.replace(/[^a-z0-9]+/gi,'-').toLowerCase()||'item'}.png`;
+  a.href=canvas.toDataURL('image/png');
+  a.click();
 }
 async function renderCoupons(){
   const body=document.getElementById('CP-BODY');if(!body)return;
