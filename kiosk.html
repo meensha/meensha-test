@@ -1909,7 +1909,19 @@ function digits10(text){
 // MRP/Disc%/Discount Price straight from inventory_skus, plus six blank
 // "Sales" columns for marking off each sale by hand during the stall.
 // ═══════════════════════════════════════════════
+// Flat 10% off MRP on the sheet (owner request, 2026-10-28), same as admin.html;
+// MRP and Discount Price columns are colour filled and printed with
+// print-color-adjust so the fills survive the print dialog.
+const STOCK_SHEET_DISC=10;
 async function printKioskStockSheet(){
+  // Safari's print dialog ignores @page{size:landscape} — no reliable
+  // pure-CSS/JS trick forces it (a prior @media(orientation:portrait)
+  // auto-rotate attempt also misfired on Chrome's own correctly-landscape
+  // output — confirmed via headless Chrome, removed). Safari users pick
+  // Landscape themselves; Chrome/Firefox honor @page size already.
+  if(/^((?!chrome|android).)*safari/i.test(navigator.userAgent)){
+    toast('Safari ignores print page size — choose "Landscape" in the print dialog.');
+  }
   const w=window.open('','_blank');
   if(!w){ toast("Pop-up blocked — allow pop-ups to print the stock sheet."); return; }
   w.document.write('<html><body style="font-family:Georgia,serif;padding:20px;">Preparing stock sheet…</body></html>');
@@ -1919,31 +1931,44 @@ async function printKioskStockSheet(){
   ]);
   const avail={};
   (units||[]).forEach(u=>{ avail[u.sku_id]=(avail[u.sku_id]||0)+1; });
-  const pf=priceField();
+  const logoUrl=new URL('hindi_logo_main.png',location.href).href;
+  const now=new Date();
+  const genStr=now.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})+', '+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
   const rows=(skus||[]).filter(s=>(avail[s.id]||0)>0).map(s=>
-    `<tr><td>${esc(s.sku_code)}</td><td>${esc(s.name)}</td><td>${esc(s.display_material||'—')}</td><td>${esc(s.display_variant||'—')}</td><td>${avail[s.id]}</td><td>${esc(fmtMoney(s.mrp))}</td><td>${s.disc||0}%</td><td>${esc(fmtMoney(s[pf]))}</td>${'<td></td>'.repeat(6)}</tr>`
+    `<tr><td>${esc(s.sku_code)}</td><td>${esc(s.name)}</td><td>${esc(s.display_material||'—')}</td><td>${esc(s.display_variant||'—')}</td><td>${avail[s.id]}</td><td class="mrp-c">${esc(fmtMoney(s.mrp))}</td><td>${STOCK_SHEET_DISC}%</td><td class="dp-c">${esc(fmtMoney(Math.round((s.mrp||0)*(100-STOCK_SHEET_DISC)/100)))}</td>${'<td></td>'.repeat(6)}</tr>`
   ).join('');
   w.document.open();
   w.document.write(`<html><head><meta charset="utf-8"><title>Stock Sheet</title><style>
     @page{size:A4 landscape;margin:8mm;}
     *{box-sizing:border-box;}
     body{margin:0;font-family:Georgia,serif;}
-    h2{color:#8B6914;margin:0 0 2mm;font-size:13pt;}
     table{width:100%;border-collapse:collapse;font-size:7.5pt;}
-    th,td{border:0.5pt solid #999;padding:1.5px 4px;text-align:left;}
+    th,td{border:0.5pt solid #999;padding:1px 4px;text-align:left;}
+    thead{display:table-header-group;} tr{page-break-inside:avoid;}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     th{background:#1A1208;color:#C9A84C;}
+    th.mrp-h{background:#E0A800;color:#1A1208;}
+    th.dp-h{background:#2E8B57;color:#fff;}
+    td.mrp-c{background:#FFE7A0;color:#5a4300;font-weight:700;}
+    td.dp-c{background:#CDEBCB;color:#14532d;font-weight:700;}
     .sales-th{text-align:center;}
     td:nth-child(n+5){text-align:right;}
     td:nth-child(n+9){text-align:center;}
-  </style></head><body>
-    <h2>Meensha · Stock Sheet · ${new Date().toLocaleDateString('en-IN')}</h2>
+    .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2mm;}
+    .sheet-head img{height:16mm;object-fit:contain;}
+    .gen-box{border:1pt solid #8B6914;border-radius:3px;padding:2mm 4mm;font-size:11pt;font-weight:700;color:#1A1208;}
+  </style></head><body><div id="sheet">
+    <div class="sheet-head">
+      <img src="${logoUrl}" alt="Meensha">
+      <div class="gen-box">Generated ${genStr} · ${STOCK_SHEET_DISC}% off MRP</div>
+    </div>
     <table>
       <thead><tr>
-        <th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Available</th><th>MRP</th><th>Disc%</th><th>Discount Price</th>
+        <th>SKU Code</th><th>Name</th><th>Material</th><th>Variant</th><th>Available</th><th class="mrp-h">MRP</th><th>Disc%</th><th class="dp-h">Discount Price</th>
         <th colspan="6" class="sales-th">Sales</th>
       </tr></thead>
       <tbody>${rows}</tbody>
-    </table>
+    </table></div>
     <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
   </body></html>`);
   w.document.close();
