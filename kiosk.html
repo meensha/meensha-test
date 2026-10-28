@@ -4186,7 +4186,7 @@ async function saveMaintEventPromo(){
     `<div class="disc-inline open">${MEP_KIND==='promotion'?'🏷️':'🎉'} <a href="${link}" target="_blank" rel="noopener" style="color:var(--gold-light);">${esc(title)}</a><br><br>`+
     `Share this link — each visitor who fills in their name + WhatsApp gets their own unique voucher (${discTxt}, valid ${days} day(s)).<br><br>`+
     `<span style="word-break:break-all;">${esc(link)}</span>`+
-    `<div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(link)}" alt="QR"></div></div>`;
+    `<div class="qr-box"><img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(STOREFRONT_URL+'/register.html?event=current')}" alt="QR"></div></div>`;
 }
 
 // ───────── Share visiting card ─────────

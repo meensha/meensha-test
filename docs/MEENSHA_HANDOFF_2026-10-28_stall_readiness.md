@@ -270,3 +270,23 @@ all network stubbed, nothing submitted to production), then triaged.
     staff-entered titles; changing `esc` globally would break those handlers, so
     pass ids instead.
   - Instagram follow is honor-system only (staff check on the kiosk alert).
+
+### Owner decisions on those findings (2026-10-28) and the permanent QR
+- **Rate limit:** cap of 20 new codes per minute per event.
+- **Code leak:** keep returning an existing code for an already-registered
+  number (codes are number-bound and redeemed in person).
+- **Event list guard:** guard `admin_list_voucher_events()` with
+  `require_admin_session()` after checking callers. Checked: admin.html and
+  both kiosk.html calls all send the admin session; no anonymous caller.
+- **Permanent QR:** printed/poster/A4 QRs now encode
+  `https://meensha.in/register.html?event=current`. `register.html` resolves
+  that through `get_current_voucher_event()` to the **newest active**
+  event/promo; deactivate the old one in admin and the same QR moves on. If
+  nothing is active the page says "No offer is running right now". Changed in
+  `admin.html` (`openEventQR`, `generateEventPoster`, `CURRENT_EVENT_LINK`) and
+  the QR image in kiosk.html's Create event result. The clickable per-event link
+  text (and the Telegram bots' links) is unchanged and still event-specific.
+- **All of the above ships in migration
+  `20261028500000_current_event_ratelimit_listguard.sql`.** Apply it BEFORE
+  pushing the client changes; until it is applied, a new QR would show the
+  "no offer" message.

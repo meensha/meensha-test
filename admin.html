@@ -1937,10 +1937,14 @@ async function deleteVoucherEvent(id){
 // (same pattern as openVoucherGen) so it can draw a simple QR there using
 // its already-vendored QR library, instead of duplicating that ~2000-line
 // library inline here.
+// Printed QRs are permanent: they point at register.html?event=current, which
+// resolves to the newest active event/promo (get_current_voucher_event), so a
+// banner or poster never goes stale when the active offer changes.
+const CURRENT_EVENT_LINK='https://meensha.in/register.html?event=current';
 function openEventQR(id){
   const ev=voucherEvents.find(x=>x.id===id);
   if(!ev)return;
-  const link=`https://meensha.in/register.html?event=${ev.id}`;
+  const link=CURRENT_EVENT_LINK;
   sessionStorage.setItem('MSN_EVENT_QR_PENDING',JSON.stringify({title:ev.title,url:link}));
   window.open('admin-voucher.html','_blank');
 }
@@ -1968,7 +1972,7 @@ function generateEventPoster(id){
   const disc=ev.discount_type==='percent'?`${ev.discount_value}% OFF`:`${ev.region==='australia'?'A$':'₹'}${ev.discount_value} OFF`;
   sessionStorage.setItem('MSN_EVENT_POSTER_PENDING',JSON.stringify({
     title:ev.title, photoUrl:ev.popup_photo, discount:disc,
-    url:`https://meensha.in/register.html?event=${ev.id}`
+    url:CURRENT_EVENT_LINK
   }));
   window.open('admin-voucher.html','_blank');
 }

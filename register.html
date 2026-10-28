@@ -178,21 +178,26 @@ const _SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 // ?event=<id> switches this page from the generic stall-registration form
 // (fixed 5% code) to an event-scoped one — a specific event's own
 // discount/region, created via admin.html or either Telegram bot.
-const eventId = new URLSearchParams(location.search).get('event');
+// ?event=current is the permanent QR target: it resolves to the newest active
+// event/promo (get_current_voucher_event), so printed QRs never go stale.
+let eventId = new URLSearchParams(location.search).get('event');
 let currentEvent = null;
 
 async function initEventMode() {
   if (!eventId) return;
-  const res = await fetch(`${_SB}/rest/v1/rpc/get_voucher_event`, {
+  const isCurrent = eventId === 'current';
+  const res = await fetch(`${_SB}/rest/v1/rpc/${isCurrent ? 'get_current_voucher_event' : 'get_voucher_event'}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'apikey': _SK, 'Authorization': 'Bearer ' + _SK },
-    body: JSON.stringify({ p_event_id: eventId })
+    body: JSON.stringify(isCurrent ? {} : { p_event_id: eventId })
   });
   const ev = await res.json().catch(() => null);
-  if (!ev || ev.active === false) {
-    document.getElementById('form-view').innerHTML = '<img class="logo" src="meensha_rotating_logo.webp" alt="Meensha"><div class="sub">This event link is no longer active.</div>';
+  if (!ev || !ev.id || ev.active === false) {
+    const msg = isCurrent ? 'No offer is running right now — please check back soon.' : 'This event link is no longer active.';
+    document.getElementById('form-view').innerHTML = '<img class="logo" src="meensha_rotating_logo.webp" alt="Meensha"><div class="sub">' + msg + '</div>';
     return;
   }
+  eventId = ev.id;
   currentEvent = ev;
   const discTxt = ev.discount_type === 'percent' ? ev.discount_value + '% off' : (ev.region === 'australia' ? 'A$' : '₹') + ev.discount_value + ' off';
   document.querySelector('.sub').textContent = `${ev.title} — register now and get ${discTxt}`;
