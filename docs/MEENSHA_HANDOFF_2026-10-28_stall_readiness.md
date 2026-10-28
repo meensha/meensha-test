@@ -294,12 +294,18 @@ all network stubbed, nothing submitted to production), then triaged.
   403 `admin_session_invalid`; `register_event_visitor` with a blank email
   resolves. The code (`e50ad9a`) reached origin via the parallel session's
   push (`3c15069`); the live register page already serves `?event=current`.
-- **NEW finding, fix prepared but NOT applied:** the original 3-argument
+- **NEW finding, fixed — migration `20261028600000` APPLIED to production
+  2026-10-28:** the original 3-argument
   `register_event_visitor(uuid, text, text)` (from
   `setup/add_voucher_events.sql`) was never dropped and is still anon-callable.
   It bypasses the rate limit, the server-side Instagram requirement/validation
   and the length caps, so anyone calling it directly can skip the follow gate
   and the 20/minute cap. It also makes a 3-field RPC body ambiguous (PGRST203).
   Only `register.html` calls this RPC (always the 5-arg form), so dropping it
-  is safe. Migration `20261028600000_drop_legacy_register_event_visitor.sql`
-  does exactly that — apply with `supabase db push`.
+  is safe. `20261028600000_drop_legacy_register_event_visitor.sql` dropped it.
+  Verified afterwards (anonymous probes, zero-UUID event, no writes): the
+  PGRST203 ambiguity is gone, so only the hardened 5-arg function remains; a
+  3-field body now resolves to it (defaults for email/handle) rather than to the
+  old bypass, and the page's 5-field body still works. Not exercised end to end:
+  the rate-limit rejection and the server-side handle checks, which need real
+  registrations against a test event.
