@@ -287,6 +287,19 @@ all network stubbed, nothing submitted to production), then triaged.
   the QR image in kiosk.html's Create event result. The clickable per-event link
   text (and the Telegram bots' links) is unchanged and still event-specific.
 - **All of the above ships in migration
-  `20261028500000_current_event_ratelimit_listguard.sql`.** Apply it BEFORE
-  pushing the client changes; until it is applied, a new QR would show the
-  "no offer" message.
+  `20261028500000_current_event_ratelimit_listguard.sql` — APPLIED to
+  production 2026-10-28.** Verified with anonymous probes (no writes):
+  `get_current_voucher_event` returns "Diwali Santhe 2026" (newest active,
+  Instagram required); `admin_list_voucher_events` without a session returns
+  403 `admin_session_invalid`; `register_event_visitor` with a blank email
+  resolves. The code (`e50ad9a`) reached origin via the parallel session's
+  push (`3c15069`); the live register page already serves `?event=current`.
+- **NEW finding, fix prepared but NOT applied:** the original 3-argument
+  `register_event_visitor(uuid, text, text)` (from
+  `setup/add_voucher_events.sql`) was never dropped and is still anon-callable.
+  It bypasses the rate limit, the server-side Instagram requirement/validation
+  and the length caps, so anyone calling it directly can skip the follow gate
+  and the 20/minute cap. It also makes a 3-field RPC body ambiguous (PGRST203).
+  Only `register.html` calls this RPC (always the 5-arg form), so dropping it
+  is safe. Migration `20261028600000_drop_legacy_register_event_visitor.sql`
+  does exactly that — apply with `supabase db push`.
