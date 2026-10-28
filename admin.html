@@ -2022,18 +2022,19 @@ async function renderItemPoster(){
   // ornate arcs (~59% down), subtext lower, just above the bottom
   // decorative line (~86% down).
   ctx.fillStyle='#6B5B1E';
-  // Auto-shrink from a bold starting size to fit one line, falling back to
-  // wrapping only if even the floor size doesn't fit. A tighter, more
-  // "safe" width (0.40) kept text fully clear of the scrollwork but read
-  // as timid next to the owner's reference mockup — real poster lettering
-  // crosses thin decorative filigree confidently, so this intentionally
-  // allows the text's outer edges to touch the ornamentation, matching
-  // the reference's visual weight (confirmed via full-resolution print
-  // renders of both a short and a long headline).
-  const safeWidth=canvas.width*0.80;
-  let headFontPx=100;
+  // safeWidth=0.40 is the value confirmed via full-resolution print renders
+  // to keep text fully clear of the scrollwork (wider estimates measured
+  // "under width" but still touched the border at the text's outer edges,
+  // since the gap between the two arcs narrows away from center). Rather
+  // than shrinking the font to force one line within that width — which
+  // made short headlines look small and timid next to the reference — this
+  // prefers WRAPPING to 2+ lines at a bold fixed size, only shrinking font
+  // if a single word is itself wider than the safe zone (rare).
+  const safeWidth=canvas.width*0.40;
+  let headFontPx=80;
   ctx.font=`bold ${headFontPx}px Georgia, serif`;
-  while(headFontPx>64 && ctx.measureText(head).width>safeWidth){
+  const longestWord=head.split(' ').reduce((a,w)=>ctx.measureText(w).width>ctx.measureText(a).width?w:a,'');
+  while(headFontPx>48 && ctx.measureText(longestWord).width>safeWidth){
     headFontPx-=4;
     ctx.font=`bold ${headFontPx}px Georgia, serif`;
   }
