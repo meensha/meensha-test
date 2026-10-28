@@ -378,8 +378,25 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
 .mhw-msg.bot{align-self:flex-start;background:var(--dark2);border:1px solid var(--gold-dim);color:var(--cream);border-bottom-left-radius:4px;}
 .mhw-input{flex:1;background:var(--dark2);border:1px solid var(--gold-dim);border-radius:10px;color:var(--warm-white);padding:13px 14px;font-size:16px;min-height:48px;}
 .mhw-input:focus{outline:none;border-color:var(--gold-light);}
+
+/* ───────── Post-event notes (folders / note list / TipTap editor) ───────── */
+.pn-row{display:block;width:100%;text-align:left;background:var(--dark2);color:var(--cream);border:1px solid var(--gold-dim);border-radius:12px;padding:12px 14px;margin-bottom:10px;font:inherit;cursor:pointer;}
+.pn-row:active{border-color:var(--gold-light);}
+.pn-note-title{display:block;font-size:16px;font-weight:600;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pn-note-prev{display:block;font-size:14px;color:rgba(247,243,236,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px;}
+.pn-note-date{display:block;font-size:12px;color:var(--gold-light);margin-top:4px;}
+.pn-toolbar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.pn-tool{min-width:44px;min-height:44px;padding:0 10px;border-radius:10px;border:1px solid var(--gold-dim);background:var(--dark2);color:var(--cream);font:inherit;font-size:16px;cursor:pointer;}
+.pn-tool:active{border-color:var(--gold-light);color:var(--gold-light);}
+.pn-editor{flex:1;background:var(--dark);color:var(--cream);border:1px solid var(--gold-dim);border-radius:12px;padding:14px;font-size:17px;line-height:1.5;overflow-wrap:anywhere;}
+.pn-editor:focus-within{border-color:var(--gold-light);}
+.pn-editor .ProseMirror{outline:none;min-height:50vh;color:var(--cream);}
+.pn-editor .ProseMirror p{margin:0 0 .4em;}
+.pn-editor .ProseMirror ul,.pn-editor .ProseMirror ol{padding-left:1.4em;}
+#pne-status{color:var(--gold-light);font-size:13px;}
 </style>
 <script src="jsqr.js"></script>
+<script src="vendor/tiptap-notes.js"></script>
 </head>
 <body>
 <div id="app">
@@ -1165,22 +1182,40 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
          (that's admin.html's "Analyze & Submit" button). -->
     <section class="screen" id="scr-popup-notes-pick">
       <div class="scr-body">
-        <div class="scr-head"><h1>📝 Add a note</h1><p>Which event is this about?</p></div>
+        <div class="scr-head"><h1>📝 Event folders</h1><p>Newest first · current event on top</p></div>
         <div id="pn-pick-list"></div>
       </div>
       <div class="bottombar">
         <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
       </div>
     </section>
-    <section class="screen" id="scr-popup-notes-write">
+    <section class="screen" id="scr-popup-notes-list">
       <div class="scr-body">
-        <div class="scr-head"><h1>📝 Add a note</h1><p id="pnw-event"></p></div>
-        <div id="pnw-list" style="margin-bottom:14px;"></div>
-        <div class="field"><label>New note</label><textarea id="pnw-text" rows="4" placeholder="What happened, what to remember for next time…"></textarea></div>
+        <div class="scr-head" id="pnl-head"></div>
+        <div id="pnl-list"></div>
       </div>
       <div class="bottombar">
-        <button class="btn btn-ghost btn-flex" onclick="closeSidebar();goItems();">◀ Close</button>
-        <button class="btn btn-primary btn-flex" id="pnw-save-btn" onclick="savePopupNoteWrite()">Save ▶</button>
+        <button class="btn btn-ghost btn-flex" onclick="openPopupNotesFolders()">◀ Folders</button>
+        <button class="btn btn-primary btn-flex" onclick="newPopupNote()">＋ New note</button>
+      </div>
+    </section>
+    <section class="screen" id="scr-popup-notes-edit">
+      <div class="scr-body" style="display:flex;flex-direction:column;">
+        <div class="scr-head" style="padding-bottom:10px;"><h1 id="pne-event"></h1><p id="pne-status"></p></div>
+        <div class="pn-toolbar" onmousedown="event.preventDefault()">
+          <button class="pn-tool" style="font-weight:700;" onclick="popupNoteCmd('bold')" aria-label="Bold">B</button>
+          <button class="pn-tool" style="font-style:italic;" onclick="popupNoteCmd('italic')" aria-label="Italic">I</button>
+          <button class="pn-tool" style="text-decoration:underline;" onclick="popupNoteCmd('underline')" aria-label="Underline">U</button>
+          <button class="pn-tool" onclick="popupNoteCmd('bullet')" aria-label="Bullet list">•</button>
+          <button class="pn-tool" onclick="popupNoteCmd('ordered')" aria-label="Numbered list">1.</button>
+          <button class="pn-tool" onclick="popupNoteCmd('size',-1)" aria-label="Smaller text">A−</button>
+          <button class="pn-tool" onclick="popupNoteCmd('size',1)" aria-label="Larger text">A+</button>
+          <button class="pn-tool" onclick="popupNoteCmd('undo')" aria-label="Undo">↶</button>
+        </div>
+        <div id="pne-body" class="pn-editor"></div>
+      </div>
+      <div class="bottombar">
+        <button class="btn btn-ghost btn-flex" onclick="closePopupNoteEditor()">◀ Back</button>
       </div>
     </section>
 
@@ -3866,43 +3901,135 @@ async function togglePrepChecklistItem(itemId,checked){
   pollPrepBanner(); // banner disappears the instant the last open item is checked
 }
 
-// ───────── Post-event notes (decision #7, kiosk write side) ─────────
-// "Active event" resolution, as a judgment call (spec left it as a
-// best-guess): the current live popup if there is exactly one; else the
-// most recently past/live one by date_to; if that's still ambiguous (zero
-// or 2+ candidates tie), fall through to a short recent-events pick-list.
+// ───────── Post-event notes (kiosk) ─────────
+// Folders = Pop-up Events, automatic: live events first, then newest by
+// date_to. Each folder holds many notes. A note body is TipTap rich text,
+// stored sanitised as body_html; `note` keeps the plain-text copy that
+// admin.html's "Analyze & Submit" reads.
+const PN_TAGS=new Set(['B','STRONG','I','EM','U','UL','OL','LI','BR','DIV','P','SPAN']);
+const PN_DROP=new Set(['SCRIPT','STYLE','TEMPLATE','NOSCRIPT','IFRAME','OBJECT','EMBED','SVG','MATH','HEAD','TITLE','TEXTAREA','SELECT','BUTTON','INPUT','IMG','VIDEO','AUDIO','CANVAS','FORM']);
+// Strict allowlist walk over an inert DOMParser document. Every attribute is
+// dropped except span style="font-size: 14|17|22px", so javascript: URLs and
+// event handlers cannot survive. Used on save AND on render.
+function sanitizeNoteHtml(html){
+  let doc;
+  try{ doc=new DOMParser().parseFromString('<!doctype html><body>'+String(html??''),'text/html'); }catch{ return ''; }
+  const out=doc.createElement('div');
+  const walk=(src,dst)=>{
+    for(const n of Array.from(src.childNodes)){
+      if(n.nodeType===3){ dst.appendChild(doc.createTextNode(n.nodeValue)); continue; }
+      if(n.nodeType!==1) continue;
+      const tag=n.tagName.toUpperCase();
+      if(PN_DROP.has(tag)) continue;
+      if(!PN_TAGS.has(tag)){ walk(n,dst); continue; }   // unknown tag: keep its text, drop the tag
+      const el=doc.createElement(tag.toLowerCase());
+      if(tag==='SPAN'){
+        const m=/^\s*font-size:\s*(14|17|22)px;?\s*$/i.exec(n.getAttribute('style')||'');
+        if(m) el.setAttribute('style','font-size: '+m[1]+'px');
+      }
+      walk(n,el);
+      dst.appendChild(el);
+    }
+  };
+  walk(doc.body,out);
+  return out.innerHTML;
+}
+const PN={folders:[],folderIdx:0,popupId:null,title:'',notes:[],noteId:null,editor:null,dirty:false,ver:0,timer:null,chain:Promise.resolve()};
+function pnFmtTime(iso){ if(!iso) return ''; const d=new Date(iso); return isNaN(d)?'':d.toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}); }
+function pnFmtDay(s){ if(!s) return ''; const d=new Date(s+'T00:00:00'); return isNaN(d)?'':d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'}); }
+function pnPlainToHtml(text){ return String(text||'').split('\n').map(l=>`<p>${l?esc(l):'<br>'}</p>`).join(''); }
+function pnSetStatus(t){ const el=document.getElementById('pne-status'); if(el) el.textContent=t; }
+
+// 📝 entry point: flush any unsaved edit, then land in the current event's folder.
 async function openPopupNotes(){
-  const all=await sbGet('popups','?select=id,title,status,date_to&order=date_to.desc&limit=8')||[];
-  const live=all.filter(e=>e.status==='live');
-  if(live.length===1){ openPopupNotesWrite(live[0].id,live[0].title); return; }
-  if(!live.length && all.length===1){ openPopupNotesWrite(all[0].id,all[0].title); return; }
-  document.getElementById('pn-pick-list').innerHTML=all.length?all.map(e=>
-    `<button class="disc-opt" onclick="openPopupNotesWrite('${e.id}','${esc(e.title).replace(/'/g,"\\'")}')"><span>${esc(e.title)}</span><span class="dtag">${e.status}</span></button>`
-  ).join(''):'<div>No Pop-up Events yet.</div>';
+  await savePopupNote();
+  const all=await sbGet('popups','?select=id,title,status,date_from,date_to&order=date_to.desc.nullslast,date_from.desc.nullslast&limit=30')||[];
+  PN.folders=[...all.filter(e=>e.status==='live'),...all.filter(e=>e.status!=='live')];
+  if(!PN.folders.length){ await openPopupNotesFolders(); return; }
+  await openPopupNotesFolder(0);
+}
+async function openPopupNotesFolders(){
+  const box=document.getElementById('pn-pick-list');
+  if(!PN.folders.length){ box.innerHTML='<div style="opacity:.6;">No Pop-up Events yet.</div>'; showScreen('scr-popup-notes-pick'); return; }
+  box.innerHTML=PN.folders.map((f,i)=>`<button class="pn-row" onclick="openPopupNotesFolder(${i})"><span class="pn-note-title">${esc(f.title||'Untitled event')}</span><span class="pn-note-date">${esc(pnFmtDay(f.date_to||f.date_from))}${f.status?' · '+esc(f.status):''} · <span id="pn-cnt-${i}">counting…</span></span></button>`).join('');
   showScreen('scr-popup-notes-pick');
+  const counts=await Promise.all(PN.folders.map(f=>rpcA('popup_notes_full',{p_popup_id:f.id})));
+  counts.forEach((r,i)=>{ const el=document.getElementById('pn-cnt-'+i); if(el) el.textContent=r===null?'count unavailable':(r.length+(r.length===1?' note':' notes')); });
 }
-let popupNotesPopupId=null;
-async function openPopupNotesWrite(popupId,title){
-  popupNotesPopupId=popupId;
-  document.getElementById('pnw-event').textContent=title||'';
-  document.getElementById('pnw-text').value='';
-  showScreen('scr-popup-notes-write');
-  const notes=await rpcA('popup_notes_list',{p_popup_id:popupId})||[];
-  document.getElementById('pnw-list').innerHTML=notes.length?notes.map(n=>
-    `<div style="padding:7px 0;border-bottom:1px solid rgba(247,243,236,.1);font-size:12px;"><div>${esc(n.note)}</div><div style="opacity:.55;margin-top:2px;">${esc(n.written_by_name||'')} · ${new Date(n.created_at).toLocaleString()}</div></div>`
-  ).join(''):'<div style="opacity:.6;font-size:12px;">No notes yet for this event.</div>';
+async function openPopupNotesFolder(i){
+  const f=PN.folders[i]; if(!f) return;
+  PN.folderIdx=i; PN.popupId=f.id; PN.title=f.title||'Untitled event';
+  document.getElementById('pnl-head').innerHTML=`<h1>📝 ${esc(PN.title)}</h1><p>${esc(pnFmtDay(f.date_to||f.date_from))}${f.status?' · '+esc(f.status):''}</p>`;
+  document.getElementById('pnl-list').innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  showScreen('scr-popup-notes-list');
+  const rows=await rpcA('popup_notes_full',{p_popup_id:f.id});
+  if(PN.popupId!==f.id) return;   // staff moved on while this loaded
+  if(rows===null){ document.getElementById('pnl-list').innerHTML='<div style="opacity:.6;">Couldn\'t load notes — try again.</div>'; return; }
+  PN.notes=rows;
+  renderPopupNotesList();
 }
-async function savePopupNoteWrite(){
-  const note=document.getElementById('pnw-text').value.trim();
-  if(!note){toast("Note can't be empty.");return;}
-  const btn=document.getElementById('pnw-save-btn');
-  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
-  const res=await rpcA('popup_notes_add',{p_popup_id:popupNotesPopupId,p_note:note});
-  btn.disabled=false;btn.textContent='Save ▶';
-  if(res===null){toast("Couldn't save that note — try again.");return;}
-  toast('📝 Note saved.');
-  const title=document.getElementById('pnw-event').textContent;
-  openPopupNotesWrite(popupNotesPopupId,title);
+function renderPopupNotesList(){
+  const box=document.getElementById('pnl-list');
+  if(!PN.notes.length){ box.innerHTML='<div style="opacity:.6;font-size:14px;padding:6px 2px;">No notes yet for this event. Tap ＋ New note.</div>'; return; }
+  box.innerHTML=PN.notes.map((n,i)=>{
+    const lines=String(n.note||'').split('\n').map(s=>s.trim()).filter(Boolean);
+    const who=n.written_by_name?' · '+esc(n.written_by_name):'';
+    return `<button class="pn-row" onclick="openPopupNoteEdit(${i})"><span class="pn-note-title">${esc(lines[0]||'(empty note)')}</span><span class="pn-note-prev">${esc(lines.slice(1).join(' '))}</span><span class="pn-note-date">${esc(pnFmtTime(n.updated_at||n.created_at))}${who}</span></button>`;
+  }).join('');
+}
+async function newPopupNote(){
+  if(!PN.popupId) return;
+  const res=await rpcA('popup_notes_save',{p_id:null,p_popup_id:PN.popupId,p_body_html:'',p_plain:''});
+  const row=Array.isArray(res)?res[0]:null;
+  if(!row){ toast("Couldn't create a note — try again."); return; }
+  PN.notes.unshift(row);
+  openPopupNoteEditor(row);
+}
+function openPopupNoteEdit(i){ const n=PN.notes[i]; if(n) openPopupNoteEditor(n); }
+function openPopupNoteEditor(note){
+  clearTimeout(PN.timer);
+  PN.noteId=note.id; PN.dirty=false; PN.ver=0;
+  document.getElementById('pne-event').textContent=PN.title;
+  showScreen('scr-popup-notes-edit');
+  const html=note.body_html ? sanitizeNoteHtml(note.body_html) : pnPlainToHtml(note.note);
+  if(!PN.editor){
+    if(!window.TiptapNotes){ toast("Editor failed to load — reload the kiosk."); return; }
+    PN.editor=TiptapNotes.create(document.getElementById('pne-body'),{content:html,onUpdate:()=>popupNoteEdited()});
+  } else {
+    PN.editor.commands.setContent(html,false);
+  }
+  pnSetStatus('');
+}
+function popupNoteCmd(action,arg){ if(PN.editor) TiptapNotes.run(PN.editor,action,arg); }
+function popupNoteEdited(){
+  PN.dirty=true; PN.ver++;
+  pnSetStatus('Editing…');
+  clearTimeout(PN.timer);
+  PN.timer=setTimeout(()=>savePopupNote(),1500);
+}
+// Saves are serialised on PN.chain so two writes never race. The sanitised
+// HTML and plain text are read from the editor at save time.
+function savePopupNote(){
+  clearTimeout(PN.timer);
+  PN.chain=PN.chain.then(async()=>{
+    if(!PN.dirty||!PN.editor||!PN.noteId) return;
+    const ver=PN.ver, noteId=PN.noteId, popupId=PN.popupId;
+    const html=sanitizeNoteHtml(PN.editor.getHTML());
+    const plain=PN.editor.getText({blockSeparator:'\n'}).replace(/\n+$/,'');
+    pnSetStatus('Saving…');
+    const res=await rpcA('popup_notes_save',{p_id:noteId,p_popup_id:popupId,p_body_html:html,p_plain:plain});
+    const row=Array.isArray(res)?res[0]:null;
+    if(!row){ pnSetStatus('Not saved — retrying'); PN.timer=setTimeout(savePopupNote,4000); return; }
+    const i=PN.notes.findIndex(n=>n.id===row.id);
+    if(i>=0) PN.notes[i]=row; else PN.notes.unshift(row);
+    if(PN.ver===ver){ PN.dirty=false; pnSetStatus('Saved'); }
+  });
+  return PN.chain;
+}
+async function closePopupNoteEditor(){
+  await savePopupNote();
+  if(PN.dirty){ toast("Couldn't save that note — try again."); return; }
+  await openPopupNotesFolder(PN.folderIdx);
 }
 
 // ───────── Pending AU costs ─────────
