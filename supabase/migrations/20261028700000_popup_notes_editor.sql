@@ -37,16 +37,22 @@ CREATE OR REPLACE FUNCTION public.popup_notes_save(p_id uuid, p_popup_id uuid, p
  SECURITY DEFINER
  SET search_path TO 'public', 'extensions'
 AS $function$
-DECLARE me users; v_id uuid;
+DECLARE me users; v_id uuid; v_html text; v_plain text;
 BEGIN
   me := require_admin_session();
+  v_html := coalesce(p_body_html, '');
+  v_plain := coalesce(p_plain, '');
+  -- Server-side allowlist: only b, strong, i, em, u, ul, ol, li, br, div, p, span
+  -- may appear as tags. The kiosk sanitises too; this is the backstop.
+  IF v_html ~* '<(?!/?(b|strong|i|em|u|ul|ol|li|br|div|p|span)[\s>/])' THEN RAISE EXCEPTION 'bad_html'; END IF;
+  IF length(v_html) > 50000 OR length(v_plain) > 20000 THEN RAISE EXCEPTION 'note_too_long'; END IF;
   IF p_id IS NULL THEN
     INSERT INTO popup_notes(popup_id, note, body_html, written_by, written_by_name, updated_at)
-      VALUES (p_popup_id, coalesce(p_plain, ''), p_body_html, me.id, me.display_name, now())
+      VALUES (p_popup_id, v_plain, v_html, me.id, me.display_name, now())
       RETURNING popup_notes.id INTO v_id;
   ELSE
     UPDATE popup_notes
-       SET note = coalesce(p_plain, ''), body_html = p_body_html, updated_at = now()
+       SET note = v_plain, body_html = v_html, updated_at = now()
      WHERE popup_notes.id = p_id AND popup_notes.popup_id = p_popup_id
      RETURNING popup_notes.id INTO v_id;
     IF v_id IS NULL THEN RAISE EXCEPTION 'note_not_found'; END IF;

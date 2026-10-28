@@ -3943,13 +3943,21 @@ function pnSetStatus(t){ const el=document.getElementById('pne-status'); if(el) 
 // 📝 entry point: flush any unsaved edit, then land in the current event's folder.
 async function openPopupNotes(){
   await savePopupNote();
-  const all=await sbGet('popups','?select=id,title,status,date_from,date_to&order=date_to.desc.nullslast,date_from.desc.nullslast&limit=30')||[];
-  PN.folders=[...all.filter(e=>e.status==='live'),...all.filter(e=>e.status!=='live')];
+  // Direct fetch (same endpoint sbGet uses) so a network/HTTP error is
+  // distinguishable from a genuinely empty result.
+  let all=null;
+  try{
+    const r=await fetch(`${SB}/rest/v1/popups?select=id,title,status,date_from,date_to,created_at&order=date_to.desc.nullslast,date_from.desc.nullslast,created_at.desc&limit=30`,{headers:AHDR()});
+    if(r.ok) all=await r.json();
+  }catch{ all=null; }
+  PN.loadError=!Array.isArray(all);
+  PN.folders=Array.isArray(all)?[...all.filter(e=>e.status==='live'),...all.filter(e=>e.status!=='live')]:[];
   if(!PN.folders.length){ await openPopupNotesFolders(); return; }
   await openPopupNotesFolder(0);
 }
 async function openPopupNotesFolders(){
   const box=document.getElementById('pn-pick-list');
+  if(PN.loadError){ box.innerHTML='<button class="pn-row" onclick="openPopupNotes()"><span class="pn-note-title">Couldn\'t load events — tap to retry</span></button>'; showScreen('scr-popup-notes-pick'); return; }
   if(!PN.folders.length){ box.innerHTML='<div style="opacity:.6;">No Pop-up Events yet.</div>'; showScreen('scr-popup-notes-pick'); return; }
   box.innerHTML=PN.folders.map((f,i)=>`<button class="pn-row" onclick="openPopupNotesFolder(${i})"><span class="pn-note-title">${esc(f.title||'Untitled event')}</span><span class="pn-note-date">${esc(pnFmtDay(f.date_to||f.date_from))}${f.status?' · '+esc(f.status):''} · <span id="pn-cnt-${i}">counting…</span></span></button>`).join('');
   showScreen('scr-popup-notes-pick');
@@ -3958,20 +3966,25 @@ async function openPopupNotesFolders(){
 }
 async function openPopupNotesFolder(i){
   const f=PN.folders[i]; if(!f) return;
+  const reqFolderId=f.id;   // folder the user selected when this request started
   PN.folderIdx=i; PN.popupId=f.id; PN.title=f.title||'Untitled event';
   document.getElementById('pnl-head').innerHTML=`<h1>📝 ${esc(PN.title)}</h1><p>${esc(pnFmtDay(f.date_to||f.date_from))}${f.status?' · '+esc(f.status):''}</p>`;
   document.getElementById('pnl-list').innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
   showScreen('scr-popup-notes-list');
-  const rows=await rpcA('popup_notes_full',{p_popup_id:f.id});
-  if(PN.popupId!==f.id) return;   // staff moved on while this loaded
+  const rows=await rpcA('popup_notes_full',{p_popup_id:reqFolderId});
+  if(PN.popupId!==reqFolderId) return;   // user switched folder while this loaded
   if(rows===null){ document.getElementById('pnl-list').innerHTML='<div style="opacity:.6;">Couldn\'t load notes — try again.</div>'; return; }
   PN.notes=rows;
   renderPopupNotesList();
 }
 function renderPopupNotesList(){
   const box=document.getElementById('pnl-list');
-  if(!PN.notes.length){ box.innerHTML='<div style="opacity:.6;font-size:14px;padding:6px 2px;">No notes yet for this event. Tap ＋ New note.</div>'; return; }
-  box.innerHTML=PN.notes.map((n,i)=>{
+  // Hide empty placeholder rows (plain note and body both blank). They stay
+  // in PN.notes so indexes still match; there is no delete RPC.
+  const visible=PN.notes.map((n,i)=>({n,i})).filter(({n})=>
+    String(n.note||'').trim() || String(n.body_html||'').replace(/<[^>]*>/g,'').trim());
+  if(!visible.length){ box.innerHTML='<div style="opacity:.6;font-size:14px;padding:6px 2px;">No notes yet for this event. Tap ＋ New note.</div>'; return; }
+  box.innerHTML=visible.map(({n,i})=>{
     const lines=String(n.note||'').split('\n').map(s=>s.trim()).filter(Boolean);
     const who=n.written_by_name?' · '+esc(n.written_by_name):'';
     return `<button class="pn-row" onclick="openPopupNoteEdit(${i})"><span class="pn-note-title">${esc(lines[0]||'(empty note)')}</span><span class="pn-note-prev">${esc(lines.slice(1).join(' '))}</span><span class="pn-note-date">${esc(pnFmtTime(n.updated_at||n.created_at))}${who}</span></button>`;
@@ -4012,17 +4025,23 @@ function popupNoteEdited(){
 function savePopupNote(){
   clearTimeout(PN.timer);
   PN.chain=PN.chain.then(async()=>{
-    if(!PN.dirty||!PN.editor||!PN.noteId) return;
-    const ver=PN.ver, noteId=PN.noteId, popupId=PN.popupId;
-    const html=sanitizeNoteHtml(PN.editor.getHTML());
-    const plain=PN.editor.getText({blockSeparator:'\n'}).replace(/\n+$/,'');
-    pnSetStatus('Saving…');
-    const res=await rpcA('popup_notes_save',{p_id:noteId,p_popup_id:popupId,p_body_html:html,p_plain:plain});
-    const row=Array.isArray(res)?res[0]:null;
-    if(!row){ pnSetStatus('Not saved — retrying'); PN.timer=setTimeout(savePopupNote,4000); return; }
-    const i=PN.notes.findIndex(n=>n.id===row.id);
-    if(i>=0) PN.notes[i]=row; else PN.notes.unshift(row);
-    if(PN.ver===ver){ PN.dirty=false; pnSetStatus('Saved'); }
+    try{
+      if(!PN.dirty||!PN.editor||!PN.noteId) return;
+      const ver=PN.ver, noteId=PN.noteId, popupId=PN.popupId;
+      const html=sanitizeNoteHtml(PN.editor.getHTML());
+      const plain=PN.editor.getText({blockSeparator:'\n'}).replace(/\n+$/,'');
+      pnSetStatus('Saving…');
+      const res=await rpcA('popup_notes_save',{p_id:noteId,p_popup_id:popupId,p_body_html:html,p_plain:plain});
+      const row=Array.isArray(res)?res[0]:null;
+      if(!row){ pnSetStatus('Not saved — retrying'); PN.timer=setTimeout(savePopupNote,4000); return; }
+      const i=PN.notes.findIndex(n=>n.id===row.id);
+      if(i>=0) PN.notes[i]=row; else PN.notes.unshift(row);
+      if(PN.ver===ver){ PN.dirty=false; pnSetStatus('Saved'); }
+    }catch(e){
+      // A throw must not break the chain: later saves still run.
+      pnSetStatus('Not saved');
+      PN.timer=setTimeout(savePopupNote,4000);
+    }
   });
   return PN.chain;
 }
