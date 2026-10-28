@@ -2022,17 +2022,18 @@ async function renderItemPoster(){
   // ornate arcs (~59% down), subtext lower, just above the bottom
   // decorative line (~86% down).
   ctx.fillStyle='#6B5B1E';
-  // Auto-shrink to fit one line within the circle's safe width before
-  // falling back to wrapping. 0.40 was reached iteratively against the
-  // real template via actual full-resolution print renders — the gap
-  // between the two ornate arcs narrows quickly away from center (the arcs
-  // curve upward toward the sides), so a much wider guess (0.68, then
-  // 0.52) still overlapped the scrollwork at the text's outer edges even
-  // though it measured "under width" against a too-generous estimate.
-  const safeWidth=canvas.width*0.40;
-  let headFontPx=76;
+  // Auto-shrink from a bold starting size to fit one line, falling back to
+  // wrapping only if even the floor size doesn't fit. A tighter, more
+  // "safe" width (0.40) kept text fully clear of the scrollwork but read
+  // as timid next to the owner's reference mockup — real poster lettering
+  // crosses thin decorative filigree confidently, so this intentionally
+  // allows the text's outer edges to touch the ornamentation, matching
+  // the reference's visual weight (confirmed via full-resolution print
+  // renders of both a short and a long headline).
+  const safeWidth=canvas.width*0.80;
+  let headFontPx=100;
   ctx.font=`bold ${headFontPx}px Georgia, serif`;
-  while(headFontPx>44 && ctx.measureText(head).width>safeWidth){
+  while(headFontPx>64 && ctx.measureText(head).width>safeWidth){
     headFontPx-=4;
     ctx.font=`bold ${headFontPx}px Georgia, serif`;
   }
