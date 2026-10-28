@@ -6,6 +6,7 @@
 <title>Meensha · Karigar</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="qrcode.js"></script>
+<script src="fabric.min.js"></script>
 <style>
 :root{--gold:#C9A84C;--gdk:#8B6914;--dark:#1A1208;--d2:#2A1F0E;--cream:#F7F3EC;--bd:#e0d5c0;--bg:#fdfaf4;--wh:#fff;--red:#e74c3c;--grn:#27ae60;--blu:#2980b9;--orn:#e67e22;--gy:#95a5a6;--sh:0 2px 12px rgba(139,105,20,.1);}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -844,15 +845,16 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
     </table></div>
   </div>
   <div class="card">
-    <div class="ct">🖼️ Item/Label Poster Generator <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Headline + optional subtext on the ornate blank template — for stall signage, limited-stock labels, festival banners, etc.</span></div>
+    <div class="ct">🖼️ Item/Label Poster Generator <span style="font-size:10px;color:var(--gy);font-weight:400;margin-left:8px;">Headline + optional subtext on the ornate blank template — drag the text to position it exactly, resize via the corner handles.</span></div>
     <div class="fg">
-      <div class="fi" style="grid-column:1/-1;"><label>Headline *</label><input id="POST-HEAD" placeholder="e.g. Colours of Festivity"></div>
-      <div class="fi" style="grid-column:1/-1;"><label>Subtext <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input id="POST-SUB" placeholder="e.g. LIMITED STOCK"></div>
+      <div class="fi" style="grid-column:1/-1;"><label>Headline</label><input id="POST-HEAD" placeholder="e.g. Colours of Festivity" oninput="updatePosterText()"></div>
+      <div class="fi" style="grid-column:1/-1;"><label>Subtext <span style="font-weight:400;color:var(--gy);">(optional)</span></label><input id="POST-SUB" placeholder="e.g. LIMITED STOCK" oninput="updatePosterText()"></div>
     </div>
-    <button class="btn bg" onclick="renderItemPoster()">🔄 Generate</button>
+    <div class="hint" style="margin:4px 0 10px;">Click the headline/subtext on the preview to select it — drag to move, drag a corner handle to resize/rewrap.</div>
+    <button class="btn bgy" onclick="resetPosterPositions()">↺ Reset Position</button>
     <button class="btn bgy" style="margin-left:6px;" onclick="downloadItemPoster()">⬇️ Save PNG</button>
     <button class="btn bo" style="margin-left:6px;" onclick="printItemPoster()">🖨️ Print</button>
-    <div id="POST-WRAP" style="margin-top:12px;max-width:420px;"><canvas id="POST-CANVAS" width="1240" height="1754" style="width:100%;border:1px solid var(--bd);border-radius:6px;display:none;"></canvas></div>
+    <div id="POST-WRAP" style="margin-top:12px;max-width:420px;"><canvas id="POST-CANVAS"></canvas></div>
     <div id="POST-ERR" style="display:none;margin-top:8px;font-size:12px;color:var(--red);">Template image not found — save the blank template as <code>poster_template_blank.png</code> in the project root first.</div>
   </div>
 </div>
@@ -1990,65 +1992,75 @@ function generateEventPoster(id){
 // Item/Label Poster Generator — headline + optional subtext over a blank
 // ornate template (owner-supplied PNG, same "ask for the file, don't invent
 // brand art" pattern as hindi_logo_main.png/logo.svg elsewhere in this repo).
-// Canvas sized for A4 portrait at ~150dpi (1240x1754) so the PNG download
-// prints cleanly at full page size. Occasion-specific bottom illustrations
-// (dancers etc.) are explicitly out of scope for this pass — text only.
-async function renderItemPoster(){
-  const head=document.getElementById('POST-HEAD').value.trim();
-  if(!head){toast('Enter a headline','var(--red)');return;}
-  const sub=document.getElementById('POST-SUB').value.trim();
-  const canvas=document.getElementById('POST-CANVAS');
+// Built on Fabric.js (vendored fabric.min.js — no CDN, same pattern as
+// qrcode.js/jsqr.js) instead of hand-drawn <canvas> text: three earlier
+// rounds of blind pixel-coordinate guessing (verified only via my own
+// print-PDF renders, never shown to the owner first) each shipped wrong —
+// either too small or overlapping the scrollwork. A live, draggable canvas
+// means the owner positions the text themselves and sees it immediately,
+// which is the actual fix — no more guessing coordinates on their behalf.
+// Canvas is full A4-portrait-at-~150dpi resolution (1240x1754) so exports
+// print cleanly; CSS scales it down for on-screen editing only, Fabric's
+// own coordinate system (and therefore drag/resize) stays in those same
+// logical full-res pixels. Occasion-specific bottom illustrations (dancers
+// etc.) are still out of scope for this pass — text only.
+let posterCanvas=null;
+let posterHeadBox=null, posterSubBox=null;
+const POSTER_HEAD_DEFAULT={left:620,top:1035,width:520,fontSize:80};
+const POSTER_SUB_DEFAULT={left:620,top:1508,width:600,fontSize:42};
+async function initPosterCanvas(){
+  if(posterCanvas)return true;
   const errEl=document.getElementById('POST-ERR');
-  const ctx=canvas.getContext('2d');
-  const img=new Image();
   const templateUrl=new URL('poster_template_blank.png',location.href).href;
-  const loaded=await new Promise(resolve=>{
-    img.onload=()=>resolve(true);
-    img.onerror=()=>resolve(false);
-    img.src=templateUrl;
+  const loadedOk=await new Promise(resolve=>{
+    const probe=new Image();
+    probe.onload=()=>resolve(true);
+    probe.onerror=()=>resolve(false);
+    probe.src=templateUrl;
   });
-  if(!loaded){
-    errEl.style.display='block';
-    canvas.style.display='none';
-    return;
-  }
+  if(!loadedOk){errEl.style.display='block';return false;}
   errEl.style.display='none';
-  canvas.style.display='block';
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.drawImage(img,0,0,canvas.width,canvas.height);
-  ctx.textAlign='center';
-  // Positions calibrated against the owner's "Fresh from the Loom" /
-  // "LIMITED STOCK" reference: headline sits in the gap between the two
-  // ornate arcs (~59% down), subtext lower, just above the bottom
-  // decorative line (~86% down).
-  ctx.fillStyle='#6B5B1E';
-  // safeWidth=0.40 is the value confirmed via full-resolution print renders
-  // to keep text fully clear of the scrollwork (wider estimates measured
-  // "under width" but still touched the border at the text's outer edges,
-  // since the gap between the two arcs narrows away from center). Rather
-  // than shrinking the font to force one line within that width — which
-  // made short headlines look small and timid next to the reference — this
-  // prefers WRAPPING to 2+ lines at a bold fixed size, only shrinking font
-  // if a single word is itself wider than the safe zone (rare).
-  const safeWidth=canvas.width*0.40;
-  let headFontPx=80;
-  ctx.font=`bold ${headFontPx}px Georgia, serif`;
-  const longestWord=head.split(' ').reduce((a,w)=>ctx.measureText(w).width>ctx.measureText(a).width?w:a,'');
-  while(headFontPx>48 && ctx.measureText(longestWord).width>safeWidth){
-    headFontPx-=4;
-    ctx.font=`bold ${headFontPx}px Georgia, serif`;
-  }
-  wrapCenteredText2(ctx,head,canvas.width/2,canvas.height*0.59,safeWidth,headFontPx*1.15);
-  if(sub){
-    ctx.font='600 42px Georgia, serif';
-    ctx.fillStyle='#8B6914';
-    ctx.fillText(sub.toUpperCase(),canvas.width/2,canvas.height*0.86);
-  }
+  posterCanvas=new fabric.Canvas('POST-CANVAS',{width:1240,height:1754,selection:false});
+  await new Promise(resolve=>{
+    fabric.Image.fromURL(templateUrl,img=>{
+      posterCanvas.setBackgroundImage(img,posterCanvas.renderAll.bind(posterCanvas),{
+        scaleX:posterCanvas.width/img.width, scaleY:posterCanvas.height/img.height,
+      });
+      resolve();
+    });
+  });
+  posterHeadBox=new fabric.Textbox('',{
+    ...POSTER_HEAD_DEFAULT, originX:'center', originY:'center', textAlign:'center',
+    fontFamily:'Georgia, serif', fontWeight:'bold', fill:'#6B5B1E', editable:false,
+  });
+  posterSubBox=new fabric.Textbox('',{
+    ...POSTER_SUB_DEFAULT, originX:'center', originY:'center', textAlign:'center',
+    fontFamily:'Georgia, serif', fontWeight:'600', fill:'#8B6914', editable:false,
+  });
+  posterCanvas.add(posterHeadBox,posterSubBox);
+  posterCanvas.renderAll();
+  return true;
+}
+async function updatePosterText(){
+  const ok=await initPosterCanvas();
+  if(!ok)return;
+  posterHeadBox.set('text',document.getElementById('POST-HEAD').value.trim());
+  const sub=document.getElementById('POST-SUB').value.trim();
+  posterSubBox.set('text',sub?sub.toUpperCase():'');
+  posterCanvas.renderAll();
+}
+function resetPosterPositions(){
+  if(!posterCanvas)return;
+  posterHeadBox.set(POSTER_HEAD_DEFAULT);
+  posterSubBox.set(POSTER_SUB_DEFAULT);
+  posterHeadBox.setCoords(); posterSubBox.setCoords();
+  posterCanvas.renderAll();
 }
 function printItemPoster(){
-  const canvas=document.getElementById('POST-CANVAS');
-  if(canvas.style.display==='none'){toast('Generate the poster first','var(--red)');return;}
-  const dataUrl=canvas.toDataURL('image/png');
+  if(!posterCanvas || !posterHeadBox.text){toast('Enter a headline first','var(--red)');return;}
+  posterCanvas.discardActiveObject();
+  posterCanvas.renderAll();
+  const dataUrl=posterCanvas.toDataURL({format:'png'});
   const w=window.open('','_blank');
   w.document.write(`<html><head><meta charset="utf-8"><title>Print Poster</title><style>
     @page{size:A4 portrait;margin:0;}
@@ -2061,25 +2073,14 @@ function printItemPoster(){
   </body></html>`);
   w.document.close();
 }
-function wrapCenteredText2(ctx,text,cx,y,maxWidth,lineHeight){
-  const words=text.split(' ');
-  let line='',lines=[];
-  for(const w of words){
-    const test=line?line+' '+w:w;
-    if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=w;}
-    else line=test;
-  }
-  if(line)lines.push(line);
-  const startY=y-(lines.length-1)*lineHeight/2;
-  lines.forEach((l,i)=>ctx.fillText(l,cx,startY+i*lineHeight));
-}
 function downloadItemPoster(){
-  const canvas=document.getElementById('POST-CANVAS');
-  if(canvas.style.display==='none'){toast('Generate the poster first','var(--red)');return;}
+  if(!posterCanvas || !posterHeadBox.text){toast('Enter a headline first','var(--red)');return;}
+  posterCanvas.discardActiveObject();
+  posterCanvas.renderAll();
   const head=document.getElementById('POST-HEAD').value.trim();
   const a=document.createElement('a');
   a.download=`meensha-poster-${head.replace(/[^a-z0-9]+/gi,'-').toLowerCase()||'item'}.png`;
-  a.href=canvas.toDataURL('image/png');
+  a.href=posterCanvas.toDataURL({format:'png'});
   a.click();
 }
 async function renderCoupons(){
@@ -2215,7 +2216,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById('tp-'+id)?.classList.add('on');
   el?.classList.add('on');
-  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();renderPendingCosts();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:()=>{renderCoupons();renderVoucherEvents();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections,req:renderRequestsTab,drafts:renderDrafts};
+  const renders={home:renderHome,inv:()=>{renderInvStats();renderInv();populateFabFilter();renderPendingCosts();},stock:()=>{if(document.getElementById('st-overheads').style.display!=='none')renderOVList();},sum:()=>{renderSumStats();renderSales();renderPurch();renderDailyPaymentSummary();},pnl:()=>{renderPnL();renderOH();},vend:()=>{renderVendorStats();renderVendors();renderAllIssues();renderMigrationCard();renderVendorEditRequests();},appr:renderApprovals,coup:()=>{renderCoupons();renderVoucherEvents();initPosterCanvas();},rev:renderRevs,usr:()=>{renderUsers();renderPermissions();},conn:renderConnections,req:renderRequestsTab,drafts:renderDrafts};
   renders[id]?.();
 }
 
