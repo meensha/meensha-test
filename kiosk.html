@@ -362,6 +362,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
   to{transform:translate(0,0) scale(1) rotateY(0deg);opacity:1;}
 }
 #vc-send-overlay.open #vc-send-modal{animation:vcFadeScale .22s ease-out both;}
+#photoguide-overlay.open #photoguide-modal{animation:vcFadeScale .22s ease-out both;}
 @keyframes vcFadeScale{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
 .vc-modal .vc-close{position:absolute;top:10px;right:10px;background:none;border:none;color:rgba(247,243,236,.6);font-size:20px;cursor:pointer;padding:6px;line-height:1;}
 .vc-modal h2{font-family:'Cinzel',serif;font-size:16px;color:var(--gold-light);margin-bottom:14px;padding-right:24px;}
@@ -523,6 +524,28 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       <div class="field"><label>Comments (optional)</label><textarea id="vcs-comments" class="vendor-msg-box" rows="2" placeholder="Anything to add to the message…" oninput="updateShareMessage()"></textarea></div>
       <div class="field"><label>Message</label><textarea id="vcs-message" class="vendor-msg-box" rows="7"></textarea></div>
       <button class="btn btn-primary btn-block" onclick="submitShareCard()">Send</button>
+    </div>
+  </div>
+
+  <!-- MISSING PHOTOS NUDGE — shown on every startKiosk() (login, restart,
+       returning session) while any inventory item still has zero photos.
+       "Update Photos Now" jumps straight into the existing Add-photo-to-item
+       flow, whose list already auto-filters to items missing a photo. -->
+  <div class="vc-overlay" id="photoguide-overlay" onclick="if(event.target===this)closePhotoGuideModal();">
+    <div class="vc-modal" id="photoguide-modal">
+      <button class="vc-close" onclick="closePhotoGuideModal()">✕</button>
+      <h2>📷 Add missing product photos</h2>
+      <p id="photoguide-count" style="color:var(--cream);margin-bottom:14px;"></p>
+      <ol style="padding-left:20px;color:var(--cream);line-height:1.6;margin-bottom:18px;">
+        <li>Tap <b>Update Photos Now</b> below.</li>
+        <li>The list shows only items that still need a photo.</li>
+        <li>Tap an item's name.</li>
+        <li>Tap <b>📷 Add photo</b> and take or choose a photo — add more than one if you like.</li>
+        <li>Tap <b>✅ Done</b> — the item is saved and drops off the list.</li>
+        <li>Repeat for the next item until the list is empty.</li>
+      </ol>
+      <button class="btn btn-primary btn-block" onclick="closePhotoGuideModal();openMaintAddPhoto();">Update Photos Now ▶</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="closePhotoGuideModal()">Remind me next time</button>
     </div>
   </div>
 
@@ -1820,6 +1843,25 @@ function startKiosk(){
   rpcP('release_expired_reservations',{}).catch(()=>{});
   pollPrepBanner();
   pollIgAlerts();
+  checkMissingPhotosPopup();
+}
+
+// Nudges whoever's logged in (every login/restart/returning session, since
+// startKiosk() is the one entry point for all three) to finish photographing
+// any item that still has none — these show as a 🧵 placeholder on the site
+// and can't go into the Instagram/Meta product feed at all without a photo.
+async function checkMissingPhotosPopup(){
+  try{
+    const list=await sbGet('inventory_skus','?select=id,photos')||[];
+    const missing=list.filter(s=>!s.photos||!s.photos.length).length;
+    if(!missing)return;
+    document.getElementById('photoguide-count').textContent=
+      `${missing} item${missing===1?'':'s'} in the catalogue ${missing===1?'has':'have'} no photo yet — ${missing===1?'it won\'t':'they won\'t'} show properly on the website or in the Instagram shop.`;
+    document.getElementById('photoguide-overlay').classList.add('open');
+  }catch{}
+}
+function closePhotoGuideModal(){
+  document.getElementById('photoguide-overlay').classList.remove('open');
 }
 
 // Re-checks the prep banner every 2 minutes while logged in — frequent
