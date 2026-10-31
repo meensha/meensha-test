@@ -576,6 +576,23 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     </div>
   </div>
 
+  <!-- POTENTIAL CUSTOMERS — UPDATE ANNOUNCEMENT. Pops up for Shalini and
+       Dheeraj (shameen) only, up to 2 times each (see checkPcUpdatePopup),
+       the first couple of times either opens Sidebar → Potential Customers
+       → View list after the 2026-10-31 fix landed. -->
+  <div class="vc-overlay" id="pc-update-overlay" onclick="if(event.target===this)closePcUpdateModal();">
+    <div class="vc-modal" id="pc-update-modal">
+      <button class="vc-close" onclick="closePcUpdateModal()">✕</button>
+      <h2>📋 Potential Customers — what's new</h2>
+      <ul style="padding-left:20px;color:var(--cream);line-height:1.7;margin-bottom:16px;">
+        <li>Scan-for-offer QR sign-ups now show up here too (tagged <b>"Scan: &lt;event&gt;"</b>) — they used to be saved but invisible on this screen.</li>
+        <li>New <b>💬 WhatsApp</b> button on each customer — opens a chat with them directly.</li>
+        <li>New <b>📇 Save contact</b> button — adds them to your phone's contacts, named like <b>"Saily customer_diwali"</b> so scan-sourced leads are easy to spot.</li>
+      </ul>
+      <button class="btn btn-primary btn-block" onclick="closePcUpdateModal()">Got it ▶</button>
+    </div>
+  </div>
+
   <main>
 
     <!-- LOGIN -->
@@ -4806,6 +4823,25 @@ function waLast10(s){ return (s||'').replace(/\D/g,'').slice(-10); }
 function openPotentialCustomers(){
   showScreen('scr-pc-list');
   loadPotentialCustomers();
+  checkPcUpdatePopup();
+}
+// One-time-ish announcement for the 2026-10-31 Potential Customers update
+// (scan-for-offer leads now listed + WhatsApp/save-contact buttons) — shown
+// to Shalini and Dheeraj (shameen) only, capped at 2 views each so it isn't
+// a nag forever. Per-device via localStorage, same pattern MSN_KIOSK_REGION
+// already uses elsewhere in this file — no DB round trip needed for a
+// one-off notice.
+function checkPcUpdatePopup(){
+  const uname=(CU?.username||'').trim().toLowerCase();
+  if(uname!=='shalini' && uname!=='shameen')return;
+  const key='MSN_PC_UPDATE_SEEN_'+uname;
+  const seen=parseInt(localStorage.getItem(key)||'0',10);
+  if(seen>=2)return;
+  localStorage.setItem(key,String(seen+1));
+  document.getElementById('pc-update-overlay').classList.add('open');
+}
+function closePcUpdateModal(){
+  document.getElementById('pc-update-overlay').classList.remove('open');
 }
 async function loadPotentialCustomers(){
   const body=document.getElementById('pc-list-body');
