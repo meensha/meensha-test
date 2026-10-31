@@ -2,6 +2,13 @@
 
 Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to gitea/GitHub); update as items land.
 
+## Potential Customers tracking — fixed 2026-10-31
+
+- [x] 2026-10-31 Found the gap: the kiosk's "📋 Potential Customers" list only ever read from `potential_customers`, which the direct feed-in flow (sidebar → ➕ New) wrote to — but the "scan for offer" QR flow (`register.html` → `register_event_visitor()`) only wrote to `coupons` (`source='event_registration'`), so every scan registrant was invisible there (they were only visible in admin-voucher.html's Coupons tab). Both tables carried real data all along; nothing was lost.
+- [x] 2026-10-31 Fix live: `register_event_visitor()` now also inserts into `potential_customers` on every new registration (dedup by last-10-digits WhatsApp match, tagged `shared_by = "Scan: <event title>"` so scan-sourced leads are distinguishable from manual ones). Migration `supabase/migrations/20261031000000_register_event_visitor_feeds_potential_customers.sql`.
+- [x] 2026-10-31 Backfilled today's scan registrations (Diwali Santhe 2026 event — "Saily" 9579580737, "Roli" 8553485809) into `potential_customers`. Migration `supabase/migrations/20261031000001_backfill_todays_event_registrations.sql`. Both migrations applied and confirmed live via REST query.
+- [ ] Only today's registrations were backfilled (as asked) — older `event_registration` coupons from past events are still not mirrored into Potential Customers. Revisit if a full historical backfill is wanted.
+
 ## Social media strategy (Instagram growth) — live tracker
 
 Goal: grow followers from OUTSIDE the current circle, zero ad spend. Peer benchmark + gap list: `Meensha-social/BRIEF.md` (reviewed 2026-10-12). Account setup record: `Meensha-social/SOCIAL-CONFIG.md`. Rules: draft only (owners post manually), never invent reviews/stock, India/Shalini + Monitor only (never the AU bot).
