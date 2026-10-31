@@ -576,8 +576,8 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     </div>
   </div>
 
-  <!-- POTENTIAL CUSTOMERS — UPDATE ANNOUNCEMENT. Pops up for Shalini and
-       Dheeraj (shameen) only, up to 2 times each (see checkPcUpdatePopup),
+  <!-- POTENTIAL CUSTOMERS — UPDATE ANNOUNCEMENT. Pops up for Shalini,
+       Meenakshi and Dheeraj (shameen), up to 2 times each (see checkPcUpdatePopup),
        the first couple of times either opens Sidebar → Potential Customers
        → View list after the 2026-10-31 fix landed. -->
   <div class="vc-overlay" id="pc-update-overlay" onclick="if(event.target===this)closePcUpdateModal();">
@@ -4827,13 +4827,15 @@ function openPotentialCustomers(){
 }
 // One-time-ish announcement for the 2026-10-31 Potential Customers update
 // (scan-for-offer leads now listed + WhatsApp/save-contact buttons) — shown
-// to Shalini and Dheeraj (shameen) only, capped at 2 views each so it isn't
+// to Shalini, Meenakshi and Dheeraj (shameen): potential_customers has no
+// region split (same list, same fix, same buttons for both markets), so
+// the notice goes to every owner login, capped at 2 views each so it isn't
 // a nag forever. Per-device via localStorage, same pattern MSN_KIOSK_REGION
 // already uses elsewhere in this file — no DB round trip needed for a
 // one-off notice.
 function checkPcUpdatePopup(){
   const uname=(CU?.username||'').trim().toLowerCase();
-  if(uname!=='shalini' && uname!=='shameen')return;
+  if(uname!=='shalini' && uname!=='meenakshi' && uname!=='shameen')return;
   const key='MSN_PC_UPDATE_SEEN_'+uname;
   const seen=parseInt(localStorage.getItem(key)||'0',10);
   if(seen>=2)return;
