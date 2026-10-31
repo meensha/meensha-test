@@ -4787,7 +4787,7 @@ async function submitShareCard(){
   const message=document.getElementById('vcs-message').value;
   if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
   if(!name){toast('Enter a name.');return;}
-  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||''});
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:CU?.region||'india'});
   if(!ok){toast("Couldn't save — try again.");return;}
   window.open(`https://wa.me/91${ten}?text=${encodeURIComponent(message)}`,'_blank');
   closeShareSendModal();
@@ -4848,8 +4848,13 @@ function closePcUpdateModal(){
 async function loadPotentialCustomers(){
   const body=document.getElementById('pc-list-body');
   body.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
+  // Region-split (2026-11-01): shalini/meenakshi only ever see their own
+  // market; shameen (CU.region null) gets the same India/Australia/All
+  // toggle this app already uses for sales elsewhere (effRegion()).
+  const r=effRegion();
+  const regionQ=r==='all' ? '' : `&region=eq.${r}`;
   const [pc,reqs]=await Promise.all([
-    sbGet('potential_customers','?select=*&order=created_at.desc'),
+    sbGet('potential_customers',`?select=*${regionQ}&order=created_at.desc`),
     sbGet('requests','?select=customer_name,item_name,notes,status,created_at,wa'),
   ]);
   PC_DATA=pc||[];
@@ -4874,9 +4879,10 @@ function renderPcList(){
       reqs.length ? reqs.map(r=>`<div class="pc-req-row"><div class="cl-name">${esc(r.item_name||'—')}</div><div class="cl-sub">${esc(r.customer_name||'')} · ${esc(r.status||'')} · ${esc((r.created_at||'').slice(0,10))}</div>${r.notes?`<div class="cl-sub">${esc(r.notes)}</div>`:''}</div>`).join('')
         : '<div class="cl-sub">No matching requests.</div>'
     }</div>`:'';
+    const regionTag=effRegion()==='all' ? (p.region==='australia'?'🇦🇺 ':'🇮🇳 ') : '';
     return `<div class="cart-line">
       <div class="cl-top">
-        <div><div class="cl-name">${esc(p.name||'—')}</div><div class="cl-sub">${esc(p.wa||'')}</div></div>
+        <div><div class="cl-name">${regionTag}${esc(p.name||'—')}</div><div class="cl-sub">${esc(p.wa||'')}</div></div>
         <div class="cl-amt">₹${fmt(p.purchases_so_far||0)}</div>
       </div>
       <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
@@ -4889,7 +4895,7 @@ function renderPcList(){
         <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="openPcFollowup('${p.id}')">✏️ Edit</button>
       </div>
       <div class="cl-sub" style="margin-top:8px;display:flex;gap:8px;">
-        <a class="btn btn-outline btn-sm btn-flex" style="padding:6px 10px;min-height:unset;text-align:center;text-decoration:none;" href="https://wa.me/91${waLast10(p.wa)}" target="_blank" rel="noopener">💬 WhatsApp</a>
+        <a class="btn btn-outline btn-sm btn-flex" style="padding:6px 10px;min-height:unset;text-align:center;text-decoration:none;" href="https://wa.me/91${waLast10(p.wa)}?text=${encodeURIComponent(pcFollowupMessage(p.name))}" target="_blank" rel="noopener">💬 WhatsApp</a>
         <button class="btn btn-ghost btn-sm btn-flex" style="padding:6px 10px;min-height:unset;" onclick="savePcContact('${p.id}')">📇 Save contact</button>
       </div>
     </div>`;
@@ -4911,6 +4917,19 @@ function openPcFollowup(id){
 // rows carry an event (shared_by = "Scan: <event title>", set by
 // register_event_visitor()); direct feed-in rows (shared_by = staff
 // username) have no event, so they just get the plain "customer" tag.
+// Pre-filled WhatsApp follow-up draft, owner-specified wording — same
+// socials the storefront footer links (index.html's footer-connect-link
+// list / BRIEF.md's WhatsApp Channel link), so there's one source of truth
+// for these URLs, not three.
+function pcFollowupMessage(name){
+  return `Hey ${(name||'there').trim()},\n`
+    +`Thanks for your interest in Meensha. You can select the collection of your choice and shop directly from our website, meensha.in.\n\n`
+    +`Follow us for updates on our social media:\n`
+    +`Instagram: https://instagram.com/meensha_fabrics\n`
+    +`Facebook: https://www.facebook.com/people/Meensha/61595683163344/\n`
+    +`YouTube: https://www.youtube.com/@meensha_Fabrics\n`
+    +`WhatsApp Channel: https://whatsapp.com/channel/0029VbC1rowCHDyn3aulnS2v`;
+}
 function pcContactTag(p){
   const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
   if(!m)return'customer';
@@ -5091,7 +5110,7 @@ async function sendPcnSelected(){
   const name=document.getElementById('pcn-name').value.trim();
   const ten=digits10(document.getElementById('pcn-wa').value);
   const message=document.getElementById('pcn-message').value;
-  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||''});
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:CU?.region||'india'});
   if(!ok){toast("Couldn't save — try again.");return;}
   window.open(`https://wa.me/${ten}?text=${encodeURIComponent(message)}`,'_blank');
   showScreen('scr-pc-list');
