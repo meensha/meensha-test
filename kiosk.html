@@ -4850,6 +4850,10 @@ function renderPcList(){
         <span>Follow up: ${esc(p.follow_up||'—')}</span>
         <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="openPcFollowup('${p.id}')">✏️ Edit</button>
       </div>
+      <div class="cl-sub" style="margin-top:8px;display:flex;gap:8px;">
+        <a class="btn btn-outline btn-sm btn-flex" style="padding:6px 10px;min-height:unset;text-align:center;text-decoration:none;" href="https://wa.me/91${waLast10(p.wa)}" target="_blank" rel="noopener">💬 WhatsApp</a>
+        <button class="btn btn-ghost btn-sm btn-flex" style="padding:6px 10px;min-height:unset;" onclick="savePcContact('${p.id}')">📇 Save contact</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -4864,6 +4868,37 @@ function openPcFollowup(id){
   document.getElementById('pcf-who').textContent=`${p.name||'—'} · ${p.wa||''}`;
   document.getElementById('pcf-text').value=p.follow_up||'';
   showScreen('scr-pc-followup');
+}
+// Short event tag for the "save contact" name suffix — only scan-sourced
+// rows carry an event (shared_by = "Scan: <event title>", set by
+// register_event_visitor()); direct feed-in rows (shared_by = staff
+// username) have no event, so they just get the plain "customer" tag.
+function pcContactTag(p){
+  const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
+  if(!m)return'customer';
+  const firstWord=(m[1].trim().split(/\s+/)[0]||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  return'customer_'+(firstWord||'event');
+}
+// Builds a .vcf and triggers the phone's "Add contact" flow via a download
+// link — same approach visiting-card.html style pages use, no server round
+// trip. Name gets the customer_<event> suffix so these are easy to spot
+// and bulk-filter in the phone's own contacts app later.
+function savePcContact(id){
+  const p=PC_DATA.find(x=>x.id===id);
+  if(!p)return;
+  const ten=waLast10(p.wa);
+  if(!ten){toast('No WhatsApp number on file.');return;}
+  const displayName=`${(p.name||'Customer').trim()} ${pcContactTag(p)}`;
+  const vcard=`BEGIN:VCARD\r\nVERSION:3.0\r\nN:;${displayName};;;\r\nFN:${displayName}\r\nTEL;TYPE=CELL:+91${ten}\r\nEND:VCARD\r\n`;
+  const blob=new Blob([vcard],{type:'text/vcard'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`${displayName.replace(/\s+/g,'_')}.vcf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
 async function savePcFollowup(){
   if(!PC_EDIT_ID)return;
