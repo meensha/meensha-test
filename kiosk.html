@@ -362,7 +362,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
   to{transform:translate(0,0) scale(1) rotateY(0deg);opacity:1;}
 }
 #vc-send-overlay.open #vc-send-modal{animation:vcFadeScale .22s ease-out both;}
-#photoguide-overlay.open #photoguide-modal{animation:vcFadeScale .22s ease-out both;}
+#photoguide-overlay.open #photoguide-modal,#itemguide-overlay.open #itemguide-modal{animation:vcFadeScale .22s ease-out both;}
 @keyframes vcFadeScale{from{opacity:0;transform:scale(.92);}to{opacity:1;transform:scale(1);}}
 .vc-modal .vc-close{position:absolute;top:10px;right:10px;background:none;border:none;color:rgba(247,243,236,.6);font-size:20px;cursor:pointer;padding:6px;line-height:1;}
 .vc-modal h2{font-family:'Cinzel',serif;font-size:16px;color:var(--gold-light);margin-bottom:14px;padding-right:24px;}
@@ -450,6 +450,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <span>📦 Inventory</span><span class="chev">›</span>
       </button>
       <div class="sidebar-children">
+        <button class="sidebar-item" onclick="closeSidebar();openItemGuide(false);">📘 How to add items</button>
         <button class="sidebar-item" onclick="closeSidebar();startVendorPurchase();">Vendor Purchase</button>
         <button class="sidebar-item" onclick="closeSidebar();startStockIntake();">Stock Intake</button>
         <button class="sidebar-item" onclick="closeSidebar();printKioskStockSheet();">🧾 Stock Sheet (A4)</button>
@@ -535,7 +536,9 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     <div class="vc-modal" id="photoguide-modal">
       <button class="vc-close" onclick="closePhotoGuideModal()">✕</button>
       <h2>📷 Add missing product photos</h2>
-      <p id="photoguide-count" style="color:var(--cream);margin-bottom:14px;"></p>
+      <p id="photoguide-count" style="color:var(--cream);margin-bottom:10px;"></p>
+      <div style="height:8px;border-radius:4px;background:var(--dark);border:1px solid var(--gold-dim);overflow:hidden;margin-bottom:6px;"><div id="photoguide-bar" style="height:100%;width:0;background:var(--gold);transition:width .3s;"></div></div>
+      <p id="photoguide-progress" class="hint" style="margin-bottom:14px;"></p>
       <ol style="padding-left:20px;color:var(--cream);line-height:1.6;margin-bottom:18px;">
         <li>Tap <b>Update Photos Now</b> below.</li>
         <li>The list shows only items that still need a photo.</li>
@@ -546,6 +549,30 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
       </ol>
       <button class="btn btn-primary btn-block" onclick="closePhotoGuideModal();openMaintAddPhoto();">Update Photos Now ▶</button>
       <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="closePhotoGuideModal()">Remind me next time</button>
+    </div>
+  </div>
+
+  <!-- ADD-ITEMS GUIDE — opens by itself for Meenakshi on every start until her
+       first submission exists; afterwards via Sidebar → Inventory → "How to add items". -->
+  <div class="vc-overlay" id="itemguide-overlay" onclick="if(event.target===this)closeItemGuide();">
+    <div class="vc-modal" id="itemguide-modal">
+      <button class="vc-close" onclick="closeItemGuide()">✕</button>
+      <h2 id="itemguide-title">📦 How to add items</h2>
+      <p id="itemguide-intro" style="color:var(--cream);margin-bottom:14px;"></p>
+      <ol style="padding-left:20px;color:var(--cream);line-height:1.6;margin-bottom:14px;">
+        <li>Tap <b>Start adding an item</b> below (or Sidebar → Inventory → <b>Vendor Purchase</b>).</li>
+        <li>Pick the vendor from the list, or add a new one.</li>
+        <li>For each piece, fill in the <b>name, material, variant, cost and quantity</b>.</li>
+        <li>Add <b>1–4 photos</b> with <b>📷 Add photo</b> — a photo is required, clear light helps.</li>
+        <li>Say whether any pieces are <b>defective</b>; if yes, how many and why.</li>
+        <li>Tap to add another item, or finish when the whole batch is in.</li>
+        <li>Enter the <b>total paid</b>, how it was paid, and the Shalini/Meenakshi split (blank = 50/50).</li>
+        <li>Tap <b>✅ Submit</b>. It goes to admin for approval and is <b>not live</b> until approved.</li>
+      </ol>
+      <p class="hint" style="margin-bottom:14px;">Got a vendor's invoice instead? Use <b>Stock Intake</b> — photograph the invoice and the items are read from it. Stuck? Tap the 💬 Help icon and ask.</p>
+      <button class="btn btn-primary btn-block" onclick="closeItemGuide();startVendorPurchase();">Start adding an item ▶</button>
+      <button class="btn btn-outline btn-block" style="margin-top:8px;" onclick="closeItemGuide();startStockIntake();">I have an invoice photo (Stock Intake)</button>
+      <button class="btn btn-ghost btn-block" style="margin-top:8px;" onclick="closeItemGuide()">Close — remind me next time</button>
     </div>
   </div>
 
@@ -1844,24 +1871,66 @@ function startKiosk(){
   pollPrepBanner();
   pollIgAlerts();
   checkMissingPhotosPopup();
+  checkAddItemsGuide();
 }
 
 // Nudges whoever's logged in (every login/restart/returning session, since
 // startKiosk() is the one entry point for all three) to finish photographing
 // any item that still has none — these show as a 🧵 placeholder on the site
 // and can't go into the Instagram/Meta product feed at all without a photo.
-async function checkMissingPhotosPopup(){
+// Shalini's login only (she's the one photographing). Counts are re-read from
+// live inventory every time, so the popup always reflects photos added so far;
+// finishMaintAddPhoto() also calls this with announce=true to toast what's left.
+async function checkMissingPhotosPopup(announce){
+  if((CU?.username||'').trim().toLowerCase()!=='shalini')return;
   try{
     const list=await sbGet('inventory_skus','?select=id,photos')||[];
+    if(!list.length)return;
     const missing=list.filter(s=>!s.photos||!s.photos.length).length;
+    const done=list.length-missing;
+    if(announce){
+      toast(missing?`📷 ${missing} item${missing===1?'':'s'} still need${missing===1?'s':''} a photo.`:'🎉 Every item now has a photo — thank you!');
+      return;
+    }
     if(!missing)return;
     document.getElementById('photoguide-count').textContent=
       `${missing} item${missing===1?'':'s'} in the catalogue ${missing===1?'has':'have'} no photo yet — ${missing===1?'it won\'t':'they won\'t'} show properly on the website or in the Instagram shop.`;
+    document.getElementById('photoguide-bar').style.width=Math.round(done/list.length*100)+'%';
+    document.getElementById('photoguide-progress').textContent=`${done} of ${list.length} items have photos so far.`;
     document.getElementById('photoguide-overlay').classList.add('open');
   }catch{}
 }
 function closePhotoGuideModal(){
   document.getElementById('photoguide-overlay').classList.remove('open');
+}
+
+// Meenakshi's "add items" guide. Auto-opens on every start until she has at
+// least one submission (stock_intake_drafts.submitted_by = 'kiosk:meenakshi',
+// any status, read via the same admin-session RPC the web dashboard uses);
+// afterwards it's only reachable from Sidebar → Inventory → "How to add items".
+async function meenakshiHasSubmitted(){
+  for(const st of ['pending','approved']){
+    const rows=await rpcA('admin_list_stock_intake_drafts',{p_status:st});
+    if(Array.isArray(rows)&&rows.some(r=>(r.submitted_by||'').toLowerCase()==='kiosk:meenakshi'))return true;
+  }
+  return false;
+}
+async function checkAddItemsGuide(){
+  if((CU?.username||'').trim().toLowerCase()!=='meenakshi')return;
+  try{
+    if(await meenakshiHasSubmitted())return;
+    openItemGuide(true);
+  }catch{}
+}
+function openItemGuide(first){
+  document.getElementById('itemguide-title').textContent=first?'📦 Let\'s add your first item':'📦 How to add items';
+  document.getElementById('itemguide-intro').textContent=first
+    ?'Nothing has been added from your login yet. Here is the whole process — it takes a few minutes per item.'
+    :'Follow these steps each time you bring in new pieces.';
+  document.getElementById('itemguide-overlay').classList.add('open');
+}
+function closeItemGuide(){
+  document.getElementById('itemguide-overlay').classList.remove('open');
 }
 
 // Re-checks the prep banner every 2 minutes while logged in — frequent
@@ -4182,6 +4251,7 @@ function finishMaintAddPhoto(){
   if(!MAP_CUR.addedCount){ toast('No photos were added.'); }
   else { toast(`✅ ${MAP_CUR.addedCount} photo(s) added to "${MAP_CUR.label}".`); }
   openMaintAddPhoto();
+  if(MAP_CUR.addedCount)setTimeout(()=>checkMissingPhotosPopup(true),1500);
 }
 
 // ───────── Suggest a post ─────────
