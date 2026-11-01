@@ -593,6 +593,19 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     </div>
   </div>
 
+  <div class="vc-overlay" id="auto-coupon-overlay" onclick="if(event.target===this)closeAutoCouponModal();">
+    <div class="vc-modal">
+      <button class="vc-close" onclick="closeAutoCouponModal()">✕</button>
+      <h2>🎟️ New: scan-for-offer codes auto-apply</h2>
+      <ul style="padding-left:20px;color:var(--cream);line-height:1.7;margin-bottom:16px;">
+        <li>If a customer scanned the QR for an offer, enter the <b>same WhatsApp number</b> at checkout and their code applies automatically — no need to ask for or type it.</li>
+        <li>You'll see it on the discount screen; tap <b>✕</b> to remove it if they don't want to use it.</li>
+        <li>India: <b>+91</b> and exactly <b>10 digits</b>. Australia: <b>+61</b> is added for you (at least 8 digits).</li>
+      </ul>
+      <button class="btn btn-primary btn-block" onclick="closeAutoCouponModal()">Got it ▶</button>
+    </div>
+  </div>
+
   <main>
 
     <!-- LOGIN -->
@@ -2066,6 +2079,33 @@ function digits10(text){
   const d=(text||'').replace(/\D/g,'');
   return d.length===12 && d.startsWith('91') ? d.slice(2) : d;
 }
+// India numbers are standardized: +91, exactly 10 digits (digits10 above).
+// Australia has no single fixed length worth enforcing here, so these just
+// take whatever digits were typed and prefix the AU dial code instead.
+function dialCodeFor(region){ return region==='australia' ? '+61' : '+91'; }
+function waDigitsForRegion(raw,region){
+  return region==='australia' ? (raw||'').replace(/\D/g,'') : digits10(raw);
+}
+function waValidForRegion(raw,region){
+  return region==='australia' ? waDigitsForRegion(raw,region).length>=8 : waDigitsForRegion(raw,region).length===10;
+}
+// Digits for a wa.me link / vCard: country code + number, region-aware.
+function waIntlDigits(raw,region){
+  const d=waDigitsForRegion(raw,region);
+  if(region!=='australia')return '91'+d;
+  return d.startsWith('61') ? d : '61'+d.replace(/^0+/,'');
+}
+// Region-agnostic equality: compares the last min(len,10) digits, so a bare
+// 10-digit India number matches a stored +91 one, and AU numbers of any
+// length match themselves.
+function waMatches(aRaw,bRaw){
+  // Drop an AU country code / trunk 0 so 0412…, 412… and +61412… all agree.
+  const norm=x=>{ let d=(x||'').replace(/\D/g,''); if(d.startsWith('61')&&d.length>=11)d=d.slice(2); return d.replace(/^0+/,''); };
+  const a=norm(aRaw), b=norm(bRaw);
+  if(a.length<8||b.length<8)return false;
+  const n=Math.min(a.length,b.length,10);
+  return a.slice(-n)===b.slice(-n);
+}
 
 // ═══════════════════════════════════════════════
 // STOCK SHEET (A4) — same one-page hand-tally sheet admin.html prints
@@ -2491,19 +2531,36 @@ function editCartGroup(skuId){
 function goCustomerInfo(){
   if(!S.cart.length){toast('Cart is empty — add an item first.');return;}
   document.getElementById('cust-err').style.display='none';
-  document.getElementById('cust-wa').value=S.customer_wa?S.customer_wa.replace('+91',''):'';
+  document.getElementById('cust-wa').value=S.customer_wa?S.customer_wa.replace(dialCodeFor(purchaseRegion()),''):'';
   document.getElementById('cust-name').value=S.customer_name||'';
   showScreen('scr-customer');
+  checkAutoCouponPopup();
+}
+function checkAutoCouponPopup(){
+  const uname=(CU?.username||'').trim().toLowerCase();
+  if(uname!=='shalini' && uname!=='meenakshi' && uname!=='shameen')return;
+  const key='MSN_AUTOCOUPON_SEEN_'+uname;
+  let seen=0;
+  try{ seen=parseInt(localStorage.getItem(key)||'0',10); }catch{}
+  if(seen>=2)return;
+  try{ localStorage.setItem(key,String(seen+1)); }catch{}
+  document.getElementById('auto-coupon-overlay').classList.add('open');
+}
+function closeAutoCouponModal(){
+  document.getElementById('auto-coupon-overlay').classList.remove('open');
 }
 function submitCustomerInfo(){
   const waRaw=document.getElementById('cust-wa').value;
   const name=document.getElementById('cust-name').value.trim();
   const err=document.getElementById('cust-err');
-  const ten=digits10(waRaw);
-  if(ten.length!==10){err.textContent="That doesn't look like a valid 10-digit WhatsApp number.";err.style.display='block';return;}
+  const region=purchaseRegion();
+  if(!waValidForRegion(waRaw,region)){
+    err.textContent=region==='australia' ? 'Enter the customer’s WhatsApp number (at least 8 digits).' : "That doesn't look like a valid 10-digit WhatsApp number.";
+    err.style.display='block';return;
+  }
   if(!name){err.textContent='Enter the customer name.';err.style.display='block';return;}
   err.style.display='none';
-  S.customer_wa='+91'+ten;
+  S.customer_wa='+'+waIntlDigits(waRaw,region);
   S.customer_name=name;
   goDiscountPicker();
 }
@@ -2528,7 +2585,37 @@ async function goDiscountPicker(){
   document.getElementById('disc-options').innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading offers…</div>';
   const [coupons,events]=await Promise.all([rpcA('admin_list_coupons',{}),rpcA('admin_list_voucher_events',{})]);
   discountCache={coupons:coupons||[],events:events||[]};
+  // A code this customer already holds (e.g. from scanning an event QR) is
+  // applied straight away instead of making staff find and enter it — same
+  // validity rules as the manual "Enter a code" path (validateCouponLocal).
+  // Only when exactly one coupon matches (several = staff picks), and it
+  // stays on this screen with a remove (✕) button instead of jumping to
+  // Confirm, so staff can still decline it or choose the order.
+  const own=findCustomerOwnCoupons();
+  if(own.length===1){
+    const target=highestPricedCartItem((S.appliedDiscounts||[]).map(d=>d.unit_id));
+    if(target){
+      const amount=applyCouponToItem(own[0],target,false,own[0].event_id||null);
+      toast(`🎟️ Auto-applied ${own[0].code}${own[0].customer_name?' ('+own[0].customer_name+')':''} to ${target.name} — -${fmtMoney(amount)}`);
+    }
+  }
   renderDiscountPicker();
+}
+function removeAppliedDiscount(i){
+  const [d]=(S.appliedDiscounts||[]).splice(i,1);
+  if(d){ (S.declinedCodes=S.declinedCodes||[]).push(d.code); }
+  renderDiscountPicker();
+}
+// Matches by WhatsApp number only (not event id) so it also catches a coupon
+// issued outside any event flow (e.g. admin_create_coupon locked to a
+// customer) — validateCouponLocal still re-checks active/used/region/dates.
+function findCustomerOwnCoupons(){
+  if(!S.customer_wa)return [];
+  const appliedCodes=(S.appliedDiscounts||[]).map(d=>d.code).concat(S.declinedCodes||[]);
+  return (discountCache.coupons||[]).filter(c=>
+    waMatches(c.customer_wa,S.customer_wa) &&
+    !appliedCodes.includes(c.code) &&
+    validateCouponLocal(c));
 }
 function renderDiscountPicker(){
   const offerDone=(S.appliedDiscounts||[]).length>0;
@@ -2537,9 +2624,9 @@ function renderDiscountPicker(){
 
   const applied=S.appliedDiscounts||[];
   const alEl=document.getElementById('applied-list');
-  alEl.innerHTML = applied.map(d=>{
+  alEl.innerHTML = applied.map((d,i)=>{
     const item=S.cart.find(c=>c.unit_id===d.unit_id);
-    return `<div class="applied-chip"><span>🎟️ ${esc(d.code)}${item?' — '+esc(item.name):''}</span><span class="ac-amt">-${fmtMoney(d.discount)}</span></div>`;
+    return `<div class="applied-chip"><span>🎟️ ${esc(d.code)}${item?' — '+esc(item.name):''}</span><span class="ac-amt">-${fmtMoney(d.discount)} <button type="button" onclick="removeAppliedDiscount(${i})" aria-label="Remove discount" style="background:none;border:0;color:inherit;cursor:pointer;font-size:16px;">✕</button></span></div>`;
   }).join('');
 
   const today=todayStr();
@@ -2578,8 +2665,7 @@ function renderDiscountPicker(){
 // Once this customer already holds a code for an event, the generic event
 // button is hidden — they enter their own MSH- code instead (no double offer).
 function customerHasEventCoupon(eventId){
-  const ten=digits10(S.customer_wa);
-  return !!ten && (discountCache.coupons||[]).some(c=>c.event_id===eventId && (c.customer_wa||'').replace(/\D/g,'').slice(-10)===ten);
+  return !!S.customer_wa && (discountCache.coupons||[]).some(c=>c.event_id===eventId && waMatches(c.customer_wa,S.customer_wa));
 }
 function toggleInline(id){
   ['disc-code-box','disc-custom-box','disc-event-box'].forEach(x=>{
@@ -2592,7 +2678,7 @@ function openEventWa(eventId,title){
   // screen, before the discount picker is ever shown — reuse it instead of
   // asking again. Only fall back to the input box if it's somehow missing.
   if(S.customer_wa){
-    lookupAndApplyEventCode(eventId,title,digits10(S.customer_wa));
+    lookupAndApplyEventCode(eventId,title,S.customer_wa);
     return;
   }
   S.pendingEventId=eventId;S.pendingEventTitle=title;
@@ -2603,7 +2689,7 @@ function openEventWa(eventId,title){
 }
 function lookupAndApplyEventCode(eventId,eventTitle,ten){
   const candidates=(discountCache.coupons||[]).filter(c=>c.event_id===eventId);
-  const match=candidates.find(c=>c.customer_wa && c.customer_wa.replace(/\D/g,'').slice(-10)===ten);
+  const match=candidates.find(c=>waMatches(c.customer_wa,ten));
   if(!match){ toast(`No "${eventTitle}" registration found for that number.`); renderDiscountPicker(); return; }
   if(match.used){ toast(`Sorry — this customer has already used their "${eventTitle}" code.`); renderDiscountPicker(); return; }
   if(!validateCouponLocal(match)){ toast(`This "${eventTitle}" code isn't currently valid (expired or inactive).`); renderDiscountPicker(); return; }
@@ -2637,8 +2723,9 @@ async function submitDiscountCustom(){
   offerAnotherDiscountOrConfirm();
 }
 async function submitDiscountEventWa(){
-  const ten=digits10(document.getElementById('disc-event-wa').value);
-  if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
+  const raw=document.getElementById('disc-event-wa').value;
+  const ten=waDigitsForRegion(raw,purchaseRegion());
+  if(!waValidForRegion(raw,purchaseRegion())){toast(purchaseRegion()==='australia'?'Enter the WhatsApp number (at least 8 digits).':'Enter a valid 10-digit WhatsApp number.');return;}
   const eventId=S.pendingEventId, eventTitle=S.pendingEventTitle;
   S.pendingEventId=undefined;S.pendingEventTitle=undefined;
   document.getElementById('disc-event-box').classList.remove('open');
@@ -4782,14 +4869,16 @@ function closeShareSendModal(){
 async function submitShareCard(){
   const key=vcPersonKey();
   if(!key)return;
-  const ten=digits10(document.getElementById('vcs-wa').value);
+  const region=CU?.region||purchaseRegion();
+  const rawWa=document.getElementById('vcs-wa').value;
+  const ten=waDigitsForRegion(rawWa,region);
   const name=document.getElementById('vcs-name').value.trim();
   const message=document.getElementById('vcs-message').value;
-  if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
+  if(!waValidForRegion(rawWa,region)){toast(region==='australia'?'Enter the WhatsApp number (at least 8 digits).':'Enter a valid 10-digit WhatsApp number.');return;}
   if(!name){toast('Enter a name.');return;}
-  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:CU?.region||'india'});
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:region});
   if(!ok){toast("Couldn't save — try again.");return;}
-  window.open(`https://wa.me/91${ten}?text=${encodeURIComponent(message)}`,'_blank');
+  window.open(`https://wa.me/${waIntlDigits(rawWa,region)}?text=${encodeURIComponent(message)}`,'_blank');
   closeShareSendModal();
   closeShareCardModal();
 }
@@ -4799,7 +4888,7 @@ async function submitShareCard(){
 let vcAutoSentWa=null;
 function onShareWaInput(){
   const ten=digits10(document.getElementById('vcs-wa').value);
-  if(ten.length!==10){ vcAutoSentWa=null; return; }
+  if((CU?.region||purchaseRegion())==='australia' || ten.length!==10){ vcAutoSentWa=null; return; }
   if(ten===vcAutoSentWa || !document.getElementById('vcs-name').value.trim()) return;
   vcAutoSentWa=ten;
   submitShareCard();
@@ -4895,7 +4984,7 @@ function renderPcList(){
         <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="openPcFollowup('${p.id}')">✏️ Edit</button>
       </div>
       <div class="cl-sub" style="margin-top:8px;display:flex;gap:8px;">
-        <a class="btn btn-outline btn-sm btn-flex" style="padding:6px 10px;min-height:unset;text-align:center;text-decoration:none;" href="https://wa.me/91${waLast10(p.wa)}?text=${encodeURIComponent(pcFollowupMessage(p.name))}" target="_blank" rel="noopener">💬 WhatsApp</a>
+        <a class="btn btn-outline btn-sm btn-flex" style="padding:6px 10px;min-height:unset;text-align:center;text-decoration:none;" href="https://wa.me/${waIntlDigits(p.wa,p.region)}?text=${encodeURIComponent(pcFollowupMessage(p.name))}" target="_blank" rel="noopener">💬 WhatsApp</a>
         <button class="btn btn-ghost btn-sm btn-flex" style="padding:6px 10px;min-height:unset;" onclick="savePcContact('${p.id}')">📇 Save contact</button>
       </div>
     </div>`;
@@ -4943,10 +5032,10 @@ function pcContactTag(p){
 function savePcContact(id){
   const p=PC_DATA.find(x=>x.id===id);
   if(!p)return;
-  const ten=waLast10(p.wa);
+  const ten=waDigitsForRegion(p.wa,p.region);
   if(!ten){toast('No WhatsApp number on file.');return;}
   const displayName=`${(p.name||'Customer').trim()} ${pcContactTag(p)}`;
-  const vcard=`BEGIN:VCARD\r\nVERSION:3.0\r\nN:;${displayName};;;\r\nFN:${displayName}\r\nTEL;TYPE=CELL:+91${ten}\r\nEND:VCARD\r\n`;
+  const vcard=`BEGIN:VCARD\r\nVERSION:3.0\r\nN:;${displayName};;;\r\nFN:${displayName}\r\nTEL;TYPE=CELL:+${waIntlDigits(p.wa,p.region)}\r\nEND:VCARD\r\n`;
   const blob=new Blob([vcard],{type:'text/vcard'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -5089,8 +5178,8 @@ function pcnMessage(name,staff,itemLink,itemName,filterLink,term){
 // in the same round of feedback that introduced it.
 function preparePcnSend(kind){
   const name=document.getElementById('pcn-name').value.trim();
-  const ten=digits10(document.getElementById('pcn-wa').value);
-  if(ten.length!==10){toast('Enter a valid 10-digit WhatsApp number.');return;}
+  const pcnRegion=CU?.region||purchaseRegion();
+  if(!waValidForRegion(document.getElementById('pcn-wa').value,pcnRegion)){toast(pcnRegion==='australia'?'Enter the WhatsApp number (at least 8 digits).':'Enter a valid 10-digit WhatsApp number.');return;}
   if(!name){toast('Enter a name.');return;}
   const term=document.getElementById('pcn-term').value.trim();
   const useItem=kind==='item' && PCN_SKU && !PCN_FORCE_SEARCH;
@@ -5108,11 +5197,13 @@ function preparePcnSend(kind){
 // what gets sent.
 async function sendPcnSelected(){
   const name=document.getElementById('pcn-name').value.trim();
-  const ten=digits10(document.getElementById('pcn-wa').value);
+  const region=CU?.region||purchaseRegion();
+  const rawWa=document.getElementById('pcn-wa').value;
+  const ten=waDigitsForRegion(rawWa,region);
   const message=document.getElementById('pcn-message').value;
-  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:CU?.region||'india'});
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:region});
   if(!ok){toast("Couldn't save — try again.");return;}
-  window.open(`https://wa.me/${ten}?text=${encodeURIComponent(message)}`,'_blank');
+  window.open(`https://wa.me/${waIntlDigits(rawWa,region)}?text=${encodeURIComponent(message)}`,'_blank');
   showScreen('scr-pc-list');
   loadPotentialCustomers();
 }
