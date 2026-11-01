@@ -2,6 +2,17 @@
 
 Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to gitea/GitHub); update as items land.
 
+## Website orders in kiosk Sales History + shipment send — built 2026-11-01 (NOT deployed)
+
+- [x] 2026-11-01 `razorpay-webhook`: storefront sales now insert as `delivery_mode='shipping'`, `shipping_status='pending'` (telegram_kiosk unchanged: offline/na).
+- [x] 2026-11-01 New migration `20261101000007_backfill_storefront_sales_shipping_pending.sql` (idempotent, storefront-only) — written, NOT applied.
+- [x] 2026-11-01 `create-payment-link`: requires + trims + caps (400 chars) `customer.address` for storefront orders; stored inside `orders.customer` -> `sales.customer`. `index.html` cart form now has a required address field.
+- [ ] 2026-11-01 Card-only Razorpay is NOT enforced by this build. The Payment Links create reference has no method-restriction param (only `upi_link`); Razorpay docs say method customisation is API-level (options/method params) but the exact parameter is unverified, so none is sent. [OWNER] set Dashboard > Payment Methods, and/or verify the param before adding. Buttons relabelled neutrally ("Pay online (Razorpay)"); UPI stays on the static QR. `create-payment-link` now honours source=telegram_kiosk only with the service-role bearer (bot); anonymous callers are forced to storefront.
+- [x] 2026-11-01 `kiosk.html` Sales History: website orders show "Shipment details awaited"/Shipped badge; detail shows address + courier/tracking/URL form (saves via sbPatch) + wa.me "Send to customer" link (region-aware number check).
+- [x] 2026-11-01 FIX round (review findings): kiosk treats a row as a website order only if `source='storefront'` AND `delivery_mode='shipping'` (webhook stores Telegram-kiosk sales as storefront too); backfill rewritten to match paid `orders` rows (same customer/total/UTC date, excludes ambiguous telegram_kiosk matches), NULL/'' safe, backup table + dry-run notes + undo SQL, still NOT applied; webhook writes `sales.shipping_address`; `create-payment-link` rebuilds customer as {name<=100, wa digits<=20, address<=400}, address required unless source='telegram_kiosk'; storefront shows server error + prefills cached name/WA; XSS escapes in admin.html (sales table, home widgets, invoice, PDF export) and invoice.html; kiosk validates tracking URL as http(s) and re-reads the row after save before showing the WhatsApp link.
+- [ ] Not fixed (out of scope): invoice/sales `items` are still the client-sent array in create-payment-link (audit M2); no rate limit on create-payment-link.
+- [ ] Needs deploy: functions `razorpay-webhook` + `create-payment-link`, migration, frontend push (staging+prod share one Supabase backend).
+
 ## Potential Customers tracking — fixed 2026-10-31
 
 - [x] 2026-10-31 Found the gap: the kiosk's "📋 Potential Customers" list only ever read from `potential_customers`, which the direct feed-in flow (sidebar → ➕ New) wrote to — but the "scan for offer" QR flow (`register.html` → `register_event_visitor()`) only wrote to `coupons` (`source='event_registration'`), so every scan registrant was invisible there (they were only visible in admin-voucher.html's Coupons tab). Both tables carried real data all along; nothing was lost.

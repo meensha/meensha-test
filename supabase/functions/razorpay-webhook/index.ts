@@ -97,8 +97,12 @@ Deno.serve(async (req: Request) => {
       pay_mode: "Razorpay",
       razorpay_fee: razorpayFee,
       notes: "Online order via storefront cart",
-      delivery_mode: "offline",
-      shipping_status: "na",
+      // Storefront orders are always shipped; kiosk Sales History shows
+      // "Shipment details awaited" until the owners add courier/tracking.
+      delivery_mode: order.source === "storefront" ? "shipping" : "offline",
+      shipping_status: order.source === "storefront" ? "pending" : "na",
+      // admin.html's Enter Tracking + invoice "Ship to" read this column.
+      shipping_address: order.source === "storefront" ? (order.customer?.address || null) : null,
       taxes: [], // kiosk/storefront sales are never taxed — only admin.html's manual entry has a tax toggle
       created_by: "storefront",
       source: "storefront",

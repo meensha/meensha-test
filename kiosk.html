@@ -858,6 +858,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <div class="scr-head"><h1 id="history-detail-inv"></h1><p id="history-detail-sub"></p></div>
         <div id="history-detail-items"></div>
         <div class="confirm-totals" id="history-detail-totals"></div>
+        <div id="history-detail-ship"></div>
         <div class="success-actions" id="history-detail-actions" style="margin-top:18px;"></div>
       </div>
       <div class="bottombar">
@@ -3068,7 +3069,7 @@ async function loadHistoryPage(){
   const body=document.getElementById('history-list-body');
   body.innerHTML='<div class="center-wait" style="padding:30px 0;"><span class="spin"></span> Loading…</div>';
   const {rows,total}=await sbGetCount('sales',
-    `?select=id,inv,date,customer,total,source&order=created_at.desc&limit=${HIST_PAGE_SIZE}&offset=${offset}${salesSourceQueryParam()}`);
+    `?select=id,inv,date,customer,total,source,delivery_mode,shipping_status&order=created_at.desc&limit=${HIST_PAGE_SIZE}&offset=${offset}${salesSourceQueryParam()}`);
   if(!rows.length){
     body.innerHTML=`<div class="empty-state">
       <div class="motif-bg" aria-hidden="true"><svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg"><path d="M40 20c0 60 20 70 20 110s-20 50-20 90M100 10c0 70 25 80 25 120s-25 60-25 100M160 20c0 60-20 70-20 110s20 50 20 90" fill="none" stroke="var(--gold-light)" stroke-width="2"/></svg></div>
@@ -3077,13 +3078,88 @@ async function loadHistoryPage(){
     return;
   }
   const rowsHtml=rows.map(s=>`<button class="hist-row" onclick="viewSaleSummary('${s.id}')">
-      <div><div class="cl-name">${esc(s.inv)}</div><div class="cl-sub">${esc(s.customer?.name||'—')} · ${esc(s.date)}</div></div>
+      <div><div class="cl-name">${esc(s.inv)}</div><div class="cl-sub">${esc(s.customer?.name||'—')} · ${esc(s.date)}${shipBadgeText(s)?' · '+esc(shipBadgeText(s)):''}</div></div>
       <div class="cl-amt">${fmtSaleAmount(s.total,s.source)}</div>
     </button>`).join('');
   const navBtns=[];
   if(offset>0) navBtns.push(`<button class="btn btn-ghost btn-sm btn-flex" onclick="historyGoPage(${Math.max(0,offset-HIST_PAGE_SIZE)})">◀ Prev 5</button>`);
   if((total??0)>offset+HIST_PAGE_SIZE) navBtns.push(`<button class="btn btn-ghost btn-sm btn-flex" onclick="historyGoPage(${offset+HIST_PAGE_SIZE})">Next 5 ▶</button>`);
   body.innerHTML=rowsHtml+(navBtns.length?`<div style="display:flex;gap:10px;margin-top:6px;">${navBtns.join('')}</div>`:'');
+}
+
+// Website (storefront) orders get a status line in the list; kiosk/bot sales
+// return '' so their rows look exactly as before.
+// The webhook stores Telegram-kiosk Razorpay sales as source='storefront' too,
+// but with delivery_mode='offline' - so both fields are needed to tell a
+// real shipped website order apart from an in-person sale.
+function isWebOrder(s){ return !!s && s.source==='storefront' && s.delivery_mode==='shipping'; }
+function shipBadgeText(s){
+  if(!isWebOrder(s))return'';
+  const st=s.shipping_status;
+  if(st==='shipped')return'🌐 Website · 🚚 Shipped';
+  if(st==='delivered')return'🌐 Website · ✅ Delivered';
+  return'🌐 Website · Shipment details awaited';
+}
+// Same courier -> tracking-URL map as admin.html's COUR.
+const SHIP_COUR={'Delhivery':'https://www.delhivery.com/track/package/','BlueDart':'https://www.bluedart.com/tracking?trackFor=0&trackNum=','DTDC':'https://www.dtdc.in/trace.asp?Ttype=S&TNo=','Ekart':'https://ekartlogistics.com/shipmenttracking/','India Post':'https://www.indiapost.gov.in/vas/pages/trackconsignment.aspx','DHL':'https://www.dhl.com/in-en/home/tracking.html?tracking-id=','Other':''};
+function renderShipBlock(){
+  const s=HIST.current, box=document.getElementById('history-detail-ship');
+  if(!isWebOrder(s)){box.innerHTML='';return;}
+  const opts=Object.keys(SHIP_COUR).map(c=>`<option${s.courier===c?' selected':''}>${esc(c)}</option>`).join('');
+  const done=s.shipping_status==='shipped'||s.shipping_status==='delivered';
+  box.innerHTML=`<div class="confirm-totals" style="margin-top:14px;">
+      <div class="ct-row"><span>Status</span><span>${esc(shipBadgeText(s))}</span></div>
+      <div class="ct-row" style="display:block;"><div style="opacity:.6;font-size:12px;margin-bottom:4px;">Delivery address</div><div style="white-space:pre-wrap;">${esc(s.customer?.address||'— no address on file —')}</div></div>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Courier</label><select id="ship-cou" onchange="shipUpdateUrl()"><option value="">Select courier…</option>${opts}</select></div>
+    <div class="field"><label>Tracking number</label><input id="ship-trk" value="${esc(s.tracking||'')}" oninput="shipUpdateUrl()"></div>
+    <div class="field"><label>Tracking URL (editable)</label><input id="ship-url" value="${esc(s.tracking_url||'')}"></div>
+    <button class="btn btn-primary btn-block" onclick="saveShipment()">${done?'💾 Update shipment details':'💾 Save shipment details'}</button>
+    <div id="ship-send" style="margin-top:10px;"></div>`;
+  renderShipSend();
+}
+function shipUpdateUrl(){
+  const cou=document.getElementById('ship-cou').value, trk=document.getElementById('ship-trk').value.trim();
+  const base=SHIP_COUR[cou]||'';
+  document.getElementById('ship-url').value=(base&&trk)?base+trk:base;
+}
+async function saveShipment(){
+  const s=HIST.current; if(!s)return;
+  const cou=document.getElementById('ship-cou').value, trk=document.getElementById('ship-trk').value.trim(), url=document.getElementById('ship-url').value.trim();
+  if(!cou||!trk){toast('Enter courier and tracking number');return;}
+  if(url&&!/^https?:\/\/\S+$/i.test(url)){toast('Tracking URL must start with http:// or https://');return;}
+  const shippedAt=s.shipped_at||new Date().toISOString();
+  const ok=await sbPatch('sales',`?id=eq.${s.id}`,{courier:cou,tracking:trk,tracking_url:url,shipping_status:s.shipping_status==='delivered'?'delivered':'shipped',shipped_at:shippedAt});
+  if(!ok){toast('Could not save — please try again');return;}
+  // sbPatch only reports HTTP ok; an RLS-filtered PATCH can match 0 rows and
+  // still succeed. Re-read the row and only trust what is actually stored.
+  const back=(await sbGet('sales',`?select=courier,tracking,tracking_url,shipping_status,shipped_at&id=eq.${s.id}`))[0];
+  if(!back||back.courier!==cou||back.tracking!==trk){
+    toast('Save did not stick — shipment NOT recorded. Please retry.');
+    document.getElementById('ship-send').innerHTML='<div class="hint" style="color:#f0a99c;">Shipment was not saved, so no WhatsApp link is shown.</div>';
+    return;
+  }
+  Object.assign(s,back);
+  toast('Shipment saved');
+  renderShipBlock();
+}
+// "Send to customer" is a plain wa.me link the owner taps — nothing is sent
+// automatically. Only offered once shipped and the number is valid for the
+// sale's own region (website orders are India; AU sources use the AU rules).
+function renderShipSend(){
+  const s=HIST.current, el=document.getElementById('ship-send');
+  if(!s||!el)return;
+  if(!(s.shipping_status==='shipped'||s.shipping_status==='delivered')||!s.tracking)return;
+  const region=(s.source==='telegram_au'||s.source==='kiosk_pwa_au')?'australia':'india';
+  const raw=s.customer?.wa||'';
+  if(!waValidForRegion(raw,region)){
+    el.innerHTML='<div class="hint" style="color:#f0a99c;">Customer WhatsApp number looks invalid — cannot send.</div>';
+    return;
+  }
+  const items=(s.items||[]).map(i=>i.name+(i.variant?' ('+i.variant+')':'')).join(', ');
+  const invoiceUrl=`${STOREFRONT_URL}/invoice.html?invoice=${encodeURIComponent(s.inv)}&wa=${waDigitsForRegion(raw,region)}`;
+  const msg=`🙏 Dear ${s.customer?.name||''},\n\nYour Meensha order is on its way! 🎁\n\nOrder: ${s.inv}\nItems: ${items}\n\nCourier: ${s.courier||'—'}\nTracking: ${s.tracking||'—'}\n${s.tracking_url?'Track: '+s.tracking_url+'\n':''}Invoice: ${invoiceUrl}\n\nWe will follow up on delivery 🙏\n— Meensha · meensha.in`;
+  el.innerHTML=`<a class="btn btn-outline btn-block" href="https://wa.me/${waIntlDigits(raw,region)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 Send to customer on WhatsApp</a>`;
 }
 
 async function viewSaleSummary(saleId){
@@ -3093,7 +3169,8 @@ async function viewSaleSummary(saleId){
   document.getElementById('history-detail-items').innerHTML='';
   document.getElementById('history-detail-totals').innerHTML='';
   document.getElementById('history-detail-actions').innerHTML='';
-  const rows=await sbGet('sales',`?select=inv,date,customer,items,total,paid,balance,pay_mode,source&id=eq.${saleId}`);
+  document.getElementById('history-detail-ship').innerHTML='';
+  const rows=await sbGet('sales',`?select=inv,date,customer,items,total,paid,balance,pay_mode,source,delivery_mode,shipping_status,courier,tracking,tracking_url,shipped_at&id=eq.${saleId}`);
   const s=rows && rows[0];
   if(!s){
     document.getElementById('history-detail-inv').textContent='Sale not found';
@@ -3116,6 +3193,7 @@ async function viewSaleSummary(saleId){
     <div class="ct-row"><span>Payment</span><span>${esc(s.pay_mode||'—')}</span></div>`;
   document.getElementById('history-detail-actions').innerHTML=
     `<button class="btn btn-primary btn-block" onclick="sendHistoryInvoice('${saleId}')">🧾 Send Invoice</button>`;
+  renderShipBlock();
 }
 
 async function sendHistoryInvoice(saleId){

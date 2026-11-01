@@ -24,7 +24,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { items, customer, unit_ids, currency, coupons, source, telegram_chat_id } = await req.json();
+    const body = await req.json();
+    const { items, customer, unit_ids, currency, coupons, telegram_chat_id } = body;
+    // 'telegram_kiosk' (in-person, no address, offline/na sale) is only honoured
+    // for the telegram-bot, which authenticates with the service-role key as
+    // its bearer token (see telegram-bot's create-payment-link call). Any other
+    // caller (anonymous storefront browsers) is forced to 'storefront'.
+    const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
+    const isBot = !!bearer && bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    // 'kiosk_pwa' (the in-person kiosk app) calls with only the public anon key,
+    // so there is NO trust signal to verify it with; it is kept as before so the
+    // kiosk keeps working, but an anonymous caller could claim it to skip the
+    // address check (cost: a sale recorded as in-person, nothing worse).
+    const source = (body.source === "telegram_kiosk" && isBot) ? "telegram_kiosk"
+      : body.source === "kiosk_pwa" ? "kiosk_pwa" : "storefront";
     // `coupons` is an array (0-2) of {code, wa} — up to one promotion + one
     // event code can run concurrently, each discounting its own highest-
     // priced matching item. Older single-`coupon` callers are no longer
@@ -37,6 +50,23 @@ Deno.serve(async (req: Request) => {
     if (!customer?.name || !customer?.wa) {
       return json({ error: "Name and WhatsApp number are required" }, 400);
     }
+    // Rebuild customer server-side so no arbitrary keys/oversized values reach
+    // orders.customer -> sales.customer. Storefront orders (any source other
+    // than 'telegram_kiosk', missing source included) are shipped, so a
+    // delivery address is mandatory; it lives inside the customer jsonb.
+    const cleanName = String(customer.name).replace(/\s+/g, " ").trim().slice(0, 100);
+    const cleanWa = String(customer.wa).replace(/\D/g, "").slice(0, 20);
+    const cleanAddress = typeof customer.address === "string"
+      ? customer.address.replace(/\s+/g, " ").trim().slice(0, 400)
+      : "";
+    if (!cleanName || !cleanWa) {
+      return json({ error: "Name and WhatsApp number are required" }, 400);
+    }
+    if (source === "storefront" && cleanAddress.length < 10) {
+      return json({ error: "A full delivery address is required" }, 400);
+    }
+    const cleanCustomer: { name: string; wa: string; address?: string } = { name: cleanName, wa: cleanWa };
+    if (cleanAddress) cleanCustomer.address = cleanAddress;
     if (currency && currency !== "INR") {
       return json({ error: "Razorpay checkout is India-only" }, 400);
     }
@@ -124,12 +154,18 @@ Deno.serve(async (req: Request) => {
     const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET")!;
     const auth = "Basic " + btoa(`${keyId}:${keySecret}`);
 
-    const waDigits = String(customer.wa).replace(/\D/g, "");
+    const waDigits = cleanWa;
     const description = (items || [])
       .map((it: { name: string }) => it.name)
       .join(", ")
       .slice(0, 250) || "Meensha order";
 
+    // NOTE (card-only): NOT enforced by this build. The Payment Links create
+    // reference lists no payment-method restriction parameter (only
+    // `upi_link`); Razorpay docs indicate method customisation exists at API
+    // level (options/method params) but the exact parameter is UNVERIFIED, so
+    // none is sent. Until verified, UPI/netbanking/wallets shown by Razorpay
+    // depend on the Dashboard's Payment Methods settings.
     const rzpRes = await fetch("https://api.razorpay.com/v1/payment_links", {
       method: "POST",
       headers: { Authorization: auth, "Content-Type": "application/json" },
@@ -139,7 +175,7 @@ Deno.serve(async (req: Request) => {
         description,
         reference_id: orderId,
         customer: {
-          name: customer.name,
+          name: cleanName,
           contact: waDigits,
         },
         notify: { sms: false, email: false },
@@ -156,7 +192,7 @@ Deno.serve(async (req: Request) => {
 
     const { error: insErr } = await supabase.from("orders").insert({
       id: orderId,
-      customer,
+      customer: cleanCustomer,
       items,
       total,
       currency: "INR",
@@ -165,7 +201,7 @@ Deno.serve(async (req: Request) => {
       razorpay_short_url: rzpData.short_url,
       status: "created",
       coupon: validatedCoupons.length ? validatedCoupons : null,
-      source: source || "storefront",
+      source,
       telegram_chat_id: telegram_chat_id || null,
     });
     if (insErr) return json({ error: "Could not save order" }, 500);
