@@ -2098,12 +2098,34 @@ function digits10(text){
 // take whatever digits were typed and prefix the AU dial code instead.
 function dialCodeFor(region){ return region==='australia' ? '+61' : '+91'; }
 // WhatsApp text sent with an invoice (after a sale and from Sales History).
-function invoiceShareMessage(name,inv,invoiceUrl,pdfUrl,extra){
+function invoiceShareMessage(name,inv,invoiceUrl,pdfUrl,extra,attached){
   return `Hey ${(name||'there').trim()} 👋\n`
     +`Thanks for shopping with Meensha and supporting the revival of the traditional handloom heritage of India. 🙏\n\n`
-    +`🧾 Here's your invoice (${inv}): ${pdfUrl||invoiceUrl}`
+    +(attached?`🧾 Your invoice (${inv}) is attached.`:`🧾 Here's your invoice (${inv}): ${pdfUrl||invoiceUrl}`)
     +(extra||'')
     +`\n\n🌐 meensha.in\n📸 @meensha_fabrics`;
+}
+// Sending the PDF file itself: wa.me links can't attach files, so use the
+// phone's share sheet (Web Share API) with the PDF; staff pick the customer's
+// WhatsApp chat there. The file is fetched ahead of the tap so the share call
+// still counts as a user gesture. Falls back to the link when unsupported.
+const INV_PDF_FILES={};
+async function prefetchInvoicePdf(pdfUrl,inv){
+  if(!pdfUrl||INV_PDF_FILES[pdfUrl])return;
+  try{
+    const b=await (await fetch(pdfUrl)).blob();
+    INV_PDF_FILES[pdfUrl]=new File([b],`Meensha-${inv}.pdf`,{type:'application/pdf'});
+  }catch{}
+}
+async function shareInvoicePdf(pdfUrl,text,fallbackLink){
+  const f=INV_PDF_FILES[pdfUrl];
+  try{
+    if(f && navigator.canShare && navigator.canShare({files:[f]})){
+      await navigator.share({files:[f],text});
+      return;
+    }
+  }catch(e){ if(e&&e.name==='AbortError')return; }
+  window.open(fallbackLink,'_blank');
 }
 function waDigitsForRegion(raw,region){
   return region==='australia' ? (raw||'').replace(/\D/g,'') : digits10(raw);
@@ -2988,11 +3010,15 @@ async function runFinalizeSale(){
   const cardLine=(S.attachCard && cardKey)?`\n\nMy Meensha visiting card: ${STOREFRONT_URL}/visiting-card.html?person=${cardKey}`:'';
   const waMsg=encodeURIComponent(invoiceShareMessage(S.customer_name,inv,invoiceUrl,pdfUrl,cardLine));
   const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
+  const pdfText=invoiceShareMessage(S.customer_name,inv,invoiceUrl,pdfUrl,cardLine,true);
+  window._pdfShare={pdfUrl,text:pdfText,link:waLink};
+  prefetchInvoicePdf(pdfUrl,inv);
 
   document.getElementById('success-inv').textContent='✅ Sale recorded — '+inv;
   document.getElementById('success-amt').textContent=`Total ${fmtMoney(total)} · Paid ${fmtMoney(paid)}`+(total-paid>0?` · Balance ${fmtMoney(total-paid)}`:'');
   document.getElementById('success-actions').innerHTML=
-    (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send invoice to customer</a>`:'')
+    (pdfUrl?`<button class="btn btn-primary btn-block" onclick="shareInvoicePdf(_pdfShare.pdfUrl,_pdfShare.text,_pdfShare.link)">📎 Send invoice PDF</button>`:'')
+    + (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send invoice link on WhatsApp</a>`:'')
     + `<a class="btn btn-ghost btn-block" href="${invoiceUrl}" target="_blank" rel="noopener">🧾 View / print invoice</a>`
     + `<button class="btn btn-primary btn-block" onclick="afterSuccess()">🛍️ Next sale</button>`;
   showScreen('scr-success');
@@ -3107,8 +3133,11 @@ async function sendHistoryInvoice(saleId){
   const invoiceUrl=`${STOREFRONT_URL}/invoice.html?invoice=${encodeURIComponent(s.inv)}&wa=${waDigits}`;
   const waMsg=encodeURIComponent(invoiceShareMessage(s.customer?.name,s.inv,invoiceUrl,pdfUrl,''));
   const waLink=waDigits?`https://wa.me/${waDigits}?text=${waMsg}`:null;
+  window._pdfShare={pdfUrl,text:invoiceShareMessage(s.customer?.name,s.inv,invoiceUrl,pdfUrl,'',true),link:waLink};
+  prefetchInvoicePdf(pdfUrl,s.inv);
   actions.innerHTML=
-    (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send to customer</a>`:'')
+    (pdfUrl?`<button class="btn btn-primary btn-block" onclick="shareInvoicePdf(_pdfShare.pdfUrl,_pdfShare.text,_pdfShare.link)">📎 Send invoice PDF</button>`:'')
+    + (waLink?`<a class="btn btn-outline btn-block" href="${waLink}" target="_blank" rel="noopener">💬 Send link on WhatsApp</a>`:'')
     + `<a class="btn btn-ghost btn-block" href="${invoiceUrl}" target="_blank" rel="noopener">🧾 View / print invoice</a>`;
 }
 
