@@ -59,6 +59,14 @@ Most "how I built my e-commerce store" posts are either "I used Shopify" (nothin
 - Every feature went through a builder, then a separate tester and a separate security reviewer working from the code alone, then a final sign-off — not because it's fashionable, but because each round found something the builder had missed (a missing "undo", a spam hole, a stale-data bug).
 - Two operational lessons: ship the database change *before* the website code that needs it, and remember the live site can take 10–25 minutes to update after a push — so only update the backup mirror after you've confirmed the change is actually live.
 
+**13. Online orders need a shipping story, in-person sales don't**
+- The shop's in-person sales system treated every online order like a sale handed over at the stall: no address, no "shipped" state, nothing to tell the customer. The fix was small in idea and wide in reach: collect a delivery address at checkout, mark online orders as "awaiting shipment", show them in the stall app with that status, and once a courier and tracking number are entered, give staff a one-tap message to the customer, pre-filled, with a final press of Send.
+- Why a tap and not automatic: nothing in the stack can send a message to a customer on its own, and the courier's booking site had no API. We tried a tool that learns an API from a website's own traffic; it never got a real signed-in session, so we dropped it and kept the human step. Knowing when to stop automating was the decision.
+- The independent reviews earned their keep again: one found that in-person card payments were being mislabelled as online orders, another found customer-typed text being shown unescaped on an owner-facing screen. Both fixed before release.
+
+**14. A discount button should do what its label says**
+- Staff tapped a festival offer and got "no registration found" unless the customer had signed up for it first. The owners' rule was simpler: the tap itself is the approval. The change kept the old protections where they matter (a customer's own used code still blocks) and accepted a trade-off knowingly: the festival offer can now repeat across sales, and the checkout can't be paid by payment link when it's applied.
+
 ## Possible title options (pick one later)
 - "What a Handloom Saree Business Actually Needs From Its Tech Stack"
 - "I Built an E-Commerce Backend Around One Idea: No Two Sarees Are the Same"

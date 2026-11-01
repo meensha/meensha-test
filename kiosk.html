@@ -2714,7 +2714,6 @@ function renderDiscountPicker(){
     if(!regionAllowed(e.region))return false;
     if(appliedEventIds.includes(e.id))return false;
     if(e.kiosk_offer_enabled===false)return false;
-    if(customerHasEventCoupon(e.id))return false;
     const expires=new Date(e.created_at);
     expires.setDate(expires.getDate()+(e.valid_days||7));
     return expires>=now;
@@ -2734,11 +2733,6 @@ function renderDiscountPicker(){
   html+=`<button class="disc-opt" onclick="toggleInline('disc-custom-box')"><span>✏️ Custom discount amount</span></button>`;
   html+=`<button class="disc-opt" onclick="goConfirm();document.getElementById('ov-disc-input').focus()"><span>🧾 Overall discount on whole bill</span></button>`;
   opts.innerHTML=html;
-}
-// Once this customer already holds a code for an event, the generic event
-// button is hidden — they enter their own MSH- code instead (no double offer).
-function customerHasEventCoupon(eventId){
-  return !!S.customer_wa && (discountCache.coupons||[]).some(c=>c.event_id===eventId && waMatches(c.customer_wa,S.customer_wa));
 }
 function toggleInline(id){
   ['disc-code-box','disc-custom-box','disc-event-box'].forEach(x=>{
@@ -2763,10 +2757,15 @@ function openEventWa(eventId,title){
 function lookupAndApplyEventCode(eventId,eventTitle,ten){
   const candidates=(discountCache.coupons||[]).filter(c=>c.event_id===eventId);
   const match=candidates.find(c=>waMatches(c.customer_wa,ten));
-  if(!match){ toast(`No "${eventTitle}" registration found for that number.`); renderDiscountPicker(); return; }
-  if(match.used){ toast(`Sorry — this customer has already used their "${eventTitle}" code.`); renderDiscountPicker(); return; }
-  if(!validateCouponLocal(match)){ toast(`This "${eventTitle}" code isn't currently valid (expired or inactive).`); renderDiscountPicker(); return; }
-  applyDiscountAndOffer(match,false,eventId);
+  // A registered code that is still valid is used (and consumed) as before; one
+  // already used stays blocked. With no usable code, tapping the event itself is
+  // the approval: its own offer applies directly, as a non-consumable discount
+  // (isCustom, like the custom-amount path).
+  if(match && match.used){ toast(`Sorry — this customer has already used their "${eventTitle}" code.`); renderDiscountPicker(); return; }
+  if(match && validateCouponLocal(match)){ applyDiscountAndOffer(match,false,eventId); return; }
+  const ev=(discountCache.events||[]).find(e=>e.id===eventId);
+  if(!ev){ toast(`"${eventTitle}" isn't available anymore.`); renderDiscountPicker(); return; }
+  applyDiscountAndOffer({code:ev.title,discount_type:ev.discount_type,discount_value:ev.discount_value,customer_wa:null},true,eventId);
 }
 async function applyCouponTap(couponId){
   const c=(discountCache.coupons||[]).find(x=>x.id===couponId);
