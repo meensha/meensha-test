@@ -4910,6 +4910,7 @@ function onShareWaInput(){
 let PC_DATA=[];
 let PC_REQUESTS=[];
 let PC_COUPONS=[];
+let PC_EVENT_TITLES={};
 let PC_EXPANDED=null;
 let PC_EDIT_ID=null;
 function waLast10(s){ return (s||'').replace(/\D/g,'').slice(-10); }
@@ -4947,11 +4948,13 @@ async function loadPotentialCustomers(){
   // toggle this app already uses for sales elsewhere (effRegion()).
   const r=effRegion();
   const regionQ=r==='all' ? '' : `&region=eq.${r}`;
-  const [pc,reqs,cps]=await Promise.all([
+  const [pc,reqs,cps,evs]=await Promise.all([
     sbGet('potential_customers',`?select=*${regionQ}&order=created_at.desc`),
     sbGet('requests','?select=customer_name,item_name,notes,status,created_at,wa'),
     rpcA('admin_list_coupons',{}),
+    rpcA('admin_list_voucher_events',{}),
   ]);
+  PC_EVENT_TITLES=Object.fromEntries((evs||[]).map(e=>[e.id,e.title]));
   PC_COUPONS=(cps||[]).filter(c=>c.source==='event_registration');
   PC_DATA=pc||[];
   PC_REQUESTS=reqs||[];
@@ -4967,7 +4970,8 @@ function pcRequestsFor(wa){
 function pcScanLine(p){
   const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
   if(!m)return '';
-  const c=PC_COUPONS.find(x=>waMatches(x.customer_wa,p.wa));
+  const mine=PC_COUPONS.filter(x=>waMatches(x.customer_wa,p.wa));
+  const c=mine.find(x=>PC_EVENT_TITLES[x.event_id]===m[1])||mine[0];
   if(!c)return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned: ${esc(m[1])} QR code</div>`;
   const off=c.discount_type==='percent'?`${c.discount_value}% off`:`${fmtMoney(c.discount_value)} off`;
   const st=c.used?'used':(c.valid_until&&c.valid_until<todayStr()?'expired':'valid'+(c.valid_until?' till '+c.valid_until:''));
