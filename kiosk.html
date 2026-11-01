@@ -4967,18 +4967,24 @@ function pcRequestsFor(wa){
   return PC_REQUESTS.filter(r=>waLast10(r.wa)===ten);
 }
 // Scan-sourced rows only: the code their QR sign-up generated, if any.
+function pcDay(d){
+  if(!d)return '';
+  const x=new Date(d.length<=10?d+'T00:00:00':d);
+  return isNaN(x)?'':x.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+}
 function pcScanLine(p){
+  const line=t=>`<div class="cl-sub" style="margin-top:8px;">${t}</div>`;
   const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
   if(!m){
     const who=(p.shared_by||'').trim();
-    return `<div class="cl-sub" style="margin-top:8px;">✍️ Added${who&&who!=='unknown'?' by '+esc(who):''}${p.card_shared?' · visiting card shared':''}</div>`;
+    return line(`✍️ Entry by kiosk${who&&who!=='unknown'?' ('+esc(who)+')':''} on ${pcDay(p.created_at)}`);
   }
   const mine=PC_COUPONS.filter(x=>waMatches(x.customer_wa,p.wa));
   const c=mine.find(x=>PC_EVENT_TITLES[x.event_id]===m[1])||mine[0];
-  if(!c)return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned: ${esc(m[1])} QR code</div>`;
+  if(!c)return line(`📲 Scanned at ${esc(m[1])} on ${pcDay(p.created_at)}`);
   const off=c.discount_type==='percent'?`${c.discount_value}% off`:`${fmtMoney(c.discount_value)} off`;
-  const st=c.used?'used':(c.valid_until&&c.valid_until<todayStr()?'expired':'valid'+(c.valid_until?' till '+c.valid_until:''));
-  return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned: ${esc(m[1])} QR code · Code <b>${esc(c.code)}</b> · ${off} · ${st}</div>`;
+  const st=c.used?'used':(c.valid_until&&c.valid_until<todayStr()?`expired ${pcDay(c.valid_until)}`:`valid upto ${pcDay(c.valid_until)}`);
+  return line(`📲 Scanned at ${esc(m[1])} · Code <b>${esc(c.code)}</b> · ${off} · ${st}`);
 }
 function renderPcList(){
   const body=document.getElementById('pc-list-body');
