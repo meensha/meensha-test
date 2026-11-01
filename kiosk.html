@@ -4901,6 +4901,7 @@ function pcShareCard(id){
   vcShareCtx={again:!!p.card_shared,interest:pcInterest(p)};
   document.getElementById('vcs-name').value=p.name||'';
   document.getElementById('vcs-wa').value=p.wa||'';
+  vcAutoSentWa=digits10(p.wa);
   updateShareMessage();
 }
 function closeShareSendModal(){
