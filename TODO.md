@@ -267,3 +267,11 @@ Status 2026-10-13: weekly Tuesday supervised pipeline now scheduled (first run 2
 - 2026-09-13: Daily health digest now also flags SKUs with no photos, sent to Shalini's chat too (was monitor-only).
 - 2026-09-12: AU stock-intake pending-cost tracking; fixed a serious region-awareness bug in the real (previously-dead-code-shadowed) approval function.
 - 2026-09-11/12: Invoice PDF generation (pdf-lib), backfilled for all historical sales; fixed a 100%-reproducing ₹-symbol encoding bug; static UPI QR feature; Razorpay customer-record linking.
+
+## Scan-for-offer auto-apply + phone formats — 2026-11-01
+- **Bug fixed:** `register_event_visitor` returned early for repeat scans, so they never reached Potential Customers (migrations `...03`, `...05`; the insert now sits after the rate limit). One missed customer (Oct 30) backfilled.
+- **Auto-apply:** at checkout, one valid code matching the customer's WhatsApp prompts "Apply X's code?"; Cancel remembers the decline for that sale; ✕ removes an applied code. Sale items carry `auto_applied_coupon` for audit.
+- **Phone formats:** India = +91, exactly 10 digits. Australia = +61, at least 8 digits, no upper check (`save_potential_customer` migration `...04`). Applied to checkout, share card, "+New" entry, Potential Customers WhatsApp / Save contact.
+- **Pop-up:** one-time "codes auto-apply" notice on the customer-info screen (2x each for Shalini, Meenakshi, Dheeraj). It doesn't yet mention the confirm tap.
+- **Not browser-tested:** only syntax and helper checks; try a real scan + checkout on the kiosk.
+- **Open (low):** `register_event_visitor` still requires 10-15 digits, so short AU numbers fail via the QR page; event-title apostrophe can break the event tile's onclick (pre-existing).
