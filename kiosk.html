@@ -4909,6 +4909,7 @@ function onShareWaInput(){
 // ═══════════════════════════════════════════════
 let PC_DATA=[];
 let PC_REQUESTS=[];
+let PC_COUPONS=[];
 let PC_EXPANDED=null;
 let PC_EDIT_ID=null;
 function waLast10(s){ return (s||'').replace(/\D/g,'').slice(-10); }
@@ -4946,10 +4947,12 @@ async function loadPotentialCustomers(){
   // toggle this app already uses for sales elsewhere (effRegion()).
   const r=effRegion();
   const regionQ=r==='all' ? '' : `&region=eq.${r}`;
-  const [pc,reqs]=await Promise.all([
+  const [pc,reqs,cps]=await Promise.all([
     sbGet('potential_customers',`?select=*${regionQ}&order=created_at.desc`),
     sbGet('requests','?select=customer_name,item_name,notes,status,created_at,wa'),
+    rpcA('admin_list_coupons',{}),
   ]);
+  PC_COUPONS=(cps||[]).filter(c=>c.source==='event_registration');
   PC_DATA=pc||[];
   PC_REQUESTS=reqs||[];
   PC_EXPANDED=null;
@@ -4959,6 +4962,16 @@ function pcRequestsFor(wa){
   const ten=waLast10(wa);
   if(!ten)return[];
   return PC_REQUESTS.filter(r=>waLast10(r.wa)===ten);
+}
+// Scan-sourced rows only: the code their QR sign-up generated, if any.
+function pcScanLine(p){
+  const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
+  if(!m)return '';
+  const c=PC_COUPONS.find(x=>waMatches(x.customer_wa,p.wa));
+  if(!c)return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned · ${esc(m[1])}</div>`;
+  const off=c.discount_type==='percent'?`${c.discount_value}% off`:`${fmtMoney(c.discount_value)} off`;
+  const st=c.used?'used':(c.valid_until&&c.valid_until<todayStr()?'expired':'valid'+(c.valid_until?' till '+c.valid_until:''));
+  return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned · ${esc(m[1])} · Code <b>${esc(c.code)}</b> · ${off} · ${st}</div>`;
 }
 function renderPcList(){
   const body=document.getElementById('pc-list-body');
@@ -4982,6 +4995,7 @@ function renderPcList(){
         <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="togglePcRequests('${p.id}')">📨 Requests: ${reqs.length}</button>
         <span>${p.card_shared?'✅ Card shared':'— Not shared'}</span>
       </div>
+      ${pcScanLine(p)}
       ${reqDetail}
       <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <span>Follow up: ${esc(p.follow_up||'—')}</span>
