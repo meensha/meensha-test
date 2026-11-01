@@ -2101,10 +2101,9 @@ function dialCodeFor(region){ return region==='australia' ? '+61' : '+91'; }
 function invoiceShareMessage(name,inv,invoiceUrl,pdfUrl,extra){
   return `Hey ${(name||'there').trim()} 👋\n`
     +`Thanks for shopping with Meensha and supporting the revival of the traditional handloom heritage of India. 🙏\n\n`
-    +`🧾 Here's your invoice (${inv}): ${invoiceUrl}`
-    +(pdfUrl?`\n📄 PDF: ${pdfUrl}`:'')
+    +`🧾 Here's your invoice (${inv}): ${pdfUrl||invoiceUrl}`
     +(extra||'')
-    +`\n\n🌐 meensha.in`;
+    +`\n\n🌐 meensha.in\n📸 @meensha_fabrics`;
 }
 function waDigitsForRegion(raw,region){
   return region==='australia' ? (raw||'').replace(/\D/g,'') : digits10(raw);
