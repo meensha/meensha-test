@@ -4969,7 +4969,10 @@ function pcRequestsFor(wa){
 // Scan-sourced rows only: the code their QR sign-up generated, if any.
 function pcScanLine(p){
   const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
-  if(!m)return '';
+  if(!m){
+    const who=(p.shared_by||'').trim();
+    return `<div class="cl-sub" style="margin-top:8px;">✍️ Added${who&&who!=='unknown'?' by '+esc(who):''}${p.card_shared?' · visiting card shared':''}</div>`;
+  }
   const mine=PC_COUPONS.filter(x=>waMatches(x.customer_wa,p.wa));
   const c=mine.find(x=>PC_EVENT_TITLES[x.event_id]===m[1])||mine[0];
   if(!c)return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned: ${esc(m[1])} QR code</div>`;
