@@ -29,9 +29,9 @@ BEGIN
   END IF;
 
   UPDATE potential_customers
-     SET card_shared = true, card_shared_at = now(), card_message = left(p_card_message, 4000)
+     SET card_shared = true, card_shared_at = now(), card_message = COALESCE(left(p_card_message, 4000), card_message)
    WHERE id = (SELECT id FROM potential_customers
-                WHERE right(regexp_replace(wa, '[^0-9]', '', 'g'), 10) = right(wa_digits, 10)
+                WHERE region = region_clean AND right(regexp_replace(wa, '[^0-9]', '', 'g'), 10) = right(wa_digits, 10)
                 ORDER BY created_at LIMIT 1);
   IF FOUND THEN RETURN true; END IF;
 
