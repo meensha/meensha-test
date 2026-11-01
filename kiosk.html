@@ -593,6 +593,20 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
     </div>
   </div>
 
+  <div class="vc-overlay" id="pc-card-overlay" onclick="if(event.target===this)closePcCardModal();">
+    <div class="vc-modal">
+      <button class="vc-close" onclick="closePcCardModal()">✕</button>
+      <h2>📋 Potential Customers — new</h2>
+      <ul style="padding-left:20px;color:var(--cream);line-height:1.7;margin-bottom:16px;">
+        <li>Each customer now shows <b>where they came from</b>: <b>📲 Scanned at &lt;event&gt;</b> with their code and validity, or <b>✍️ Entry by kiosk</b> with the date.</li>
+        <li><b>💳 Share card</b> on a customer's tile sends the card to that same entry — no more duplicates. The message sent is saved on the tile.</li>
+        <li>Shared before? <b>🔁 Remind</b> sends "just a reminder — you expressed interest in …".</li>
+        <li>Messages are cleaner now, with icons and shorter links for web, Instagram, YouTube, Facebook and the WhatsApp channel.</li>
+      </ul>
+      <button class="btn btn-primary btn-block" onclick="closePcCardModal()">Got it ▶</button>
+    </div>
+  </div>
+
   <div class="vc-overlay" id="auto-coupon-overlay" onclick="if(event.target===this)closeAutoCouponModal();">
     <div class="vc-modal">
       <button class="vc-close" onclick="closeAutoCouponModal()">✕</button>
@@ -4845,11 +4859,15 @@ function attachCardToInvoice(){
 }
 // Standard outreach draft — kept in one place so the topbar Share flow and
 // any future caller build the exact same message.
+let vcShareCtx=null;
 function buildShareMessage(name,comments){
   const staff=CU?.display_name||CU?.username||'';
   const key=vcPersonKey();
-  const cardUrl=key?`${STOREFRONT_URL}/visiting-card.html?person=${key}`:'';
-  let msg=`Hey ${name}, thanks for showing an interest in reviving the heritage of the Indian loom. \n\nWe at Meensha look forward to your patronage. \n\nYou can reach us at any of the links in the card${cardUrl?': '+cardUrl:''}. \nJust click on icons.`;
+  const cardUrl=key?`${STOREFRONT_URL}/visiting-card.html?person=${key}`.replace(/^https?:\/\//,''):'';
+  const hi=vcShareCtx&&vcShareCtx.again
+    ? `Hey ${name} 👋 just a reminder — you expressed interest in ${vcShareCtx.interest||'Meensha'}.`
+    : `Hey ${name} 👋 thanks for showing an interest in reviving the heritage of the Indian loom.\n\nWe at Meensha look forward to your patronage.`;
+  let msg=`${hi}\n\n${cardUrl?'💳 Our card: '+cardUrl+'\n\n':''}Find us here:\n${MSG_LINKS}`;
   if(comments)msg+=`\n\n${comments}`;
   msg+=`\n\nRegards,\n${staff}`;
   return msg;
@@ -4860,6 +4878,7 @@ function updateShareMessage(){
   document.getElementById('vcs-message').value=buildShareMessage(name,comments);
 }
 function openShareSendModal(){
+  vcShareCtx=null;
   document.getElementById('vcs-name').value='';
   document.getElementById('vcs-wa').value='';
   vcAutoSentWa=null;
@@ -4868,10 +4887,18 @@ function openShareSendModal(){
   document.getElementById('vc-send-overlay').classList.add('open');
 }
 // Share-card from a Potential Customer tile: same send modal, prefilled.
+// What the customer expressed interest in: a requested item, else the event they scanned for.
+function pcInterest(p){
+  const r=pcRequestsFor(p.wa).find(x=>x.item_name);
+  if(r)return r.item_name;
+  const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
+  return m?m[1]:'Meensha';
+}
 function pcShareCard(id){
   const p=PC_DATA.find(x=>x.id===id);
   if(!p||!vcPersonKey())return;
   openShareSendModal();
+  vcShareCtx={again:!!p.card_shared,interest:pcInterest(p)};
   document.getElementById('vcs-name').value=p.name||'';
   document.getElementById('vcs-wa').value=p.wa||'';
   updateShareMessage();
@@ -4928,7 +4955,7 @@ function waLast10(s){ return (s||'').replace(/\D/g,'').slice(-10); }
 function openPotentialCustomers(){
   showScreen('scr-pc-list');
   loadPotentialCustomers();
-  checkPcUpdatePopup();
+  if(!checkPcUpdatePopup())checkPcCardPopup();
 }
 // One-time-ish announcement for the 2026-10-31 Potential Customers update
 // (scan-for-offer leads now listed + WhatsApp/save-contact buttons) — shown
@@ -4940,12 +4967,26 @@ function openPotentialCustomers(){
 // one-off notice.
 function checkPcUpdatePopup(){
   const uname=(CU?.username||'').trim().toLowerCase();
-  if(uname!=='shalini' && uname!=='meenakshi' && uname!=='shameen')return;
+  if(uname!=='shalini' && uname!=='meenakshi' && uname!=='shameen')return false;
   const key='MSN_PC_UPDATE_SEEN_'+uname;
   const seen=parseInt(localStorage.getItem(key)||'0',10);
-  if(seen>=2)return;
+  if(seen>=2)return false;
   localStorage.setItem(key,String(seen+1));
   document.getElementById('pc-update-overlay').classList.add('open');
+  return true;
+}
+function checkPcCardPopup(){
+  const uname=(CU?.username||'').trim().toLowerCase();
+  if(uname!=='shalini' && uname!=='meenakshi' && uname!=='shameen')return;
+  const key='MSN_PC_CARD_SEEN_'+uname;
+  let seen=0;
+  try{ seen=parseInt(localStorage.getItem(key)||'0',10); }catch{}
+  if(seen>=2)return;
+  try{ localStorage.setItem(key,String(seen+1)); }catch{}
+  document.getElementById('pc-card-overlay').classList.add('open');
+}
+function closePcCardModal(){
+  document.getElementById('pc-card-overlay').classList.remove('open');
 }
 function closePcUpdateModal(){
   document.getElementById('pc-update-overlay').classList.remove('open');
@@ -5016,7 +5057,7 @@ function renderPcList(){
       </div>
       <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="togglePcRequests('${p.id}')">📨 Requests: ${reqs.length}</button>
-        ${p.card_shared?`<span>✅ Card shared${p.card_shared_at?' on '+pcDay(p.card_shared_at):''}</span>`:(vcPersonKey()?`<button class="btn btn-outline btn-sm" style="padding:6px 10px;min-height:unset;" onclick="pcShareCard('${p.id}')">💳 Share card</button>`:'<span>— Not shared</span>')}
+        ${p.card_shared?`<span>✅ Card shared${p.card_shared_at?' on '+pcDay(p.card_shared_at):''}${vcPersonKey()?` <button class="btn btn-ghost btn-sm" style="padding:4px 8px;min-height:unset;" onclick="pcShareCard('${p.id}')">🔁 Remind</button>`:''}</span>`:(vcPersonKey()?`<button class="btn btn-outline btn-sm" style="padding:6px 10px;min-height:unset;" onclick="pcShareCard('${p.id}')">💳 Share card</button>`:'<span>— Not shared</span>')}
       </div>
       ${pcScanLine(p)}
       ${p.card_message?`<details class="cl-sub" style="margin-top:8px;"><summary>Card message sent</summary><div style="white-space:pre-wrap;margin-top:6px;">${esc(p.card_message)}</div></details>`:''}
@@ -5052,14 +5093,17 @@ function openPcFollowup(id){
 // socials the storefront footer links (index.html's footer-connect-link
 // list / BRIEF.md's WhatsApp Channel link), so there's one source of truth
 // for these URLs, not three.
+// Shortest working forms (no https://, WhatsApp still makes them tappable).
+const MSG_LINKS=
+  `🌐 meensha.in\n`+
+  `📸 instagram.com/meensha_fabrics\n`+
+  `▶️ youtube.com/@meensha_Fabrics\n`+
+  `📘 fb.com/profile.php?id=61595683163344\n`+
+  `💬 whatsapp.com/channel/0029VbC1rowCHDyn3aulnS2v`;
 function pcFollowupMessage(name){
-  return `Hey ${(name||'there').trim()},\n`
-    +`Thanks for your interest in Meensha. You can select the collection of your choice and shop directly from our website, meensha.in.\n\n`
-    +`Follow us for updates on our social media:\n`
-    +`Instagram: https://instagram.com/meensha_fabrics\n`
-    +`Facebook: https://www.facebook.com/people/Meensha/61595683163344/\n`
-    +`YouTube: https://www.youtube.com/@meensha_Fabrics\n`
-    +`WhatsApp Channel: https://whatsapp.com/channel/0029VbC1rowCHDyn3aulnS2v`;
+  return `Hey ${(name||'there').trim()} 👋\n`
+    +`Thanks for your interest in Meensha. Pick the collection you like and shop directly on our website.\n\n`
+    +`Follow us for updates:\n${MSG_LINKS}`;
 }
 function pcContactTag(p){
   const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
