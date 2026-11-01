@@ -2592,7 +2592,9 @@ async function goDiscountPicker(){
   // stays on this screen with a remove (✕) button instead of jumping to
   // Confirm, so staff can still decline it or choose the order.
   const own=findCustomerOwnCoupons();
-  if(own.length===1){
+  if(own.length===1 && !confirm(`Apply ${own[0].customer_name||'this customer'}'s code ${own[0].code}?`)){
+    (S.declinedCodes=S.declinedCodes||[]).push(own[0].code);
+  } else if(own.length===1){
     const target=highestPricedCartItem((S.appliedDiscounts||[]).map(d=>d.unit_id));
     if(target){
       const amount=applyCouponToItem(own[0],target,false,own[0].event_id||null);
