@@ -2596,6 +2596,7 @@ async function goDiscountPicker(){
     const target=highestPricedCartItem((S.appliedDiscounts||[]).map(d=>d.unit_id));
     if(target){
       const amount=applyCouponToItem(own[0],target,false,own[0].event_id||null);
+      S.appliedDiscounts[S.appliedDiscounts.length-1].auto=true;
       toast(`🎟️ Auto-applied ${own[0].code}${own[0].customer_name?' ('+own[0].customer_name+')':''} to ${target.name} — -${fmtMoney(amount)}`);
     }
   }
@@ -2919,6 +2920,7 @@ async function runFinalizeSale(){
     items:S.cart.map(c=>({
       name:c.name, variant:c.variant||'', sku_code:c.unit_code, price:c.price,
       discount:(S.appliedDiscounts||[]).find(d=>d.unit_id===c.unit_id)?.discount??0,
+      ...((S.appliedDiscounts||[]).find(d=>d.unit_id===c.unit_id&&d.auto)?{auto_applied_coupon:(S.appliedDiscounts||[]).find(d=>d.unit_id===c.unit_id).code}:{}),
     })),
     total, paid, balance:total-paid,
     pay_mode:S.pay_mode, delivery_mode:'offline', shipping_status:'na', taxes:[],
