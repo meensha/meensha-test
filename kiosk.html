@@ -4968,10 +4968,10 @@ function pcScanLine(p){
   const m=(p.shared_by||'').match(/^Scan:\s*(.+)$/);
   if(!m)return '';
   const c=PC_COUPONS.find(x=>waMatches(x.customer_wa,p.wa));
-  if(!c)return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned · ${esc(m[1])}</div>`;
+  if(!c)return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned: ${esc(m[1])} QR code</div>`;
   const off=c.discount_type==='percent'?`${c.discount_value}% off`:`${fmtMoney(c.discount_value)} off`;
   const st=c.used?'used':(c.valid_until&&c.valid_until<todayStr()?'expired':'valid'+(c.valid_until?' till '+c.valid_until:''));
-  return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned · ${esc(m[1])} · Code <b>${esc(c.code)}</b> · ${off} · ${st}</div>`;
+  return `<div class="cl-sub" style="margin-top:8px;">📲 Scanned: ${esc(m[1])} QR code · Code <b>${esc(c.code)}</b> · ${off} · ${st}</div>`;
 }
 function renderPcList(){
   const body=document.getElementById('pc-list-body');
