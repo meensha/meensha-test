@@ -39,10 +39,31 @@ Most "how I built my e-commerce store" posts are either "I used Shopify" (nothin
 - A dedicated, separate Telegram bot (MeenshaMonitor) purely for owner-facing visibility — sale notifications mirrored from both regional bots, a daily tech-health digest (is the site up, is Razorpay reachable, is GitHub Pages serving), all running on Supabase's built-in cron rather than a separate server
 - The deliberate choice not to over-build this: no dashboard, no separate monitoring server, no vector database for "AI knowledge base" — just a bot that answers real questions from real (small) structured tables, because that's genuinely what the business needed, not what would look impressive in a portfolio
 
+**8. The lead that came in through a QR code and went nowhere (added 2026-11-01)**
+- At a stall, visitors scan a QR code to register for an offer. The owners expected those people to show up in their "potential customers" list. They did not — the registration saved a discount code but never created a lead. Fixing that was the easy part.
+- The sneaky part: a *repeat* scan (same person, same event) took an early-exit path that handed back the existing code and skipped the "add to leads" step entirely. Early returns quietly skip side effects — a good, plain-language lesson for anyone building forms.
+- The honest twist: my first fix moved the "add lead" step above the abuse limiter, and an independent reviewer pointed out that anyone holding the public event link could now flood the lead list. Fix: add the lead only after the limiter passes. Worth telling — the reviewer, not the builder, caught it.
+- Related clean-up: sharing a visiting card to someone already on the list used to create a second row. Now it updates the same person's entry and keeps a record of when it was shared and the exact message sent.
+
+**9. Letting a customer's own code apply itself — and still asking first**
+- Idea: if the number typed at checkout belongs to someone who scanned for an offer, apply their code automatically. Reality check from an independent tester: with no way to say "not this time", staff lose control of which discount goes where. Shipped version: it *asks* ("Apply Saily's code?"), remembers a "no" for that sale, and records on the sale that the discount was suggested automatically so owners can audit it later.
+- Same section, a smaller story: the owners wanted a flat "overall discount" on the whole bill, optional, but if used it must be less than the cart total, and it must show on the invoice the customer gets. Optional-but-validated is a surprisingly common requirement; the real work is the invoice math still adding up.
+
+**10. One phone-number rule does not fit two countries**
+- India: always +91 and exactly ten digits — strict is right. Australia: add +61 and don't police the length, because real numbers vary. The trap: comparing numbers by "last ten digits" quietly breaks for the looser country, and very short entries can match strangers. The fix was a shared helper and a minimum length, not a bigger rule.
+
+**11. "Send the invoice" turned out to mean two different things**
+- A WhatsApp link can pre-fill a message to a specific number but cannot attach a file. The phone's share sheet can attach the actual PDF but cannot pick the chat for you. Choosing between them is a product decision, not an engineering one; the honest answer is to offer both and explain the trade-off. A true one-tap "PDF to this number" needs the paid WhatsApp business interface — name that cost rather than hiding it.
+
+**12. How the work got reviewed (process beat)**
+- Every feature went through a builder, then a separate tester and a separate security reviewer working from the code alone, then a final sign-off — not because it's fashionable, but because each round found something the builder had missed (a missing "undo", a spam hole, a stale-data bug).
+- Two operational lessons: ship the database change *before* the website code that needs it, and remember the live site can take 10–25 minutes to update after a push — so only update the backup mirror after you've confirmed the change is actually live.
+
 ## Possible title options (pick one later)
 - "What a Handloom Saree Business Actually Needs From Its Tech Stack"
 - "I Built an E-Commerce Backend Around One Idea: No Two Sarees Are the Same"
 - "The Boring, Correct Way to Add AI to a Small Business Telegram Bot"
+- "The Bug Was in the Early Return: Lessons From a Small Shop's Lead Tracker"
 
 ## Tone notes for the actual write-up later
 - First-person, founder's voice — not a case study written in third person

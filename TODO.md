@@ -297,3 +297,6 @@ Status 2026-10-13: weekly Tuesday supervised pipeline now scheduled (first run 2
 - **Website orders in Sales History + shipment details:** built and shipped by its own session (commit `b0cd479`).
 - **Open:** admin.html edit-sale/print-invoice don't know about `overall_discount` (stale line / items won't sum on print); AU numbers stored 0412… vs 61412… can still duplicate; true short links need a redirect on meensha.in; unexplained: one manual discount that looked wrong (details never sent); golden muga silk "disappeared" from the list after a cart delete (piece was fine in the DB, released a few seconds later — likely the list loaded before the release; release should be awaited).
 - **Not browser/phone-tested:** share-sheet PDF, confirm prompt wording, tile layout — run a real scan + sale on the kiosk phone.
+
+## Deploy rule (added 2026-11-01)
+- Push to GitHub `origin` first; confirm meensha.in serves the change (Pages can lag 10-25 min); **then** sync Gitea (`git push gitea main`). Never sync Gitea before GitHub is live.
