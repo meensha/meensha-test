@@ -277,6 +277,8 @@ async function buildInvoicePdf(
     rightAlign("Discount", `-${sym}${fmt(discountTotal)}`);
   }
   rightAlign("Subtotal", `${sym}${fmt(subtotal)}`);
+  const overallDisc = Number(sale.overall_discount || 0);
+  if (overallDisc > 0) rightAlign("Overall Discount", `-${sym}${fmt(overallDisc)}`);
 
   // Tax lines — only when the sale actually has any (admin-only, off by
   // default; kiosk/storefront sales are never taxed).
@@ -290,7 +292,7 @@ async function buildInvoicePdf(
   // sales), a manual total adjustment, anything not already accounted for
   // above — show the gap explicitly rather than silently rendering two
   // numbers that don't reconcile with nothing bridging them.
-  const unexplainedGap = subtotal + taxesSum - Number(sale.total || 0);
+  const unexplainedGap = subtotal + taxesSum - overallDisc - Number(sale.total || 0);
   if (Math.abs(unexplainedGap) >= 1) {
     rightAlign(
       unexplainedGap > 0 ? "Additional Discount" : "Adjustment",

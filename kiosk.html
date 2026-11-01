@@ -777,6 +777,7 @@ main{flex:1;display:flex;flex-direction:column;position:relative;}
         <div class="scr-head"><h1>Confirm order</h1></div>
         <div class="confirm-customer" id="confirm-customer"></div>
         <div id="confirm-lines"></div>
+        <div class="field" style="margin:14px 0 6px;"><label>Overall discount on the whole bill (<span id="ov-cur">₹</span>) — optional</label><input type="number" id="ov-disc-input" min="0" inputmode="decimal" placeholder="Leave blank for none" oninput="setOverallDiscount()"><div id="ov-disc-err" class="hint" style="display:none;color:#e74c3c;margin-top:6px;"></div></div>
         <div class="confirm-totals" id="confirm-totals"></div>
       </div>
       <div class="bottombar">
@@ -2049,7 +2050,30 @@ setInterval(()=>{ if(CU)rpcP('release_expired_reservations',{}); },60*1000);
 function orderTotal(){
   const subtotal=S.cart.reduce((a,c)=>a+c.price,0);
   const disc=(S.appliedDiscounts||[]).reduce((a,d)=>a+d.discount,0);
-  return Math.max(0, subtotal-disc);
+  return Math.max(0, subtotal-disc-overallDiscountApplied());
+}
+// Overall discount: optional flat amount off the whole bill, entered on the
+// Confirm screen. Blank is fine; if entered it must be below the current
+// cart total (after per-item discounts), else Confirm is blocked.
+function overallDiscountBase(){
+  const subtotal=S.cart.reduce((a,c)=>a+c.price,0);
+  return subtotal-(S.appliedDiscounts||[]).reduce((a,d)=>a+d.discount,0);
+}
+function overallDiscountError(){
+  const v=S.overallDiscount;
+  if(!v)return '';
+  if(!(v>0))return 'Enter a valid amount.';
+  const base=overallDiscountBase();
+  return v<base?'':`Overall discount must be less than the bill total (${fmtMoney(base)}).`;
+}
+function overallDiscountApplied(){
+  return (S.overallDiscount>0 && !overallDiscountError()) ? S.overallDiscount : 0;
+}
+function setOverallDiscount(){
+  const raw=document.getElementById('ov-disc-input').value.trim();
+  const v=raw===''?0:parseFloat(raw);
+  S.overallDiscount=isNaN(v)?-1:v;
+  renderConfirmTotals();
 }
 function highestPricedCartItem(excludeUnitIds){
   const ex=excludeUnitIds||[];
@@ -2708,6 +2732,7 @@ function renderDiscountPicker(){
   });
   html+=`<button class="disc-opt" onclick="toggleInline('disc-code-box')"><span>🔑 Enter a code</span></button>`;
   html+=`<button class="disc-opt" onclick="toggleInline('disc-custom-box')"><span>✏️ Custom discount amount</span></button>`;
+  html+=`<button class="disc-opt" onclick="goConfirm();document.getElementById('ov-disc-input').focus()"><span>🧾 Overall discount on whole bill</span></button>`;
   opts.innerHTML=html;
 }
 // Once this customer already holds a code for an event, the generic event
@@ -2810,12 +2835,23 @@ function goConfirm(){
   const total=orderTotal();
   document.getElementById('confirm-customer').textContent=`${S.customer_name}  ·  ${S.customer_wa}`;
   document.getElementById('confirm-lines').innerHTML=formatConfirmLines();
-  const disc=subtotal-total;
+  document.getElementById('ov-cur').textContent=curSymbol();
+  document.getElementById('ov-disc-input').value=S.overallDiscount>0?S.overallDiscount:'';
+  renderConfirmTotals();
+  showScreen('scr-confirm');
+}
+function renderConfirmTotals(){
+  const subtotal=S.cart.reduce((a,c)=>a+c.price,0);
+  const itemDisc=(S.appliedDiscounts||[]).reduce((a,d)=>a+d.discount,0);
+  const ov=overallDiscountApplied();
+  const err=overallDiscountError();
+  const errEl=document.getElementById('ov-disc-err');
+  errEl.textContent=err; errEl.style.display=err?'block':'none';
   document.getElementById('confirm-totals').innerHTML=`
     <div class="ct-row"><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
-    ${disc?`<div class="ct-row"><span>Discount</span><span>-${fmtMoney(disc)}</span></div>`:''}
-    <div class="ct-row grand"><span>Total</span><span>${fmtMoney(total)}</span></div>`;
-  showScreen('scr-confirm');
+    ${itemDisc?`<div class="ct-row"><span>Discount</span><span>-${fmtMoney(itemDisc)}</span></div>`:''}
+    ${ov?`<div class="ct-row"><span>Overall discount</span><span>-${fmtMoney(ov)}</span></div>`:''}
+    <div class="ct-row grand"><span>Total</span><span>${fmtMoney(orderTotal())}</span></div>`;
 }
 function cancelConfirm(){
   if(!confirm('Cancel this sale? Nothing has been saved.'))return;
@@ -2828,6 +2864,8 @@ function cancelConfirm(){
 // PAYMENT MODE
 // ═══════════════════════════════════════════════
 function goPaymentMode(){
+  const ovErr=overallDiscountError();
+  if(ovErr){ toast(ovErr); return; }
   document.getElementById('pay-other-box').classList.remove('open');
   document.getElementById('upi-qr-area').innerHTML='';
   document.getElementById('rzp-area').innerHTML='';
@@ -2858,7 +2896,7 @@ async function choosePayMode(mode){
   if(mode==='razorpay'){
     // create-payment-link only knows coupon-based discounts — a custom ₹/A$
     // discount would be quoted here but charged at the full price.
-    if((S.appliedDiscounts||[]).some(d=>d.isCustom)){ toast('Razorpay can\'t include a custom discount — use Cash/UPI or Other instead.'); return; }
+    if((S.appliedDiscounts||[]).some(d=>d.isCustom)||overallDiscountApplied()>0){ toast('Razorpay can\'t include a custom or overall discount — use Cash/UPI or Other instead.'); return; }
     S.pay_mode='Razorpay'; await sendRazorpayLink(); return;
   }
 }
@@ -2970,6 +3008,7 @@ async function runFinalizeSale(){
       ...((S.appliedDiscounts||[]).find(d=>d.unit_id===c.unit_id&&d.auto)?{auto_applied_coupon:(S.appliedDiscounts||[]).find(d=>d.unit_id===c.unit_id).code}:{}),
     })),
     total, paid, balance:total-paid,
+    ...(overallDiscountApplied()>0?{overall_discount:overallDiscountApplied(),subtotal:S.cart.reduce((a,c)=>a+c.price,0)-(S.appliedDiscounts||[]).reduce((a,d)=>a+d.discount,0)}:{}),
     pay_mode:S.pay_mode, delivery_mode:'offline', shipping_status:'na', taxes:[],
     created_by: CU?.display_name || CU?.username || 'kiosk',
     // 'kiosk_pwa_au' is new (mirrors telegram_au vs telegram): AU-mode kiosk
