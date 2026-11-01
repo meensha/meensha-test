@@ -4867,6 +4867,15 @@ function openShareSendModal(){
   updateShareMessage();
   document.getElementById('vc-send-overlay').classList.add('open');
 }
+// Share-card from a Potential Customer tile: same send modal, prefilled.
+function pcShareCard(id){
+  const p=PC_DATA.find(x=>x.id===id);
+  if(!p||!vcPersonKey())return;
+  openShareSendModal();
+  document.getElementById('vcs-name').value=p.name||'';
+  document.getElementById('vcs-wa').value=p.wa||'';
+  updateShareMessage();
+}
 function closeShareSendModal(){
   document.getElementById('vc-send-overlay').classList.remove('open');
 }
@@ -4880,11 +4889,12 @@ async function submitShareCard(){
   const message=document.getElementById('vcs-message').value;
   if(!waValidForRegion(rawWa,region)){toast(region==='australia'?'Enter the WhatsApp number (at least 8 digits).':'Enter a valid 10-digit WhatsApp number.');return;}
   if(!name){toast('Enter a name.');return;}
-  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:region});
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:region,p_card_message:message});
   if(!ok){toast("Couldn't save — try again.");return;}
   window.open(`https://wa.me/${waIntlDigits(rawWa,region)}?text=${encodeURIComponent(message)}`,'_blank');
   closeShareSendModal();
   closeShareCardModal();
+  if(document.getElementById('scr-pc-list').classList.contains('active'))loadPotentialCustomers();
 }
 // Auto-send: as soon as a full 10-digit number is entered (with a name), save
 // the potential customer and open WhatsApp to +91 — once per number, so
@@ -5006,9 +5016,10 @@ function renderPcList(){
       </div>
       <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <button class="btn btn-ghost btn-sm" style="padding:6px 10px;min-height:unset;" onclick="togglePcRequests('${p.id}')">📨 Requests: ${reqs.length}</button>
-        <span>${p.card_shared?'✅ Card shared':'— Not shared'}</span>
+        ${p.card_shared?`<span>✅ Card shared${p.card_shared_at?' on '+pcDay(p.card_shared_at):''}</span>`:(vcPersonKey()?`<button class="btn btn-outline btn-sm" style="padding:6px 10px;min-height:unset;" onclick="pcShareCard('${p.id}')">💳 Share card</button>`:'<span>— Not shared</span>')}
       </div>
       ${pcScanLine(p)}
+      ${p.card_message?`<details class="cl-sub" style="margin-top:8px;"><summary>Card message sent</summary><div style="white-space:pre-wrap;margin-top:6px;">${esc(p.card_message)}</div></details>`:''}
       ${reqDetail}
       <div class="cl-sub" style="margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <span>Follow up: ${esc(p.follow_up||'—')}</span>
@@ -5232,7 +5243,7 @@ async function sendPcnSelected(){
   const rawWa=document.getElementById('pcn-wa').value;
   const ten=waDigitsForRegion(rawWa,region);
   const message=document.getElementById('pcn-message').value;
-  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:region});
+  const ok=await rpcA('save_potential_customer',{p_wa:ten,p_name:name,p_shared_by:CU?.username||'',p_region:region,p_card_message:message});
   if(!ok){toast("Couldn't save — try again.");return;}
   window.open(`https://wa.me/${waIntlDigits(rawWa,region)}?text=${encodeURIComponent(message)}`,'_blank');
   showScreen('scr-pc-list');
