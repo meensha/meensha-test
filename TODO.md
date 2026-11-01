@@ -2,9 +2,9 @@
 
 Tracked here so nothing raised in a session gets lost. Git-tracked (syncs to gitea/GitHub); update as items land.
 
-## Kiosk: event offer applies without a coupon — built 2026-11-01 (reviewed, NOT yet pushed)
+## Kiosk: event offer applies without a coupon — built 2026-11-01 (reviewed, LIVE 2026-11-01, Gitea synced)
 - [x] 2026-11-01 `kiosk.html`: tapping an event offer (e.g. Diwali Santhe) applies the event's own discount even with no registered code (non-consumable, `isCustom`); a valid registered code is still used+consumed, a used code stays blocked, and the event button no longer hides when the customer holds a coupon. Independent tester (30/30 harness checks) and security auditor (no new privilege) both reviewed.
-- [ ] Push `main` to deploy (frontend only), verify meensha.in, then `git push gitea main`.
+- [x] Pushed `main`, verified on meensha.in, synced Gitea.
 - [ ] Optional follow-ups: guard NaN `discount_value`; record `event_id`/discount source on sale items; Razorpay toast wording for event discounts; `esc()` doesn't escape `'` in the `openEventWa('${e.id}','${esc(e.title)}')` onclick (pre-existing, admin-only).
 
 ## Website orders in kiosk Sales History + shipment send — DEPLOYED 2026-11-01
