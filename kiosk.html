@@ -2835,6 +2835,7 @@ function goConfirm(){
   const total=orderTotal();
   document.getElementById('confirm-customer').textContent=`${S.customer_name}  ·  ${S.customer_wa}`;
   document.getElementById('confirm-lines').innerHTML=formatConfirmLines();
+  if(!(S.overallDiscount>0))S.overallDiscount=0;
   document.getElementById('ov-cur').textContent=curSymbol();
   document.getElementById('ov-disc-input').value=S.overallDiscount>0?S.overallDiscount:'';
   renderConfirmTotals();
