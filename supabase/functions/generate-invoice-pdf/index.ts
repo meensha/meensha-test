@@ -320,41 +320,31 @@ async function buildInvoicePdf(
   page.drawText(footer, { x: (pageW - fw) / 2, y, size: 9, font, color: gold });
   y -= 16;
 
-  // Social row: website + Instagram (icon drawn, not emoji — StandardFonts
-  // has no emoji glyphs) + WhatsApp (icon drawn). Brand contact details,
+  // Social row: website, Instagram, YouTube, Facebook + WhatsApp, each with a
+  // drawn icon (StandardFonts has no emoji glyphs). Brand contact details,
   // not the customer's own number.
   const socialColor = rgb(0.42, 0.36, 0.27);
   const socialSize = 8;
   const iconSize = 8;
   const gap = 4;
-  const groupGap = 12;
+  const groupGap = 11;
 
-  const website = "meensha.in";
-  const igHandle = "@meensha_fabrics";
-  const waNumber = "+91 87095 25218";
-
-  const websiteW = font.widthOfTextAtSize(website, socialSize);
-  const igTextW = font.widthOfTextAtSize(igHandle, socialSize);
-  const waTextW = font.widthOfTextAtSize(waNumber, socialSize);
-  const igGroupW = iconSize + gap + igTextW;
-  const waGroupW = iconSize + gap + waTextW;
-  const totalW = websiteW + groupGap + igGroupW + groupGap + waGroupW;
+  const items: { icon: (p: any, x: number, y: number, s: number, c: ReturnType<typeof rgb>) => void; text: string }[] = [
+    { icon: drawGlobeIcon, text: "meensha.in" },
+    { icon: drawInstagramIcon, text: "@meensha_fabrics" },
+    { icon: drawYoutubeIcon, text: "@meensha_Fabrics" },
+    { icon: drawFacebookIcon, text: "Meensha" },
+    { icon: drawWhatsappIcon, text: "+91 87095 25218" },
+  ];
+  const widths = items.map((it) => iconSize + gap + font.widthOfTextAtSize(it.text, socialSize));
+  const totalW = widths.reduce((a, w) => a + w, 0) + groupGap * (items.length - 1);
 
   let sx = (pageW - totalW) / 2;
-  const textY = y;
-  const iconY = y - 1;
-
-  page.drawText(website, { x: sx, y: textY, size: socialSize, font, color: socialColor });
-  sx += websiteW + groupGap;
-
-  drawInstagramIcon(page, sx, iconY, iconSize, socialColor);
-  sx += iconSize + gap;
-  page.drawText(igHandle, { x: sx, y: textY, size: socialSize, font, color: socialColor });
-  sx += igTextW + groupGap;
-
-  drawWhatsappIcon(page, sx, iconY, iconSize, socialColor);
-  sx += iconSize + gap;
-  page.drawText(waNumber, { x: sx, y: textY, size: socialSize, font, color: socialColor });
+  items.forEach((it, i) => {
+    it.icon(page, sx, y - 1, iconSize, socialColor);
+    page.drawText(it.text, { x: sx + iconSize + gap, y, size: socialSize, font, color: socialColor });
+    sx += widths[i] + groupGap;
+  });
 
   return doc.save();
 }
@@ -374,4 +364,23 @@ function drawWhatsappIcon(page: any, x: number, y: number, size: number, color: 
   const WHATSAPP_PATH =
     "M12 2.5a9.5 9.5 0 0 0-8.2 14.3L2.5 21.5l4.9-1.3A9.5 9.5 0 1 0 12 2.5Zm5.3 13.4c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-3-.7-2.5-1-4.1-3.5-4.2-3.7-.1-.2-1-1.3-1-2.5s.6-1.8.9-2c.2-.2.5-.3.7-.3h.5c.2 0 .4 0 .6.4.2.5.7 1.7.8 1.8.1.2.1.3 0 .5-.4.6-.8.9-1.1 1.2-.1.1-.2.3 0 .6.3.5 1 1.3 1.7 1.9.9.8 1.6 1 1.9 1.1.2.1.4.1.5-.1.2-.2.7-.8.9-1.1.2-.2.4-.2.6-.1l1.7.8c.2.1.4.2.4.3.1.2.1.6-.1 1.2Z";
   page.drawSvgPath(WHATSAPP_PATH, { x, y: y + size, scale: size / 24, color });
+}
+
+function drawGlobeIcon(page: any, x: number, y: number, size: number, color: ReturnType<typeof rgb>) {
+  const cx = x + size / 2, cy = y + size / 2;
+  page.drawCircle({ x: cx, y: cy, size: size / 2, borderColor: color, borderWidth: 0.7 });
+  page.drawEllipse({ x: cx, y: cy, xScale: size * 0.2, yScale: size / 2, borderColor: color, borderWidth: 0.5 });
+  page.drawLine({ start: { x, y: cy }, end: { x: x + size, y: cy }, thickness: 0.5, color });
+}
+
+function drawYoutubeIcon(page: any, x: number, y: number, size: number, color: ReturnType<typeof rgb>) {
+  page.drawRectangle({ x, y: y + size * 0.15, width: size, height: size * 0.7, borderColor: color, borderWidth: 0.7 });
+  page.drawSvgPath("M9.5 8.2v7.6l6.5-3.8-6.5-3.8Z", { x, y: y + size, scale: size / 24, color });
+}
+
+function drawFacebookIcon(page: any, x: number, y: number, size: number, color: ReturnType<typeof rgb>) {
+  page.drawSvgPath(
+    "M13.5 21v-8h2.7l.4-3.2h-3.1V7.8c0-.9.3-1.5 1.6-1.5h1.7V3.4c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.4-4 4.1v2.4H7.7V13h2.7v8h3.1Z",
+    { x, y: y + size, scale: size / 24, color },
+  );
 }
