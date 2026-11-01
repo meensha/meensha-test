@@ -1587,7 +1587,12 @@ async function renderReviews() {
   if (!grid || !section) return;
   section.style.display = 'block';
   if (!revs.length) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(232,213,163,.4);font-style:italic;">Be the first to share your experience.</p>'; return; }
-  grid.innerHTML = revs.map(r => `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
+  const escH = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  grid.innerHTML = revs.map(r => r.source === 'instagram' ? `<a class="reveal" href="${escH(r.ig_permalink)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
+    ${r.photo_url ? `<img src="${escH(r.photo_url)}" alt="" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;margin-bottom:12px;">` : ''}
+    <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH((r.review_text || '').slice(0, 220))}${(r.review_text || '').length > 220 ? '…' : ''}</p>
+    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${escH(r.display_name || '')} · on Instagram</p>
+  </a>` : `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
     <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
     <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${r.review_text || ''}</p>
     ${r.photo_url || r.photo_url_2 ? `<div style="display:flex;gap:8px;margin-bottom:10px;">${[r.photo_url, r.photo_url_2].filter(Boolean).map(u => `<img src="${u}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">`).join('')}</div>` : ''}
