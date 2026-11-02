@@ -26,12 +26,14 @@
   .btn { display:inline-block; padding:12px 26px; background:var(--gold); color:#0E0A04; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.14em; text-transform:uppercase; text-decoration:none; border-radius:4px; font-weight:600; }
   .alt { color:var(--gold-light); font-size:13px; }
   .watch { width:100%; height:200px; border:1px solid var(--divider); border-radius:8px; background:linear-gradient(135deg,#1a1208,#0e0a04); color:var(--gold-light); font-family:'Cinzel',serif; font-size:14px; letter-spacing:.1em; cursor:pointer; }
+  .watch.grab { position:relative; height:auto; padding:0; overflow:hidden; }
+  .watch.grab img { display:block; width:100%; }
+  .watch.grab .play { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:56px; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.7); }
   .says { width:100%; max-width:440px; margin-top:22px; }
   .says h2 { font-family:'Cinzel',serif; font-weight:400; font-size:13px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-light); text-align:center; margin-bottom:12px; }
   .hl { border-left:2px solid var(--gold); background:rgba(232,213,163,.04); padding:12px 14px; margin-bottom:10px; border-radius:0 6px 6px 0; }
   .chip { display:inline-block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--gold); border:1px solid var(--divider); border-radius:10px; padding:1px 8px; margin-bottom:6px; }
   .hlq { font-family:'Cormorant Garamond',serif; font-size:18px; line-height:1.4; color:var(--cream); overflow-wrap:anywhere; }
-  .hla { font-size:12px; color:var(--text-dim); margin-top:4px; }
   .foot { margin-top:26px; font-size:12px; color:var(--text-dim); text-align:center; }
   .foot a { color:var(--gold-light); }
   .msg { color:var(--text-dim); font-style:italic; padding:30px 0; }
@@ -55,7 +57,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function notFound() {
   const f = document.getElementById('frame');
-  f.innerHTML = '<p class="msg">This review is not available.</p><div class="actions"><a class="btn" href="https://meensha.in/">Shop our sarees</a></div>';
+  f.innerHTML = '<p class="msg">This review is not available.</p><div class="actions"><a class="btn" href="https://meensha.in/#open-shop">Shop our sarees</a></div>';
 }
 
 (async function () {
@@ -65,11 +67,15 @@ function notFound() {
   const base = 'id,rating,review_text,display_name,source,ig_permalink,photo_url,created_at,status';
   const MEDIA_RE = /^https:\/\/eglanmhhcccsuhbxywua\.supabase\.co\/storage\/v1\/object\/public\/review-media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|mp4|webm|mov)$/;
   const filt = `&id=eq.${id}&status=eq.approved&source=in.(instagram_link,story_upload)&limit=1`;
-  let rows = await spFetch('public_reviews', `?select=${base},comment_highlights${filt}`);
+  let rows = await spFetch('public_reviews', `?select=${base},thumb_url,comment_highlights${filt}`);
+  if (!rows.length) rows = await spFetch('public_reviews', `?select=${base},comment_highlights${filt}`);
+  if (!rows.length) rows = await spFetch('reviews', `?select=${base},comment_highlights${filt}`);
   if (!rows.length) rows = await spFetch('reviews', `?select=${base}${filt}`);
   const r = rows[0];
   if (!r) return notFound();
   const story = r.source === 'story_upload';
+  const THUMB_RE = /^https:\/\/eglanmhhcccsuhbxywua\.supabase\.co\/storage\/v1\/object\/public\/review-media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/;
+  const thumb = THUMB_RE.test(r.thumb_url || '') ? r.thumb_url : '';
   const ig = !story && IG_RE.exec(r.ig_permalink || '');
   if (!story && !ig) return notFound();
   // Story uploads: media only if the URL is one of OUR review-media storage URLs (type comes from the extension).
@@ -90,7 +96,7 @@ function notFound() {
     const m = document.createElement(isVid ? 'video' : 'img');
     m.src = r.photo_url;
     m.className = 'media';
-    if (isVid) { m.controls = true; m.playsInline = true; m.preload = 'metadata'; } else { m.alt = 'Review by ' + (r.display_name || 'a Meensha customer'); m.loading = 'lazy'; }
+    if (isVid) { if (thumb) m.poster = thumb; m.controls = true; m.playsInline = true; m.preload = 'metadata'; } else { m.alt = 'Review by ' + (r.display_name || 'a Meensha customer'); m.loading = 'lazy'; }
     f.appendChild(m);
   } else {
     // Instagram's official embed, loaded only on tap (privacy: Instagram sees nothing until the visitor chooses).
@@ -99,6 +105,12 @@ function notFound() {
     const hint = mk('p', 'hint', 'Opens Instagram\u2019s own player.');
     const ph = mk('button', 'watch', '\u25B6 Watch the post with sound');
     ph.type = 'button';
+    if (thumb) {
+      // Screengrab with a play overlay instead of the plain button.
+      ph.textContent = ''; ph.className = 'watch grab';
+      const gi = document.createElement('img'); gi.src = thumb; gi.alt = ''; ph.append(gi, mk('span', 'play', '\u25B6'));
+      ph.setAttribute('aria-label', 'Watch the post with sound');
+    }
     ph.onclick = () => {
       const fr = document.createElement('iframe');
       fr.src = `https://www.instagram.com/${kind}/${code}/embed/`;
@@ -113,7 +125,7 @@ function notFound() {
   }
 
   const act = mk('div', 'actions');
-  const shop = mk('a', 'btn', 'Shop our sarees'); shop.href = 'https://meensha.in/';
+  const shop = mk('a', 'btn', 'Shop our sarees'); shop.href = 'https://meensha.in/#open-shop';
   if (ig) {
     const view = mk('a', 'alt', 'View on Instagram'); view.href = `https://www.instagram.com/${kind}/${code}/`; view.target = '_blank'; view.rel = 'noopener';
     act.append(shop, view);
@@ -129,7 +141,6 @@ function notFound() {
       const c = mk('div', 'hl');
       c.appendChild(mk('span', 'chip', String(h.theme || 'other')));
       c.appendChild(mk('p', 'hlq', '\u201C' + h.text.slice(0, 200) + '\u201D'));
-      if (h.author) c.appendChild(mk('p', 'hla', '\u2014 ' + String(h.author).slice(0, 40)));
       sec.appendChild(c);
     });
   }

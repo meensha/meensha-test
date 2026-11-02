@@ -719,6 +719,58 @@ footer {
 .cart-checkout-btn { display:flex;align-items:center;justify-content:center;gap:7px;background:#25D366;color:#fff;border:none;padding:11px 14px;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;width:100%;text-decoration:none;transition:background .3s; }
 .cart-checkout-btn:hover { background:#1da851; }
 .cart-checkout-btn.disabled { pointer-events:none;opacity:.4; }
+/* REVIEW-CAROUSEL-CSS-START */
+.rv-card{cursor:pointer;background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;}
+.rv-card:focus-visible{outline:2px solid var(--gold-light);outline-offset:2px;}
+.rv-stars{color:#f0c419;font-size:16px;margin-bottom:8px;}
+.rv-text{font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;overflow-wrap:anywhere;}
+.rv-name{font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;overflow-wrap:anywhere;margin-bottom:10px;}
+.rv-card .rv-hl{text-align:left;border-left:2px solid #c9a84c;background:rgba(232,213,163,.04);padding:8px 10px;margin-bottom:8px;border-radius:0 6px 6px 0;}
+.rv-take{font-size:11px;color:#8a7d64;margin-top:6px;}.rv-take a{color:var(--gold-light);}
+.rv-card .rv-chip{display:inline-block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#c9a84c;border:1px solid rgba(201,168,76,.18);border-radius:10px;padding:1px 7px;margin-bottom:4px;}
+.rv-card .rv-hlq{font-family:'Cormorant Garamond',serif;font-size:16px;line-height:1.4;color:#f0e8d5;overflow-wrap:anywhere;}
+.rv-thumb{position:relative;margin-bottom:12px;}
+.rv-thumb img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;}
+.rv-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.7);pointer-events:none;}
+#rv-pop{position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:12px;}
+#rv-pop .rv-box{position:relative;width:100%;max-width:460px;max-height:100%;overflow-y:auto;background:#0e0a04;border:1px solid rgba(201,168,76,.25);border-radius:10px;padding:34px 18px 58px;text-align:center;}
+#rv-pop .rv-x{position:absolute;top:6px;right:8px;background:none;border:0;color:var(--gold-light);font-size:24px;cursor:pointer;padding:4px 10px;}
+#rv-pop .rv-nav{position:absolute;bottom:10px;background:rgba(0,0,0,.55);border:1px solid rgba(201,168,76,.3);color:var(--gold-light);font-size:22px;width:38px;height:38px;border-radius:50%;cursor:pointer;z-index:2;}
+#rv-pop .rv-prev{left:10px;}#rv-pop .rv-next{right:10px;}
+#rv-pop .rv-big{font-size:34px;letter-spacing:4px;color:#f0c419;margin-bottom:12px;}
+#rv-pop .rv-quote{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:20px;line-height:1.5;color:#f0e8d5;margin-bottom:12px;white-space:pre-wrap;overflow-wrap:anywhere;}
+#rv-pop .rv-who{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-light);margin-bottom:16px;overflow-wrap:anywhere;}
+#rv-pop .rv-media{display:block;max-width:100%;max-height:60vh;margin:0 auto;border-radius:8px;border:1px solid rgba(201,168,76,.18);}
+#rv-pop .rv-vid{position:relative;cursor:pointer;border:0;background:none;padding:0;width:100%;}
+#rv-pop .rv-vid .rv-play{font-size:56px;}
+#rv-pop .rv-watch{width:100%;height:160px;border:1px solid rgba(201,168,76,.18);border-radius:8px;background:#1a1208;color:var(--gold-light);font-family:'Cinzel',serif;cursor:pointer;}
+#rv-pop iframe{width:100%;height:520px;border:1px solid rgba(201,168,76,.18);border-radius:8px;background:#000;}
+#rv-pop .rv-link{display:inline-block;margin-top:14px;font-size:13px;color:var(--gold-light);}
+#rv-pop .rv-says h3{font-family:'Cinzel',serif;font-weight:400;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-light);margin:18px 0 10px;}
+#rv-pop .rv-hl{text-align:left;border-left:2px solid #c9a84c;background:rgba(232,213,163,.04);padding:10px 12px;margin-bottom:8px;border-radius:0 6px 6px 0;}
+#rv-pop .rv-chip{display:inline-block;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#c9a84c;border:1px solid rgba(201,168,76,.18);border-radius:10px;padding:1px 8px;margin-bottom:5px;}
+#rv-pop .rv-hlq{font-family:'Cormorant Garamond',serif;font-size:17px;line-height:1.4;color:#f0e8d5;overflow-wrap:anywhere;}
+#rv-pop .rv-shop{display:block;margin:18px auto 0;padding:11px 24px;background:#c9a84c;color:#0E0A04;border:0;border-radius:4px;font-family:'Cinzel',serif;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;cursor:pointer;}
+#rv-pop .rv-count{margin-top:14px;line-height:38px;margin-bottom:-14px;font-size:12px;color:#8a7d64;}
+/* REVIEW-CAROUSEL-CSS-END */
+
+/* SHOP-DRAWER-CSS-START: <=700px only; desktop untouched */
+#sp-bar,#sp-backdrop,#sp-side-x{display:none;}
+@media(max-width:700px){
+  #sp-bar{display:flex;align-items:center;gap:8px;position:sticky;top:90px;z-index:480;background:var(--dark2);padding:8px 0;margin-bottom:12px;}
+  #sp-filter-btn{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-light);background:none;border:1px solid var(--gold-light);padding:9px 14px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #sp-bar-clear{font-family:'Cinzel',serif;font-size:11px;color:var(--gold-light);background:rgba(232,213,163,.08);border:1px solid rgba(232,213,163,.25);border-radius:14px;padding:6px 10px;cursor:pointer;}
+  #sp-bar-clear[hidden]{display:none;}
+  #shop-page #sp-side{position:fixed!important;top:0!important;left:0!important;text-align:left;height:100%!important;width:min(84vw,320px);margin:0!important;box-sizing:border-box;z-index:850;background:var(--dark);border-right:1px solid var(--gold-dim);padding:56px 18px 18px;display:flex;flex-direction:column;transform:translateX(-100%);visibility:hidden;transition:transform .3s ease,visibility 0s linear .3s;}
+  #shop-page #sp-side.open{transform:none;visibility:visible;transition:transform .3s ease,visibility 0s;}
+  #sp-side #sp-cats{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  #sp-side-x{display:block;position:absolute;top:8px;right:10px;background:none;border:0;color:var(--gold-light);font-size:24px;cursor:pointer;padding:6px 10px;}
+  #sp-backdrop{position:fixed;inset:0;z-index:840;background:rgba(0,0,0,.55);}
+  #sp-backdrop.open{display:block;}
+  html.sp-lock,html.sp-lock body{overflow:hidden;}
+}
+@media(max-width:700px) and (prefers-reduced-motion:reduce){#shop-page #sp-side,#shop-page #sp-side.open{transition:none;}}
+/* SHOP-DRAWER-CSS-END */
 </style>
 </head>
 <body>
@@ -928,8 +980,11 @@ footer {
     <button onclick="closeShop()" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:rgba(232,213,163,.45);background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:24px;transition:color .3s;" onmouseover="this.style.color='#C9A84C'" onmouseout="this.style.color='rgba(232,213,163,.45)'">← Back to Collections</button>
     <h2 id="sp-title" style="font-size:clamp(24px,3.5vw,42px);font-weight:300;font-style:italic;color:var(--cream);margin-bottom:6px;"></h2>
     <p id="sp-count" style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.2em;color:var(--gold-light);opacity:.55;text-transform:uppercase;margin-bottom:20px;"></p>
+    <div id="sp-bar"><button type="button" id="sp-filter-btn" aria-expanded="false" aria-controls="sp-side" onclick="spDrawer(true)">☰ Filters · <span id="sp-bar-label">All Collections</span></button><button type="button" id="sp-bar-clear" hidden aria-label="Show all collections" onclick="spBarClear()">✕</button></div>
+    <div id="sp-backdrop" onclick="spDrawer(false)"></div>
     <div style="display:grid;grid-template-columns:180px 1fr;gap:36px;">
-      <div style="position:sticky;top:155px;height:fit-content;">
+      <div id="sp-side" style="position:sticky;top:155px;height:fit-content;">
+        <button type="button" id="sp-side-x" aria-label="Close filters" onclick="spDrawer(false)">✕</button>
         <p style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-light);opacity:.7;margin-bottom:8px;">Search</p>
         <input type="text" id="sp-search" placeholder="Search sarees…" oninput="onShopSearch(this.value)" style="width:100%;box-sizing:border-box;background:rgba(232,213,163,.06);border:1px solid rgba(232,213,163,.25);color:var(--cream);font-family:'Cinzel',serif;font-size:11px;letter-spacing:.05em;padding:8px 10px;margin-bottom:20px;outline:none;">
         <p style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-light);opacity:.7;margin-bottom:13px;">Browse By</p>
@@ -1591,39 +1646,200 @@ async function renderInstagramTiles() {
   section.style.display = 'block';
 }
 
-// Approved reviews — only ones an owner has moderated to 'approved'.
+// REVIEW-CAROUSEL-START
+// Strict URL checks (same rules as review-share.html): our review-media bucket only, and a validated Instagram shortcode.
+const REV_MEDIA_RE = /^https:\/\/eglanmhhcccsuhbxywua\.supabase\.co\/storage\/v1\/object\/public\/review-media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|mp4|webm|mov)$/;
+const REV_IMG_RE = /^https:\/\/eglanmhhcccsuhbxywua\.supabase\.co\/storage\/v1\/object\/public\/review-media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/;
+const REV_IG_RE = /^https:\/\/(?:www\.|m\.)?instagram\.com\/(?:(?!share\/)[A-Za-z0-9._]{1,30}\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]{5,20})\/?(?:[?#]\S*)?$/i;
+const REV_THEMES = ['colour','fabric','craft','delivery','service','gift','other'];
+let revList = [];
+
+// Turns a DB row into what the grid and the popup need. Anything failing validation just loses its media.
+function revNormalize(r) {
+  const s = { id: r.id, source: r.source, rating: Math.max(0, Math.min(5, parseInt(r.rating) || 0)), text: r.review_text || '', name: r.display_name || '', kind: 'text', thumb: '', media: '', code: '', kindIg: '', permalink: '', highlights: [] };
+  if (r.source === 'story_upload' && REV_MEDIA_RE.test(r.photo_url || '')) {
+    if (REV_IMG_RE.test(r.photo_url)) { s.kind = 'story_img'; s.media = r.photo_url; s.thumb = r.photo_url; }
+    else { s.kind = 'story_vid'; s.media = r.photo_url; if (REV_IMG_RE.test(r.thumb_url || '')) s.thumb = r.thumb_url; }
+  } else if (r.source === 'instagram_link') {
+    const m = REV_IG_RE.exec(r.ig_permalink || '');
+    if (m) { const k = m[1].toLowerCase(); s.kind = 'ig'; s.kindIg = k === 'p' || k === 'tv' ? 'p' : 'reel'; s.code = m[2]; if (REV_IMG_RE.test(r.thumb_url || '')) s.thumb = r.thumb_url; }
+  } else if (r.source === 'instagram') {
+    s.kind = 'igpull'; if (/^https:\/\/(www\.)?instagram\.com\//.test(r.ig_permalink || '')) s.permalink = r.ig_permalink;
+    if (r.photo_url) s.thumb = r.photo_url;
+  } else if (r.photo_url && r.source !== 'story_upload' && r.source !== 'instagram_link') { s.thumb = r.photo_url; } // legacy verified rows only; strict-source rows never fall through
+  // Highlights are shown without attribution: any stored `author` is ignored.
+  s.highlights = (Array.isArray(r.comment_highlights) ? r.comment_highlights : []).slice(0, 6).filter(h => h && typeof h.text === 'string' && h.text).map(h => ({ text: h.text.slice(0, 200), theme: REV_THEMES.includes(h.theme) ? h.theme : 'other' }));
+  return s;
+}
+
+// Fetch with fallbacks so the grid is never blank before the thumb_url migration is applied:
+// view + thumb_url -> view without thumb_url -> base table (safe columns only).
+async function revFetch(fetcher) {
+  const base = 'id,rating,review_text,display_name,source,ig_permalink,photo_url,created_at,status';
+  const tail = '&status=eq.approved&order=created_at.desc&limit=12';
+  let revs = await fetcher('public_reviews', `?select=${base},thumb_url,comment_highlights${tail}`);
+  if (!revs.length) revs = await fetcher('public_reviews', `?select=${base},comment_highlights${tail}`);
+  if (!revs.length) revs = await fetcher('reviews', `?select=${base},comment_highlights${tail}`);
+  if (!revs.length) revs = await fetcher('reviews', `?select=${base}${tail}`);
+  return revs;
+}
+
+const revEl = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+let revPop = null, revIdx = 0, revOpener = null, revPrevOverflow = '', revTouchX = null;
+
+function revTeardownMedia() {
+  if (!revPop) return;
+  revPop.querySelectorAll('video').forEach(v => { try { v.pause(); } catch (e) {} v.removeAttribute('src'); v.load && v.load(); v.remove(); });
+  revPop.querySelectorAll('iframe').forEach(f => f.remove());
+}
+
+function revRenderSlide() {
+  revTeardownMedia();
+  const s = revList[revIdx], box = revPop.querySelector('.rv-box'), stage = revPop.querySelector('.rv-stage');
+  stage.textContent = '';
+  if (s.rating > 0) stage.appendChild(revEl('div', 'rv-big', '★'.repeat(s.rating) + '☆'.repeat(5 - s.rating)));
+  if (s.text) stage.appendChild(revEl('p', 'rv-quote', '“' + s.text + '”'));
+  stage.appendChild(revEl('p', 'rv-who', s.name || 'Verified Customer'));
+  if (s.kind === 'story_img') {
+    const im = revEl('img', 'rv-media'); im.src = s.media; im.alt = 'Review by ' + (s.name || 'a Meensha customer'); stage.appendChild(im);
+  } else if (s.kind === 'story_vid') {
+    // The <video> only exists while its slide is shown. Tap the screengrab to create it (sound on tap).
+    const mk = () => { const v = revEl('video', 'rv-media'); v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.src = s.media; if (s.thumb) v.poster = s.thumb; return v; };
+    if (s.thumb) {
+      const b = revEl('button', 'rv-vid'); b.type = 'button'; b.setAttribute('aria-label', 'Play video');
+      const im = revEl('img', 'rv-media'); im.src = s.thumb; im.alt = ''; b.append(im, revEl('span', 'rv-play', '▶'));
+      b.onclick = () => { const v = mk(); b.replaceWith(v); v.play().catch(() => {}); v.focus(); };
+      stage.appendChild(b);
+    } else stage.appendChild(mk());
+  } else if (s.kind === 'ig') {
+    // Instagram's embed is created only on tap and removed when leaving the slide.
+    const b = revEl('button', 'rv-vid'); b.type = 'button'; b.setAttribute('aria-label', 'Watch with sound');
+    if (s.thumb) { const im = revEl('img', 'rv-media'); im.src = s.thumb; im.alt = ''; b.append(im, revEl('span', 'rv-play', '▶')); }
+    else { b.className = 'rv-watch'; b.textContent = '▶ Watch with sound'; }
+    b.onclick = () => {
+      const fr = document.createElement('iframe');
+      fr.src = `https://www.instagram.com/${s.kindIg}/${s.code}/embed/`;
+      fr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation');
+      fr.setAttribute('allowfullscreen', ''); fr.title = 'Instagram post';
+      b.replaceWith(fr);
+    };
+    stage.appendChild(b);
+  } else if (s.kind === 'igpull' && s.permalink) {
+    const a = revEl('a', 'rv-link', 'View on Instagram'); a.href = s.permalink; a.target = '_blank'; a.rel = 'noopener'; stage.appendChild(a);
+  }
+  if (s.highlights.length) {
+    const sec = revEl('div', 'rv-says'); sec.appendChild(revEl('h3', null, 'What people are saying'));
+    s.highlights.forEach(h => sec.appendChild(revHl(h)));
+    stage.appendChild(sec);
+    stage.appendChild(revTakedown());
+  }
+  if (s.kind === 'story_img' || s.kind === 'story_vid' || s.kind === 'ig') {
+    const a = revEl('a', 'rv-link', 'Share this review'); a.href = 'review-share.html?id=' + encodeURIComponent(s.id); stage.appendChild(a);
+  }
+  const shop = revEl('button', 'rv-shop', 'Shop our sarees'); shop.type = 'button'; shop.onclick = () => { revClose(); openShop('all'); }; stage.appendChild(shop);
+  revPop.querySelector('.rv-count').textContent = (revIdx + 1) + ' / ' + revList.length;
+  box.scrollTop = 0;
+}
+
+// One highlight card (curly quotes, theme chip, no attribution); textContent only.
+function revHl(h) { const c = revEl('div', 'rv-hl'); c.appendChild(revEl('span', 'rv-chip', h.theme)); c.appendChild(revEl('p', 'rv-hlq', '“' + h.text + '”')); return c; }
+
+const REV_WA = 'https://wa.me/918709525218';
+function revTakedown() { const p = revEl('p', 'rv-take', 'Want a comment removed? '); const a = revEl('a', null, 'Message us on WhatsApp'); a.href = REV_WA; a.target = '_blank'; a.rel = 'noopener'; p.appendChild(a); return p; }
+
+function revGo(d) { if (revList.length < 2) return; revIdx = (revIdx + d + revList.length) % revList.length; revRenderSlide(); }
+
+function revKey(e) {
+  if (!revPop) return;
+  const typing = e.target && e.target.closest && e.target.closest('video, input, textarea, select');
+  if (e.key === 'Escape') { e.preventDefault(); revClose(); }
+  else if (e.key === 'ArrowLeft' && !typing) { e.preventDefault(); revGo(-1); }
+  else if (e.key === 'ArrowRight' && !typing) { e.preventDefault(); revGo(1); }
+  else if (e.key === 'Tab') {
+    const f = [...revPop.querySelectorAll('button, a[href], video[controls]')].filter(x => !x.disabled);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (!revPop.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+
+function revClose() {
+  if (!revPop) return;
+  revTeardownMedia();
+  revPop.remove(); revPop = null;
+  document.removeEventListener('keydown', revKey);
+  document.body.style.overflow = revPrevOverflow;
+  if (revOpener && revOpener.focus) revOpener.focus();
+  revOpener = null;
+}
+
+function revOpen(i, opener) {
+  if (revPop || !revList.length) return;
+  revIdx = Math.max(0, Math.min(revList.length - 1, i)); revOpener = opener || null;
+  const pop = revEl('div'); pop.id = 'rv-pop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-modal', 'true'); pop.setAttribute('aria-label', 'Customer reviews');
+  const box = revEl('div', 'rv-box');
+  const x = revEl('button', 'rv-x', '✕'); x.type = 'button'; x.setAttribute('aria-label', 'Close'); x.onclick = revClose;
+  const prev = revEl('button', 'rv-nav rv-prev', '‹'); prev.type = 'button'; prev.setAttribute('aria-label', 'Previous review'); prev.onclick = () => revGo(-1);
+  const next = revEl('button', 'rv-nav rv-next', '›'); next.type = 'button'; next.setAttribute('aria-label', 'Next review'); next.onclick = () => revGo(1);
+  const stage = revEl('div', 'rv-stage'); stage.setAttribute('aria-live', 'polite');
+  const count = revEl('div', 'rv-count');
+  box.append(x, stage, count); if (revList.length > 1) box.append(prev, next); pop.append(box);
+  pop.addEventListener('click', e => { if (e.target === pop) revClose(); });
+  pop.addEventListener('touchstart', e => { if (e.target.closest && e.target.closest('video, iframe')) { revTouchX = null; return; } revTouchX = e.touches[0].clientX; revTouchY = e.touches[0].clientY; }, { passive: true });
+  pop.addEventListener('touchend', e => {
+    if (revTouchX == null) return;
+    const dx = e.changedTouches[0].clientX - revTouchX, dy = e.changedTouches[0].clientY - revTouchY; revTouchX = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) revGo(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  revPop = pop; revPrevOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
+  document.body.appendChild(pop); document.addEventListener('keydown', revKey);
+  revRenderSlide(); x.focus();
+}
+let revTouchY = 0;
+
+// Approved reviews: each card opens the popup carousel of all loaded reviews, starting at that card.
 async function renderReviews() {
   let revs = [];
-  try { // Explicit safe columns only (no wa/customer/sale). Prefer the public_reviews view; fall back to the table until the view exists.
-    const cols = 'id,rating,review_text,display_name,source,ig_permalink,photo_url,created_at,status';
-    revs = await spFetch('public_reviews', `?select=${cols}&status=eq.approved&order=created_at.desc&limit=12`);
-    if (!revs.length) revs = await spFetch('reviews', `?select=${cols}&status=eq.approved&order=created_at.desc&limit=12`); } catch(e) { return; }
+  try { revs = await revFetch(spFetch); } catch(e) { return; }
   const grid = document.getElementById('reviews-grid');
   const section = document.getElementById('reviews-section');
   if (!grid || !section) return;
   section.style.display = 'block';
   if (!revs.length) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(232,213,163,.4);font-style:italic;">Be the first to share your experience.</p>'; return; }
-  const escH = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  grid.innerHTML = revs.map(r => r.source === 'instagram_link' || r.source === 'story_upload' ? `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
-    <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
-    ${r.review_text ? `<p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH(r.review_text)}</p>` : ''}
-    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;margin-bottom:10px;">${escH(r.display_name || '')} · ${r.source === 'story_upload' ? 'Customer story' : 'on Instagram'}</p>
-    ${r.source === 'story_upload' && /^https:\/\/eglanmhhcccsuhbxywua\.supabase\.co\/storage\/v1\/object\/public\/review-media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/.test(r.photo_url || '') ? `<img src="${escH(r.photo_url)}" alt="" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;margin-bottom:12px;">` : ''}
-    <a href="review-share.html?id=${encodeURIComponent(r.id)}" style="font-size:12px;color:var(--gold-light);">▶ ${r.source === 'story_upload' ? 'See the story' : 'Watch the post'}</a>
-  </div>` : r.source === 'instagram' ? `<a class="reveal" href="${/^https:\/\/(www\.)?instagram\.com\//.test(r.ig_permalink || '') ? escH(r.ig_permalink) : '#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
-    ${r.photo_url ? `<img src="${escH(r.photo_url)}" alt="" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;margin-bottom:12px;">` : ''}
-    <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH((r.review_text || '').slice(0, 220))}${(r.review_text || '').length > 220 ? '…' : ''}</p>
-    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${escH(r.display_name || '')} · on Instagram</p>
-  </a>` : `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
-    <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
-    <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH(r.review_text || '')}</p>
-    ${r.photo_url ? `<div style="display:flex;gap:8px;margin-bottom:10px;"><img src="${escH(r.photo_url)}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;"></div>` : ''}
-    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${escH(r.display_name || 'Verified Customer')}</p>
-  </div>`).join('');
+  revList = revs.map(revNormalize);
+  grid.textContent = '';
+  revList.forEach((s, i) => {
+    if (s.kind === 'igpull') {
+      // Collab-pull posts keep their link-out card.
+      const a = revEl('a', 'reveal rv-card'); a.style.cssText = 'display:block;text-decoration:none;'; a.target = '_blank'; a.rel = 'noopener'; a.href = s.permalink || '#';
+      if (s.thumb) { const im = revEl('img'); im.src = s.thumb; im.alt = ''; im.loading = 'lazy'; im.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;margin-bottom:12px;'; a.appendChild(im); }
+      a.appendChild(revEl('p', 'rv-text', s.text.slice(0, 220) + (s.text.length > 220 ? '…' : '')));
+      a.appendChild(revEl('p', 'rv-name', s.name + ' · on Instagram'));
+      grid.appendChild(a); return;
+    }
+    const c = revEl('div', 'reveal rv-card'); c.tabIndex = 0; c.setAttribute('role', 'button'); c.setAttribute('aria-label', 'Open review by ' + (s.name || 'a customer'));
+    if (s.rating > 0) c.appendChild(revEl('div', 'rv-stars', '★'.repeat(s.rating) + '☆'.repeat(5 - s.rating)));
+    if (s.text) c.appendChild(revEl('p', 'rv-text', s.text));
+    c.appendChild(revEl('p', 'rv-name', s.name || 'Verified Customer'));
+    if (s.thumb) {
+      const t = revEl('div', 'rv-thumb'); const im = revEl('img'); im.src = s.thumb; im.alt = ''; im.loading = 'lazy'; t.appendChild(im);
+      if (s.kind === 'story_vid' || s.kind === 'ig') t.appendChild(revEl('span', 'rv-play', '▶'));
+      c.appendChild(t);
+    }
+    // Up to 3 saved highlights, visible without a click (all of them are in the popup).
+    s.highlights.slice(0, 3).forEach(h => c.appendChild(revHl(h)));
+    if (s.highlights.length) { const t = revTakedown(); t.addEventListener('click', e => e.stopPropagation()); c.appendChild(t); }
+    c.onclick = () => revOpen(i, c);
+    c.onkeydown = e => { if (e.target !== c) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); revOpen(i, c); } };
+    grid.appendChild(c);
+  });
   section.style.display = 'block';
   // These cards are added after page load, so the scroll-reveal observer (set up once at load) never sees them.
   grid.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 }
+// REVIEW-CAROUSEL-END
 
 // Drop any cart items whose unit is no longer reserved by us (expired / sold / released elsewhere)
 function reconcileCart() {
@@ -1667,8 +1883,16 @@ function renderShopCategories() {
   if (!ul) return;
   const cats = getShopCategories();
   if (spF !== 'all' && !cats.some(c => c.label.toLowerCase() === spF.toLowerCase())) spF = 'all';
-  ul.innerHTML = '<li><button class="sp-cb' + (spF==='all'?' on':'') + '" data-cat="all" onclick="filterShop(\'all\',this)">All Collections</button></li>' +
-    cats.map(c => `<li><button class="sp-cb${spF.toLowerCase()===c.label.toLowerCase()?' on':''}" data-cat="${c.label}" onclick="filterShop('${c.label.replace(/'/g,"\\'")}',this)">${c.label}</button></li>`).join('');
+  // Built with DOM APIs: category labels come from SKU names and must never be parsed as HTML.
+  ul.textContent = '';
+  const add = (label, cat, on) => {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.className = 'sp-cb' + (on ? ' on' : ''); b.dataset.cat = cat; b.textContent = label;
+    b.addEventListener('click', () => filterShop(cat, b));
+    li.appendChild(b); ul.appendChild(li);
+  };
+  add('All Collections', 'all', spF === 'all');
+  cats.forEach(c => add(c.label, c.label, spF.toLowerCase() === c.label.toLowerCase()));
 }
 
 // Homepage preview grid — top categories by current stock (same dynamic
@@ -1701,7 +1925,7 @@ function openShopWithFilter(catKey) {
   document.getElementById('shop-page').style.display = 'block';
   document.getElementById('shop-cta').style.display = 'none';
   const go = () => {
-    filterShop(catKey, document.querySelector(`.sp-cb[data-cat="${catKey}"]`));
+    filterShop(catKey, [...document.querySelectorAll('.sp-cb')].find(b => b.dataset.cat === catKey));
     setTimeout(() => document.getElementById('shop').scrollIntoView({behavior:'smooth'}), 80);
   };
   if (!spSkus.length) loadShop().then(go); else go();
@@ -2462,6 +2686,59 @@ async function finalizeRequestSubmit(draft) {
   document.getElementById('req-wa-secondary').href = `https://wa.me/${waNum}?text=${waMsg}`;
 }
 
+// SHOP-DRAWER-START: mobile (<=700px) filters drawer. Presentation only; filter logic is untouched.
+const spMQ = window.matchMedia('(max-width:700px)');
+function spDrawer(open) {
+  const side = document.getElementById('sp-side'); if (!side) return;
+  const btn = document.getElementById('sp-filter-btn'), bd = document.getElementById('sp-backdrop');
+  if (open && !spMQ.matches) return;
+  side.classList.toggle('open', open); bd.classList.toggle('open', open);
+  document.documentElement.classList.toggle('sp-lock', open);
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (spMQ.matches) side.setAttribute('aria-hidden', open ? 'false' : 'true'); else side.removeAttribute('aria-hidden');
+  if (open) { document.getElementById('sp-side-x').focus(); document.addEventListener('keydown', spDrawerKey); }
+  else { document.removeEventListener('keydown', spDrawerKey); if (spMQ.matches && side.contains(document.activeElement)) btn.focus(); }
+}
+function spDrawerKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); spDrawer(false); document.getElementById('sp-filter-btn').focus(); }
+  else if (e.key === 'Tab') {
+    const f = [...document.getElementById('sp-side').querySelectorAll('button, input, a[href]')].filter(x => !x.disabled && x.offsetParent !== null);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  }
+}
+function spBarClear() { filterShop('all', document.querySelector('.sp-cb[data-cat="all"]')); spScrollToGrid(); }
+function spScrollToGrid() {
+  if (!spMQ.matches) return;
+  const nav = document.querySelector('nav'), bar = document.getElementById('sp-bar'), g = document.getElementById('sp-grid');
+  const top = g.getBoundingClientRect().top + window.scrollY - (nav.getBoundingClientRect().bottom + bar.offsetHeight + 8);
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+function spBarPos() { // keep the sticky bar right under the fixed nav (its height changes on scroll / wrap)
+  const bar = document.getElementById('sp-bar'), nav = document.querySelector('nav');
+  if (bar && nav && spMQ.matches) bar.style.top = Math.round(nav.getBoundingClientRect().bottom) + 'px'; else if (bar) bar.style.top = '';
+}
+(function () {
+  const cats = document.getElementById('sp-cats'), title = document.getElementById('sp-title'), search = document.getElementById('sp-search');
+  const sync = () => {
+    const all = !title.textContent || title.textContent === 'All Collections';
+    document.getElementById('sp-bar-label').textContent = title.textContent || 'All Collections';
+    document.getElementById('sp-bar-clear').hidden = all;
+  };
+  new MutationObserver(sync).observe(title, { childList: true, characterData: true, subtree: true }); sync();
+  // Picking a category closes the drawer and brings the grid to the top (the pick itself is the existing onclick).
+  cats.addEventListener('click', e => { if (e.target.closest('.sp-cb') && spMQ.matches) { spDrawer(false); setTimeout(spScrollToGrid, 60); } });
+  search.addEventListener('keydown', e => { if (e.key === 'Enter' && spMQ.matches) { spDrawer(false); search.blur(); setTimeout(spScrollToGrid, 60); } });
+  search.addEventListener('blur', e => { const n = e.relatedTarget; if (spMQ.matches && n && !document.getElementById('sp-side').contains(n)) spDrawer(false); });
+  const reset = () => { spDrawer(false); document.documentElement.classList.remove('sp-lock'); spBarPos(); if (!spMQ.matches) document.getElementById('sp-side').removeAttribute('aria-hidden'); else document.getElementById('sp-side').setAttribute('aria-hidden', 'true'); };
+  (spMQ.addEventListener ? spMQ.addEventListener('change', reset) : spMQ.addListener(reset)); reset();
+  let raf = 0; window.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; spBarPos(); }); }, { passive: true });
+  // Fallback for browsers/emulators that don't fire the media-query change event: leaving mobile width must release the lock.
+  window.addEventListener('resize', () => { spBarPos(); const open = document.getElementById('sp-side').classList.contains('open'); if (open !== spMQ.matches && open) reset(); });
+})();
+// SHOP-DRAWER-END
+
 function filterShop(f, btn) {
   spF = f;
   document.querySelectorAll('.sp-cb').forEach(b => b.classList.remove('on'));
@@ -2478,6 +2755,7 @@ function filterShop(f, btn) {
 }
 
 async function openShop(cat) {
+  spDrawer(false);
   document.getElementById('shop-page').style.display = 'block';
   document.getElementById('shop-cta').style.display = 'none';
   if (!spSkus.length) await loadShop();
@@ -2494,6 +2772,7 @@ async function openShop(cat) {
 }
 
 function closeShop() {
+  spDrawer(false);
   document.getElementById('shop-page').style.display = 'none';
   document.getElementById('shop-cta').style.display = 'block';
   document.getElementById('catalogue').scrollIntoView({behavior:'smooth'});
@@ -2503,6 +2782,7 @@ function closeShop() {
 // anywhere: closes the shop page if it's open (instead of just scrolling
 // past it) and closes the mobile nav dropdown if that's open too.
 function goHome() {
+  spDrawer(false);
   document.getElementById('shop-page').style.display = 'none';
   document.getElementById('shop-cta').style.display = 'block';
   closeMobileNav();
@@ -2517,7 +2797,20 @@ loadShop().then(() => {
   // an open cart here, since the drawer itself only exists on this page.
   if (location.hash === '#open-cart') openCart();
   if (location.hash === '#open-account') openAccountModal();
+  spHash();
 });
+// Deep link used by review-share.html ("Shop our sarees"); other hashes are ignored.
+function spHash() {
+  if (location.hash !== '#open-shop') return;
+  openShop('all');
+  // openShop's smooth scroll can land short while images above are still loading, so re-align (instantly) once things settle.
+  const align = () => { const p = document.getElementById('shop-page'), n = document.querySelector('nav'); window.scrollTo({ top: Math.max(0, p.getBoundingClientRect().top + window.scrollY - n.getBoundingClientRect().bottom), behavior: 'instant' }); };
+  // Cancelled as soon as the user takes over, so it never fights them.
+  const ids = [setTimeout(align, 900), setTimeout(align, 2200)];
+  const stop = () => { ids.forEach(clearTimeout); ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(ev => window.removeEventListener(ev, stop)); };
+  ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(ev => window.addEventListener(ev, stop, { passive: true }));
+}
+window.addEventListener('hashchange', spHash);
 restoreCustomerSession();
 // Minimal internal visitor counter — write-only, no reading back from the
 // browser, reported in the daily MeenshaMonitor digest. Fire-and-forget,
