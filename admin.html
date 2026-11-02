@@ -662,6 +662,14 @@ td input,td select{padding:4px 7px;border:1px solid var(--bd);border-radius:4px;
 <!-- ═══ REVIEWS ═══ -->
 <div id="tp-rev" class="tp">
   <div class="flt"><select id="RV-FLT" onchange="renderRevs()"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All</option></select><button class="btn bo sm" id="RV-IGSYNC" onclick="syncIgReviews()">📸 Pull Instagram collab posts</button></div>
+  <div class="card hi" id="RV-IGADD">
+    <div style="font-weight:700;margin-bottom:8px;">📸 Add Instagram review <span style="font-weight:400;font-size:11px;color:var(--gy);">(owners only — goes live immediately)</span></div>
+    <div class="fi"><label>Instagram post / reel link</label><input type="url" id="RV-IGURL" placeholder="https://www.instagram.com/reel/XXXXXXXXXXX/"></div>
+    <div class="fi"><label>Reviewer name</label><input type="text" id="RV-IGNM" maxlength="60" placeholder="e.g. Priya S."></div>
+    <div class="fi"><label>Stars</label><select id="RV-IGST"><option value="5">★★★★★ (5)</option><option value="4">★★★★☆ (4)</option><option value="3">★★★☆☆ (3)</option><option value="2">★★☆☆☆ (2)</option><option value="1">★☆☆☆☆ (1)</option></select></div>
+    <div class="fi"><label>Quote (optional)</label><textarea id="RV-IGQ" maxlength="400" rows="2" placeholder="What did they say?"></textarea></div>
+    <button class="btn bgn sm" onclick="addIgReview()">➕ Add review</button>
+  </div>
   <div id="RV-LIST"></div>
 </div>
 
@@ -4567,7 +4575,70 @@ async function delOH(id){if(CU.role!=='super_admin'){toast('Only Rachnakar can d
 // ═══════════════════════════════════════════════
 // REVIEWS
 // ═══════════════════════════════════════════════
-async function renderRevs(){const flt=document.getElementById('RV-FLT').value;const rows=await sbQ('reviews',flt?`?status=eq.${flt}&order=created_at.desc`:'?order=created_at.desc');document.getElementById('RV-LIST').innerHTML=rows.length?rows.map(r=>`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div>${r.source==='instagram'?`<div style="font-size:12px;color:var(--gy);">📸 Instagram${r.ig_permalink?` · <a href="${esc(r.ig_permalink)}" target="_blank" rel="noopener">view post</a>`:''}</div>`:`<div style="color:#f39c12;font-size:16px;">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</div>`}<strong>${sanitise(r.display_name||r.customer_name||'Customer')}</strong><span style="font-size:11px;color:var(--gy);margin-left:7px;">${sanitise(r.wa||'')}</span><br><span style="font-size:11px;color:var(--gy);">Invoice: ${sanitise(r.invoice_ref||'—')} · ${sanitise(r.created_at?.split('T')[0]||'')}</span></div><span class="bx ${r.status==='approved'?'bg2':r.status==='rejected'?'br2':'ba'}">${sanitise(r.status)}</span></div><p style="margin-top:8px;font-size:13px;line-height:1.6;">${sanitise(r.review_text||'')}</p>${r.photo_url?`<img src="${sanitise(r.photo_url).replace(/"/g,'&quot;')}" style="margin-top:8px;max-width:200px;border-radius:6px;border:1px solid var(--bd);">`:''}${r.status==='pending'?`<div style="display:flex;gap:7px;margin-top:10px;"><button class="btn bgn sm" onclick="modRev('${r.id}','approved')">✅ Approve</button><button class="btn br sm" onclick="modRev('${r.id}','rejected')">❌ Reject</button></div>`:''}</div>`).join(''):'<p style="color:var(--gy);font-style:italic;">No reviews here.</p>';}
+async function renderRevs(){document.getElementById('RV-IGADD').classList.toggle('hi',!(CU.role==='owner'||CU.role==='super_admin'));const flt=document.getElementById('RV-FLT').value;const rows=await sbQ('reviews',flt?`?status=eq.${flt}&order=created_at.desc`:'?order=created_at.desc');document.getElementById('RV-LIST').innerHTML=rows.length?rows.map(r=>`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div>${r.source==='instagram'||r.source==='instagram_link'?`${r.source==='instagram_link'?`<div style="color:#f39c12;font-size:16px;">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</div>`:''}<div style="font-size:12px;color:var(--gy);">📸 Instagram${r.ig_permalink?` · <a href="${esc(igHref(r.ig_permalink))}" target="_blank" rel="noopener">view post</a>`:''}</div>`:`<div style="color:#f39c12;font-size:16px;">${'★'.repeat(r.rating||0)}${'☆'.repeat(5-(r.rating||0))}</div>`}<strong>${sanitise(r.display_name||r.customer_name||'Customer')}</strong><span style="font-size:11px;color:var(--gy);margin-left:7px;">${sanitise(r.wa||'')}</span><br><span style="font-size:11px;color:var(--gy);">Invoice: ${sanitise(r.invoice_ref||'—')} · ${sanitise(r.created_at?.split('T')[0]||'')}</span></div><span class="bx ${r.status==='approved'?'bg2':r.status==='rejected'?'br2':'ba'}">${sanitise(r.status)}</span></div><p style="margin-top:8px;font-size:13px;line-height:1.6;">${sanitise(r.review_text||'')}</p>${r.photo_url?`<img src="${sanitise(r.photo_url).replace(/"/g,'&quot;')}" style="margin-top:8px;max-width:200px;border-radius:6px;border:1px solid var(--bd);">`:''}${r.status==='pending'?`<div style="display:flex;gap:7px;margin-top:10px;"><button class="btn bgn sm" onclick="modRev('${r.id}','approved')">✅ Approve</button><button class="btn br sm" onclick="modRev('${r.id}','rejected')">❌ Reject</button></div>`:''}${r.source==='instagram_link'?`<div style="display:flex;gap:7px;margin-top:10px;"><button class="btn bo sm" onclick="copyReviewShare('${esc(r.id)}')">🔗 Copy share link</button>${r.status==='approved'?`<button class="btn bgy sm" onclick="igSetStatus('${esc(r.id)}','rejected')">🙈 Hide</button>`:''}${r.status==='rejected'?`<button class="btn bgn sm" onclick="igSetStatus('${esc(r.id)}','approved')">👁️ Show again</button>`:''}<button class="btn br sm" onclick="delIgReview('${esc(r.id)}')">🗑️ Delete</button></div><div class="hlbox" data-id="${esc(r.id)}"></div>`:''}</div>`).join(''):'<p style="color:var(--gy);font-style:italic;">No reviews here.</p>';
+  igHL={};rows.forEach(r=>{igHL[r.id]=Array.isArray(r.comment_highlights)?r.comment_highlights:[];});
+  if(CU.role==='owner'||CU.role==='super_admin')document.querySelectorAll('#RV-LIST .hlbox').forEach(initHL);}
+// Comment highlights (owner pastes comments, AI suggests, owner ticks what to keep).
+function hlClean(h){const t=String(h?.text||'').trim().slice(0,200);if(!t)return null;return{text:t,author:String(h?.author||'').trim().slice(0,40),theme:HL_THEMES.includes(h?.theme)?h.theme:'other'};}
+function initHL(box){
+  const id=box.dataset.id,mk=(tag,txt,st)=>{const e=document.createElement(tag);if(txt!=null)e.textContent=txt;if(st)e.style.cssText=st;return e;};
+  box.textContent='';box.style.cssText='margin-top:10px;padding-top:8px;border-top:1px dashed var(--bd);font-size:12px;';
+  box.appendChild(mk('div','💬 Comment highlights','font-weight:700;margin-bottom:5px;'));
+  const saved=igHL[id]||[];
+  saved.forEach(h=>box.appendChild(mk('div',`“${h.text}” ${h.author?'— '+h.author:''} [${h.theme}]`,'color:var(--gy);margin-bottom:3px;')));
+  if(saved.length){const c=mk('button','Clear saved');c.className='btn br xs';c.onclick=async()=>{const ok=await igPatch(id,{comment_highlights:[]});toast(ok?'Cleared':'Could not clear (migration applied?)',ok?'#27ae60':'var(--red)');renderRevs();};box.appendChild(c);}
+  const ta=mk('textarea',null,'width:100%;margin-top:6px;');ta.rows=3;ta.maxLength=8000;ta.placeholder='Paste the Instagram comments here…';box.appendChild(ta);
+  const find=mk('button','✨ Find highlights');find.className='btn bo sm';box.appendChild(find);
+  const out=mk('div',null,'margin-top:6px;');box.appendChild(out);
+  find.onclick=async()=>{
+    if(!ta.value.trim()){toast('Paste some comments first','var(--red)');return;}
+    find.disabled=true;out.textContent='Looking…';
+    try{
+      const r=await fetch(`${SB}/functions/v1/highlight-comments`,{method:'POST',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':'application/json','x-admin-session':CU?.session_token||''},body:JSON.stringify({comments:ta.value})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){out.textContent='';toast(j.error||'Could not find highlights','var(--red)');find.disabled=false;return;}
+      const cands=(Array.isArray(j.highlights)?j.highlights:[]).map(hlClean).filter(Boolean).slice(0,6);
+      out.textContent='';
+      if(!cands.length){out.textContent='No suitable comments found.';find.disabled=false;return;}
+      const rowsEl=cands.map(c=>{const row=mk('div',null,'display:flex;gap:6px;align-items:flex-start;margin-bottom:5px;flex-wrap:wrap;');const cb=mk('input');cb.type='checkbox';cb.checked=true;const tx=mk('span','“'+c.text+'”','flex:1;min-width:180px;');const au=mk('input');au.type='text';au.maxLength=40;au.value=c.author;au.placeholder='author';au.style.width='110px';const th=mk('select');HL_THEMES.forEach(t=>{const o=mk('option',t);o.value=t;th.appendChild(o);});th.value=c.theme;row.append(cb,tx,au,th);out.appendChild(row);return{cb,c,au,th};});
+      const sv=mk('button','💾 Save selected');sv.className='btn bgn sm';sv.onclick=async()=>{
+        const pick=rowsEl.filter(x=>x.cb.checked).map(x=>hlClean({text:x.c.text,author:x.au.value,theme:x.th.value})).filter(Boolean).slice(0,6);
+        if(!pick.length){toast('Tick at least one','var(--red)');return;}
+        const ok=await igPatch(id,{comment_highlights:pick});toast(ok?'✅ Highlights saved':'Could not save (migration applied?)',ok?'#27ae60':'var(--red)');if(ok)renderRevs();};
+      out.appendChild(sv);
+    }catch{out.textContent='';toast('Could not reach the highlight service','var(--red)');}
+    find.disabled=false;
+  };
+}
+// Strict Instagram link parser (keep identical to review-share.html): https only, optional <user>/ segment, ASCII 5-20 char code; anything else -> null.
+const IG_RE=/^https:\/\/(?:www\.|m\.)?instagram\.com\/(?:[A-Za-z0-9._]{1,30}\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]{5,20})\/?(?:[?#]\S*)?$/i;
+function parseIgLink(u){const m=IG_RE.exec(String(u||'').trim());if(!m)return null;const k=m[1].toLowerCase();const kind=k==='p'||k==='tv'?'p':'reel';return{code:m[2],permalink:`https://www.instagram.com/${kind}/${m[2]}/`};}
+// Only use a stored permalink as an href if it really points at instagram.com.
+const igHref=u=>/^https:\/\/(www\.)?instagram\.com\//.test(String(u||''))?String(u):'';
+const HL_THEMES=['colour','fabric','craft','delivery','service','gift','other'];
+let igHL={};
+// PATCH a review and confirm a row really changed (RLS can return 204 with no rows).
+async function igPatch(id,patch){try{const r=await fetch(`${SB}/rest/v1/reviews?id=eq.${encodeURIComponent(id)}&source=eq.instagram_link`,{method:'PATCH',headers:AHDR(),body:JSON.stringify(patch)});if(!r.ok)return false;const j=await r.json();return Array.isArray(j)&&j.length>0;}catch{return false;}}
+async function igSetStatus(id,status){const ok=await igPatch(id,{status,approved_at:status==='approved'?new Date().toISOString():null});toast(ok?(status==='approved'?'✅ Showing again':'Hidden'):'Could not update','' + (ok?'#27ae60':'var(--red)'));renderRevs();}
+async function addIgReview(){
+  if(!(CU.role==='owner'||CU.role==='super_admin')){toast('Owners only','var(--red)');return;}
+  const ig=parseIgLink(document.getElementById('RV-IGURL').value);
+  const nm=document.getElementById('RV-IGNM').value.trim(),q=document.getElementById('RV-IGQ').value.trim(),st=parseInt(document.getElementById('RV-IGST').value);
+  if(!ig){toast('Paste a link like https://www.instagram.com/reel/XXXX/','var(--red)');return;}
+  if(!nm||nm.length>60){toast('Reviewer name required (max 60 characters)','var(--red)');return;}
+  if(!(st>=1&&st<=5)){toast('Pick 1-5 stars','var(--red)');return;}
+  if(q.length>400){toast('Quote is max 400 characters','var(--red)');return;}
+  try{
+    const r=await fetch(`${SB}/rest/v1/reviews`,{method:'POST',headers:AHDR(),body:JSON.stringify({source:'instagram_link',ig_media_id:ig.code,ig_permalink:ig.permalink,display_name:nm,rating:st,review_text:q||null,status:'approved',approved_at:new Date().toISOString()})});
+    if(r.status===409){toast('That Instagram post is already added','var(--red)');return;}
+    if(!r.ok){toast('Could not save the review','var(--red)');return;}
+  }catch{toast('Could not save the review','var(--red)');return;}
+  ['RV-IGURL','RV-IGNM','RV-IGQ'].forEach(i=>document.getElementById(i).value='');
+  document.getElementById('RV-FLT').value='approved';
+  toast('✅ Instagram review added','#27ae60');renderRevs();
+}
+function copyReviewShare(id){const u='https://meensha.in/review-share.html?id='+encodeURIComponent(id);(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('🔗 Share link copied','#27ae60'),()=>prompt('Copy this link:',u));}
+async function delIgReview(id){if(!confirm('Delete this Instagram review? Its share link will stop working.'))return;let ok=false;try{const r=await fetch(`${SB}/rest/v1/reviews?id=eq.${encodeURIComponent(id)}&source=eq.instagram_link`,{method:'DELETE',headers:AHDR()});if(r.ok){const j=await r.json();ok=Array.isArray(j)&&j.length>0;}}catch{}toast(ok?'Deleted':'Could not delete (try Hide instead)',ok?'#27ae60':'var(--red)');renderRevs();}
 async function syncIgReviews(){const b=document.getElementById('RV-IGSYNC');b.disabled=true;try{const r=await fetch(`${SB}/functions/v1/sync-instagram-reviews`,{method:'POST',headers:HDR(),body:'{}'});const j=await r.json();if(j.error)toast(j.error,'var(--red)');else toast(j.skipped?'Just synced — try again in a minute':`📸 ${j.found} post(s) found, ${j.added} new for approval`,'#27ae60');}catch{toast('Could not reach Instagram sync','var(--red)');}b.disabled=false;renderRevs();}
 async function modRev(id,status){await sbUpd('reviews',`?id=eq.${id}`,{status,approved_at:status==='approved'?new Date().toISOString():null});toast(status==='approved'?'✅ Approved':'Rejected',status==='approved'?'#27ae60':'var(--red)');renderRevs();}
 

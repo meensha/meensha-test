@@ -1581,22 +1581,30 @@ async function renderInstagramTiles() {
 // Approved reviews — only ones an owner has moderated to 'approved'.
 async function renderReviews() {
   let revs = [];
-  try { revs = await spFetch('reviews', '?status=eq.approved&order=created_at.desc&limit=12'); } catch(e) { return; }
+  try { // Explicit safe columns only (no wa/customer/sale). Prefer the public_reviews view; fall back to the table until the view exists.
+    const cols = 'id,rating,review_text,display_name,source,ig_permalink,photo_url,created_at,status';
+    revs = await spFetch('public_reviews', `?select=${cols}&status=eq.approved&order=created_at.desc&limit=12`);
+    if (!revs.length) revs = await spFetch('reviews', `?select=${cols}&status=eq.approved&order=created_at.desc&limit=12`); } catch(e) { return; }
   const grid = document.getElementById('reviews-grid');
   const section = document.getElementById('reviews-section');
   if (!grid || !section) return;
   section.style.display = 'block';
   if (!revs.length) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:rgba(232,213,163,.4);font-style:italic;">Be the first to share your experience.</p>'; return; }
   const escH = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  grid.innerHTML = revs.map(r => r.source === 'instagram' ? `<a class="reveal" href="${escH(r.ig_permalink)}" target="_blank" rel="noopener" style="display:block;text-decoration:none;background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
+  grid.innerHTML = revs.map(r => r.source === 'instagram_link' ? `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
+    <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
+    ${r.review_text ? `<p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH(r.review_text)}</p>` : ''}
+    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;margin-bottom:10px;">${escH(r.display_name || '')} · on Instagram</p>
+    <a href="review-share.html?id=${encodeURIComponent(r.id)}" style="font-size:12px;color:var(--gold-light);">▶ Watch the post</a>
+  </div>` : r.source === 'instagram' ? `<a class="reveal" href="${/^https:\/\/(www\.)?instagram\.com\//.test(r.ig_permalink || '') ? escH(r.ig_permalink) : '#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
     ${r.photo_url ? `<img src="${escH(r.photo_url)}" alt="" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;margin-bottom:12px;">` : ''}
     <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH((r.review_text || '').slice(0, 220))}${(r.review_text || '').length > 220 ? '…' : ''}</p>
     <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${escH(r.display_name || '')} · on Instagram</p>
   </a>` : `<div class="reveal" style="background:rgba(232,213,163,.04);border:1px solid rgba(201,168,76,.15);border-radius:8px;padding:22px;">
     <div style="color:#f0c419;font-size:16px;margin-bottom:8px;">${'★'.repeat(r.rating || 0)}${'☆'.repeat(5 - (r.rating || 0))}</div>
-    <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${r.review_text || ''}</p>
-    ${r.photo_url || r.photo_url_2 ? `<div style="display:flex;gap:8px;margin-bottom:10px;">${[r.photo_url, r.photo_url_2].filter(Boolean).map(u => `<img src="${u}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;">`).join('')}</div>` : ''}
-    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${r.display_name || 'Verified Customer'}</p>
+    <p style="font-size:14px;line-height:1.7;color:rgba(232,213,163,.85);margin-bottom:12px;">${escH(r.review_text || '')}</p>
+    ${r.photo_url ? `<div style="display:flex;gap:8px;margin-bottom:10px;"><img src="${escH(r.photo_url)}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;"></div>` : ''}
+    <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${escH(r.display_name || 'Verified Customer')}</p>
   </div>`).join('');
   section.style.display = 'block';
 }
