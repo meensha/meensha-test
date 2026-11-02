@@ -1608,6 +1608,8 @@ async function renderReviews() {
     <p style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;color:var(--gold-light);text-transform:uppercase;">${escH(r.display_name || 'Verified Customer')}</p>
   </div>`).join('');
   section.style.display = 'block';
+  // These cards are added after page load, so the scroll-reveal observer (set up once at load) never sees them.
+  grid.querySelectorAll('.reveal').forEach(el => obs.observe(el));
 }
 
 // Drop any cart items whose unit is no longer reserved by us (expired / sold / released elsewhere)
