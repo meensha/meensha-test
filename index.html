@@ -124,12 +124,13 @@ nav.scrolled {
   height:80px; width:80px; object-fit:contain;
 }
 
-.nav-links { display:flex; gap:32px; list-style:none; }
+.nav-links { display:flex; gap:clamp(14px,1.7vw,26px); list-style:none; }
 .nav-links a {
-  font-family:'Cinzel',serif; font-size:14px; letter-spacing:.18em;
+  font-family:'Cinzel',serif; font-size:12px; letter-spacing:.13em;
   text-transform:uppercase; color:rgba(232,213,163,.72); text-decoration:none;
-  transition:color .3s; position:relative; padding-bottom:3px;
+  transition:color .3s; position:relative; padding-bottom:3px; white-space:nowrap;
 }
+
 .nav-links a::after {
   content:''; position:absolute; bottom:0; left:0; right:0;
   height:1px; background:var(--gold-light);
@@ -566,6 +567,17 @@ footer {
    RESPONSIVE
 ════════════════════════════════ */
 #nav-hamburger { display:none; background:none;border:1px solid var(--gold-dim);border-radius:8px;color:var(--gold-light);font-size:16px;padding:5px 10px;cursor:pointer;margin-left:2px; }
+/* Eight possible nav items (Reviews + the Live Now pill) no longer fit a full bar below ~1300px, so the
+   hamburger dropdown takes over there instead of at 960px. */
+@media(max-width:1300px) {
+  nav { padding:12px 20px; }
+  nav.scrolled { padding:8px 20px; }
+  .nav-links { display:none; position:absolute;top:100%;left:0;right:0;background:rgba(14,10,4,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--gold-dim);flex-direction:column;padding:8px 20px 16px;margin:0;z-index:498; }
+  .nav-links.mobile-open { display:flex; }
+  .nav-links li { width:100%; }
+  .nav-links a { display:block;padding:12px 4px;border-bottom:1px solid rgba(201,168,76,.15); font-size:14px; letter-spacing:.18em; }
+  #nav-hamburger { display:block;padding:5px 8px;font-size:14px; }
+}
 @media(max-width:960px) {
   nav { padding:12px 20px; }
   nav.scrolled { padding:8px 20px; }
@@ -574,7 +586,7 @@ footer {
   .nav-links { display:none; position:absolute;top:100%;left:0;right:0;background:rgba(14,10,4,.97);backdrop-filter:blur(20px);border-bottom:1px solid var(--gold-dim);flex-direction:column;padding:8px 20px 16px;margin:0;z-index:498; }
   .nav-links.mobile-open { display:flex; }
   .nav-links li { width:100%; }
-  .nav-links a { display:block;padding:12px 4px;border-bottom:1px solid rgba(201,168,76,.15); }
+  .nav-links a { display:block;padding:12px 4px;border-bottom:1px solid rgba(201,168,76,.15); font-size:14px; letter-spacing:.18em; }
   #nav-hamburger { display:block;padding:5px 8px;font-size:14px; }
   .nav-btn-c-label { display:none; }
   .nav-logo { width:64px;height:64px; }
@@ -730,6 +742,7 @@ footer {
     <li><a href="about.html">Our Story</a></li>
     <li><a href="#events" onclick="closeMobileNav()">Pop-Up Store</a></li>
     <li><a href="#weavers" onclick="closeMobileNav()">Artisans</a></li>
+    <li><a href="#reviews-section" onclick="closeMobileNav()">Reviews</a></li>
   </ul>
   <div class="nav-right">
     <button id="currency-toggle" onclick="toggleCurrency()" style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.1em;background:none;border:1px solid var(--gold-dim);border-radius:20px;color:var(--gold-light);padding:5px 12px;cursor:pointer;margin-right:4px;">🇮🇳 INR</button>
