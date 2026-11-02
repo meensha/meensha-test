@@ -19,7 +19,8 @@
   .frame { width:100%; max-width:440px; border:1px solid var(--divider); border-radius:10px; padding:26px 20px; background:rgba(232,213,163,.04); text-align:center; }
   .stars { color:#f0c419; font-size:34px; letter-spacing:4px; margin-bottom:14px; }
   .quote { font-family:'Cormorant Garamond',serif; font-style:italic; font-size:21px; line-height:1.5; color:var(--cream); margin-bottom:14px; white-space:pre-wrap; overflow-wrap:anywhere; }
-  .who { font-family:'Cinzel',serif; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-light); margin-bottom:20px; }
+  .who { overflow-wrap:anywhere; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold-light); margin-bottom:20px; }
+  .media { display:block; max-width:100%; max-height:70vh; margin:0 auto; border-radius:8px; border:1px solid var(--divider); }
   iframe { width:100%; height:560px; border:1px solid var(--divider); border-radius:8px; background:#000; }
   .actions { margin-top:20px; display:flex; flex-direction:column; gap:12px; align-items:center; }
   .btn { display:inline-block; padding:12px 26px; background:var(--gold); color:#0E0A04; font-family:'Cinzel',serif; font-size:12px; letter-spacing:.14em; text-transform:uppercase; text-decoration:none; border-radius:4px; font-weight:600; }
@@ -49,7 +50,7 @@ const _SK = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 async function spFetch(t,q=''){const r=await fetch(`${_SB}/rest/v1/${t}${q}`,{headers:{'apikey':_SK,'Authorization':'Bearer '+_SK}});if(!r.ok)return[];try{return await r.json();}catch{return[];}}
 
 // Same strict rule as admin.html's parseIgLink; the embed URL is built only from a validated shortcode.
-const IG_RE = /^https:\/\/(?:www\.|m\.)?instagram\.com\/(?:[A-Za-z0-9._]{1,30}\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]{5,20})\/?(?:[?#]\S*)?$/i;
+const IG_RE = /^https:\/\/(?:www\.|m\.)?instagram\.com\/(?:(?!share\/)[A-Za-z0-9._]{1,30}\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]{5,20})\/?(?:[?#]\S*)?$/i;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function notFound() {
@@ -62,14 +63,19 @@ function notFound() {
   if (!UUID_RE.test(id)) return notFound();
   // Explicit safe columns only. Prefer the public_reviews view (has highlights); fall back to the table until the view exists.
   const base = 'id,rating,review_text,display_name,source,ig_permalink,photo_url,created_at,status';
-  const filt = `&id=eq.${id}&status=eq.approved&source=eq.instagram_link&limit=1`;
+  const MEDIA_RE = /^https:\/\/eglanmhhcccsuhbxywua\.supabase\.co\/storage\/v1\/object\/public\/review-media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|mp4|webm|mov)$/;
+  const filt = `&id=eq.${id}&status=eq.approved&source=in.(instagram_link,story_upload)&limit=1`;
   let rows = await spFetch('public_reviews', `?select=${base},comment_highlights${filt}`);
   if (!rows.length) rows = await spFetch('reviews', `?select=${base}${filt}`);
   const r = rows[0];
-  const ig = r && IG_RE.exec(r.ig_permalink || '');
-  if (!r || !ig) return notFound();
-  const k = ig[1].toLowerCase(), kind = k === 'p' || k === 'tv' ? 'p' : 'reel';
-  const code = ig[2];
+  if (!r) return notFound();
+  const story = r.source === 'story_upload';
+  const ig = !story && IG_RE.exec(r.ig_permalink || '');
+  if (!story && !ig) return notFound();
+  // Story uploads: media only if the URL is one of OUR review-media storage URLs (type comes from the extension).
+  if (story && !MEDIA_RE.test(r.photo_url || '')) return notFound();
+  const k = ig ? ig[1].toLowerCase() : '', kind = k === 'p' || k === 'tv' ? 'p' : 'reel';
+  const code = ig ? ig[2] : '';
   const n = Math.max(0, Math.min(5, parseInt(r.rating) || 0));
 
   const f = document.getElementById('frame');
@@ -79,28 +85,39 @@ function notFound() {
   if (r.review_text) f.appendChild(mk('p', 'quote', '“' + r.review_text + '”'));
   f.appendChild(mk('p', 'who', r.display_name || 'Meensha customer'));
 
-  // Instagram's official embed, loaded only on tap (privacy: Instagram sees nothing until the visitor chooses).
-  // Browsers block autoplay with sound, so the visitor taps play inside the embed to hear the music.
-  // referrerpolicy is left at the default: not verified that the embed works with no-referrer.
-  const hint = mk('p', 'hint', 'Opens Instagram\u2019s own player.');
-  const ph = mk('button', 'watch', '\u25B6 Watch the post with sound');
-  ph.type = 'button';
-  ph.onclick = () => {
-    const fr = document.createElement('iframe');
-    fr.src = `https://www.instagram.com/${kind}/${code}/embed/`;
-    fr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation');
-    fr.setAttribute('allowfullscreen', '');
-    fr.title = 'Instagram post';
-    ph.replaceWith(fr);
-    hint.textContent = 'Tap play inside the post to hear the music.';
-  };
-  f.appendChild(ph);
-  f.appendChild(hint);
+  if (story) {
+    const isVid = /\.(mp4|webm|mov)$/.test(r.photo_url);
+    const m = document.createElement(isVid ? 'video' : 'img');
+    m.src = r.photo_url;
+    m.className = 'media';
+    if (isVid) { m.controls = true; m.playsInline = true; m.preload = 'metadata'; } else { m.alt = 'Review by ' + (r.display_name || 'a Meensha customer'); m.loading = 'lazy'; }
+    f.appendChild(m);
+  } else {
+    // Instagram's official embed, loaded only on tap (privacy: Instagram sees nothing until the visitor chooses).
+    // Browsers block autoplay with sound, so the visitor taps play inside the embed to hear the music.
+    // referrerpolicy is left at the default: not verified that the embed works with no-referrer.
+    const hint = mk('p', 'hint', 'Opens Instagram\u2019s own player.');
+    const ph = mk('button', 'watch', '\u25B6 Watch the post with sound');
+    ph.type = 'button';
+    ph.onclick = () => {
+      const fr = document.createElement('iframe');
+      fr.src = `https://www.instagram.com/${kind}/${code}/embed/`;
+      fr.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation');
+      fr.setAttribute('allowfullscreen', '');
+      fr.title = 'Instagram post';
+      ph.replaceWith(fr);
+      hint.textContent = 'Tap play inside the post to hear the music.';
+    };
+    f.appendChild(ph);
+    f.appendChild(hint);
+  }
 
   const act = mk('div', 'actions');
   const shop = mk('a', 'btn', 'Shop our sarees'); shop.href = 'https://meensha.in/';
-  const view = mk('a', 'alt', 'View on Instagram'); view.href = `https://www.instagram.com/${kind}/${code}/`; view.target = '_blank'; view.rel = 'noopener';
-  act.append(shop, view);
+  if (ig) {
+    const view = mk('a', 'alt', 'View on Instagram'); view.href = `https://www.instagram.com/${kind}/${code}/`; view.target = '_blank'; view.rel = 'noopener';
+    act.append(shop, view);
+  } else act.append(shop);
   f.appendChild(act);
 
   // Owner-approved comment highlights (from the view only; empty before the migration).
